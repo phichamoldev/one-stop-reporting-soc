@@ -3,7 +3,11 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Navbar } from "@/components/shared/Navbar";
+import { AppContainer } from "@/components/design-system/AppContainer";
+import { AppNavbar } from "@/components/shared/AppNavbar";
+import { AppCard } from "@/components/design-system/AppCard";
+import { AppButton } from "@/components/design-system/AppButton";
+import { SectionHeader } from "@/components/design-system/SectionHeader";
 
 export default function TrackLookupPage() {
   const router = useRouter();
@@ -27,34 +31,30 @@ export default function TrackLookupPage() {
   };
 
   return (
-    <main className="min-h-screen w-full bg-slate-100 dark:bg-slate-950 flex items-center justify-center py-0 md:py-8 transition-colors duration-300">
-      <div className="w-full max-w-md min-h-screen md:min-h-[820px] md:max-h-[880px] md:rounded-[36px] bg-slate-50 dark:bg-gray-900 md:shadow-2xl border-0 md:border-6 md:border-slate-800 dark:md:border-slate-800 overflow-y-auto flex flex-col justify-between relative animate-scale-up">
+    <AppContainer>
+      <AppNavbar />
 
-        <Navbar />
+      <div className="flex-1 flex flex-col p-6 space-y-6 overflow-y-auto bg-slate-50 dark:bg-slate-950">
+        
+        {/* Header Section */}
+        <div className="text-center space-y-3 pt-6 pb-2">
+          <h1 className="text-[18px] font-extrabold text-slate-900 dark:text-white">
+            ค้นหาและติดตามสถานะ
+          </h1>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+            กรอกเลขที่แจ้งปัญหาเพื่อตรวจสอบสถานะการดำเนินงาน
+          </p>
+        </div>
 
-        <div className="p-6 space-y-8 flex-1">
-          {/* Header */}
-          <div className="text-center space-y-4 pt-4">
-
-            <div className="space-y-1">
-              <h1 className="text-base font-extrabold text-gray-900 dark:text-white">
-                ค้นหาและติดตามสถานะ
-              </h1>
-
-              <p className="text-xs text-gray-400 font-medium">
-                กรอกเลขที่แจ้งปัญหาเพื่อตรวจสอบสถานะการดำเนินงาน
-              </p>
-            </div>
-          </div>
-
-          {/* Form */}
-          <form onSubmit={handleSearch} className="space-y-4">
-            <div className="space-y-2">
+        {/* Form Card */}
+        <AppCard>
+          <form onSubmit={handleSearch} className="space-y-5">
+            <div>
               <label
                 htmlFor="publicId"
-                className="block text-xs font-bold text-gray-700 dark:text-gray-300"
+                className="block text-[12px] font-medium text-slate-700 dark:text-slate-300 mb-2"
               >
-                กรอกเลขที่แจ้งปัญหา
+                กรอกเลขที่แจ้งปัญหา <span className="text-primary">*</span>
               </label>
 
               <input
@@ -69,28 +69,26 @@ export default function TrackLookupPage() {
                   }
                 }}
                 placeholder="เช่น SOC-98469"
-                className="w-full px-3.5 py-3 rounded-xl border border-gray-250 dark:border-gray-800 bg-white dark:bg-gray-950 text-gray-950 dark:text-white text-sm font-extrabold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-center tracking-wider"
+                className={`w-full text-[12px] font-normal placeholder-slate-400 bg-slate-100/50 dark:bg-slate-900/50 border px-4 py-3.5 rounded-[16px] text-center tracking-wider focus:ring-2 focus:ring-primary/20 ${
+                  error ? "border-rose-500 text-rose-500" : "border-[#EDF0F4] dark:border-slate-700 text-slate-900 dark:text-white"
+                }`}
               />
 
               {error && (
-                <p className="text-[10px] text-primary font-bold flex items-center justify-center gap-1.5 mt-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+                <p className="text-xs text-rose-500 font-medium mt-2 text-center">
                   {error}
                 </p>
               )}
             </div>
 
-            <button
-              type="submit"
-              className="w-full py-3.5 px-4 rounded-xl bg-primary hover:bg-primary-hover text-white font-bold transition-all text-xs shadow-lg shadow-primary/10 hover:shadow-primary/20 flex items-center justify-center gap-2 cursor-pointer"
-            >
+            <AppButton type="submit" variant="primary" fullWidth size="lg" className="shadow-primary">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
                 strokeWidth={2.5}
                 stroke="currentColor"
-                className="w-4 h-4"
+                className="w-5 h-5"
               >
                 <path
                   strokeLinecap="round"
@@ -98,22 +96,21 @@ export default function TrackLookupPage() {
                   d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.637 10.637Z"
                 />
               </svg>
-
               ค้นหาสถานะการแจ้งปัญหา
-            </button>
+            </AppButton>
           </form>
-        </div>
+        </AppCard>
 
         {/* Footer */}
-        <div className="text-center p-6 border-t border-gray-150 dark:border-gray-800/50">
-          <p className="text-[10px] text-gray-400 font-semibold leading-relaxed">
+        <div className="text-center p-6 text-xs text-slate-400 font-medium leading-relaxed mt-auto">
+          <p>
             หากไม่ทราบเลขที่แจ้งปัญหา
             <br />
             กรุณาติดต่อสำนักงานคณะสังคมศาสตร์เพื่อขอความช่วยเหลือ
           </p>
         </div>
-
+        
       </div>
-    </main>
+    </AppContainer>
   );
 }

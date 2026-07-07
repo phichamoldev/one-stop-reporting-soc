@@ -1,5 +1,5 @@
 import type { Config } from 'tailwindcss';
-// @ts-ignore - DaisyUI doesn't have type definitions
+// @ts-expect-error - DaisyUI doesn't have type definitions
 import daisyui from 'daisyui';
 
 const config: Config = {
@@ -61,6 +61,6 @@ const config: Config = {
     utils: true,
     logs: true,
   },
-} as any;
+} as unknown as Config;
 
 export default config;

@@ -23,28 +23,3 @@ export function generateTrackingToken(): string {
   );
 }
 
-/**
- * ฟังก์ชันสำหรับแปลงรูปแบบวันที่และเวลาจากฐานข้อมูลให้ออกมาเป็นรูปแบบภาษาไทยที่สวยงาม
- * ตัวอย่าง: 2 กรกฎาคม 2569 เวลา 13:20 น.
- */
-export function formatDateTime(dateString: string | Date): string {
-  if (!dateString) return "-";
-  
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) return "-";
-
-  // ใช้รูปแบบไทย พ.ศ. พร้อมกับเวลา น.
-  const dateText = date.toLocaleDateString("th-TH", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-
-  const timeText = date.toLocaleTimeString("th-TH", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-
-  return `${dateText} เวลา ${timeText} น.`;
-}

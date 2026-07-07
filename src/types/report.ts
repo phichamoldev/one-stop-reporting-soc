@@ -12,7 +12,7 @@ export type ReportStatus =
   | 'resolved' 
   | 'rejected';
 
-export type ReportPriority = 
+type ReportPriority = 
   | 'low' 
   | 'medium' 
   | 'high';
@@ -116,30 +116,3 @@ export const STATUS_DETAILS: Record<ReportStatus, StatusConfig> = {
   }
 };
 
-// ลำดับขั้นตอนที่เป็นเชิงเส้น (Linear tracking flow) สำหรับวาด Timeline
-export const TRACKING_STEPS: { status: ReportStatus; label: string }[] = [
-  { status: 'pending', label: 'ยื่นเรื่องเข้าระบบ' },
-  { status: 'investigating', label: 'กำลังตรวจสอบข้อมูล' },
-  { status: 'in_progress', label: 'เริ่มดำเนินการแก้ไข' },
-  { status: 'resolved', label: 'ดำเนินการเสร็จสิ้น' }
-];
-
-
-// รายละเอียดสไตล์และป้ายกำกับภาษาไทยสำหรับระดับความสำคัญ
-export const PRIORITY_DETAILS: Record<ReportPriority, { label: string; textClass: string; bgClass: string }> = {
-  low: { 
-    label: 'ปกติ', 
-    textClass: 'text-slate-600 dark:text-slate-400', 
-    bgClass: 'bg-slate-100 dark:bg-slate-800' 
-  },
-  medium: { 
-    label: 'ปานกลาง', 
-    textClass: 'text-amber-600 dark:text-amber-400', 
-    bgClass: 'bg-amber-50 dark:bg-amber-950/30' 
-  },
-  high: { 
-    label: 'ด่วนที่สุด', 
-    textClass: 'text-rose-600 dark:text-rose-400', 
-    bgClass: 'bg-rose-50 dark:bg-rose-950/30' 
-  }
-};

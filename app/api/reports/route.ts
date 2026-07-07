@@ -47,13 +47,13 @@ export async function POST(req: Request) {
       { status: 200 }
     );
 
-  } catch (err: any) {
+  } catch (err: unknown) {
 
     console.error("SERVER ERROR =", err);
 
     return NextResponse.json(
       {
-        error: err?.message || "Server error"
+        error: err instanceof Error ? err.message : "Server error"
       },
       { status: 500 }
     );

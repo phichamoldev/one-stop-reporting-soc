@@ -5,12 +5,11 @@ import Link from "next/link";
 import { AppContainer } from "@/components/design-system/AppContainer";
 import { AppCard } from "@/components/design-system/AppCard";
 import { AppButton } from "@/components/design-system/AppButton";
-import { SectionHeader } from "@/components/design-system/SectionHeader";
 import { StatusBadge } from "@/components/design-system/StatusBadge";
 import { supabase } from "@/lib/supabase";
 import { Report, ReportCategory, CATEGORY_DETAILS } from "@/types/report";
 import { generatePublicId, generateTrackingToken } from "@/lib/utils";
-import { Clipboard, User } from "lucide-react";
+import Image from "next/image";
 
 export default function Home() {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -24,9 +23,6 @@ export default function Home() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
-  // สถิติระบบเบื้องหลัง (ดึงข้อมูลเงียบๆ)
-  const [totalCount, setTotalCount] = useState<number>(0);
-  const [resolvedCount, setResolvedCount] = useState<number>(0);
 
   // สถานะ UI
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -44,12 +40,11 @@ export default function Home() {
   useEffect(() => {
     async function loadStats() {
       try {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from("reports")
           .select("status");
         if (data) {
-          setTotalCount(data.length);
-          setResolvedCount(data.filter(r => r.status === "resolved").length);
+          // stats tracking code was here
         }
       } catch (err) {
         console.error("ไม่สามารถโหลดสถิติได้:", err);
@@ -163,12 +158,12 @@ export default function Home() {
 
     try {
       setIsSubmitting(true);
-      
+
       setSubmitStep("กำลังอัปโหลดรูปภาพหลักฐาน...");
       const fileExt = imageFile!.name.split(".").pop();
       const randomFileToken = Math.random().toString(36).substring(2, 12);
       const fileName = `${Date.now()}-${randomFileToken}.${fileExt}`;
-      
+
       const { error: uploadError } = await supabase.storage
         .from("report-images")
         .upload(fileName, imageFile!, {
@@ -214,9 +209,10 @@ export default function Home() {
       setSubmittedReport(resJson.data || (newReportData as unknown as Report));
       setIsSubmitting(false);
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("เกิดข้อผิดพลาดการร้องเรียน:", err);
-      setGlobalError(err.message || "การเชื่อมต่อฐานข้อมูลล้มเหลว กรุณาลองใหม่อีกครั้ง");
+      const errorMessage = err instanceof Error ? err.message : "การเชื่อมต่อฐานข้อมูลล้มเหลว กรุณาลองใหม่อีกครั้ง";
+      setGlobalError(errorMessage);
       setIsSubmitting(false);
     }
   };
@@ -270,12 +266,12 @@ export default function Home() {
           </div>
         </div>
       ) : submittedReport ? (
-        
+
         /* 2. หน้าแจ้งเรื่องสำเร็จ (Success Details State) */
         /* 2. หน้าแจ้งเรื่องสำเร็จ (Success Details State) */
         <div className="flex-1 flex flex-col p-6 animate-scale-up justify-between bg-[#F8FAFC] dark:bg-slate-900 overflow-y-auto">
           <div className="space-y-6">
-            
+
             {/* 1. Header (Success Icon & Text) */}
             <div className="text-center space-y-5 pt-4">
               {/* Concentric Glow Icon */}
@@ -288,7 +284,7 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-              
+
               <div className="space-y-1.5">
                 <h2 className="text-[22px] font-extrabold text-slate-800 dark:text-white">ส่งข้อมูลเรียบร้อยแล้ว!</h2>
                 <p className="text-[13px] text-slate-500 font-medium leading-relaxed max-w-[260px] mx-auto">
@@ -335,11 +331,11 @@ export default function Home() {
                 <div className="w-1 h-4 rounded-full bg-[#D1350F] shrink-0"></div>
                 <span className="text-[16px] font-bold text-slate-800">ลิงก์ติดตามสถานะ</span>
               </div>
-              
+
               <div className="flex items-center gap-2 bg-[#F8FAFC] border border-[#EDF0F4] rounded-[16px] p-1 pl-3 mb-4">
-                <input 
-                  type="text" 
-                  readOnly 
+                <input
+                  type="text"
+                  readOnly
                   value={typeof window !== 'undefined' ? `${window.location.origin}/track/${submittedReport.public_id}` : ''}
                   className="bg-transparent border-none focus:ring-0 text-[11px] text-slate-500 w-full truncate font-medium p-0"
                 />
@@ -383,37 +379,56 @@ export default function Home() {
           </div>
         </div>
       ) : (
-        
+
         /* 3. หน้าฟอร์มหลักสำหรับการแจ้งปัญหา (Form State) */
         <>
           {/* ส่วนหัวคณะและตราสัญลักษณ์คณะสังคมศาสตร์ (Hero Section) */}
-          <div className="relative bg-gradient-to-br from-[#D1350F] to-[#E35F3A] pt-8 pb-10 px-6 rounded-b-[40px] text-white shrink-0 shadow-lg z-10">
+          <div
+            className="relative pt-8 pb-10 px-6 rounded-b-[40px] text-white shrink-0 shadow-lg z-10 overflow-hidden"
+            style={{
+              backgroundImage: "url('/images/hero-bg2.png')",
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              backgroundRepeat: "no-repeat",
+            }}
+          >
             {/* Logo and Pill Button "One Stop Service" */}
             <div className="flex items-center justify-between">
+
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-primary shadow-sm font-bold text-xs select-none">
-                  KU
+                <div className="w-8 h-8 rounded-md bg-white p-1 shadow-md flex items-center justify-center">
+                  <Image
+                    src="/images/ku-logo.png"
+                    alt="Kasetsart University"
+                    width={20}
+                    height={20}
+                    className="object-contain"
+                    priority
+                  />
                 </div>
                 <div>
-                  <span className="text-[10px] leading-none font-extrabold block text-white/90">คณะสังคมศาสตร์ มก.</span>
-                  <span className="text-[8px] leading-none text-white/70 block uppercase tracking-wider font-semibold mt-0.5">Faculty of Social Sciences</span>
+                  <span className="text-[12px] leading-none font-extrabold block text-white/90">คณะสังคมศาสตร์</span>
+                  <span className="text-[10px] leading-none text-white/70 block uppercase tracking-wider font-semibold mt-0.5">Faculty of Social Sciences</span>
                 </div>
               </div>
-              
+
+
               <span className="px-3 py-1 rounded-full border border-white/30 text-[10px] font-bold text-white uppercase tracking-wider bg-white/10 backdrop-blur-sm">
                 One Stop Service
               </span>
             </div>
-            
+
             {/* Titles */}
             <div className="mt-6 space-y-1">
               <h1 className="text-xl font-extrabold tracking-tight">ระบบรับแจ้งปัญหา</h1>
               <h2 className="text-2xl font-black tracking-tight leading-none text-white/95">One Stop Service</h2>
               <p className="text-[11px] text-white/80 font-medium leading-relaxed max-w-[300px] pt-1">
-                ศูนย์กลางการแจ้งปัญหาและติดตามสถานะการดำเนินงานของคณะสังคมศาสตร์
+                ศูนย์กลางการแจ้งปัญหาและติดตามสถานะ
+                <br />
+                การดำเนินงานของคณะสังคมศาสตร์
               </p>
             </div>
-            
+
             {/* Floating Badges */}
             <div className="mt-5 flex flex-wrap gap-1.5">
               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-extrabold bg-black/15 text-white/95 border border-white/10 backdrop-blur-sm">
@@ -423,21 +438,21 @@ export default function Home() {
                 📍 ติดตามแบบ Real-time
               </span>
             </div>
-            
+
             {/* Lookup Link */}
             <div className="mt-5">
               <Link
                 href="/track/lookup"
                 className="inline-flex items-center gap-1 text-[11px] font-bold text-white hover:text-white/80 transition-colors bg-white/10 backdrop-blur-sm px-3.5 py-1.5 rounded-full border border-white/10"
               >
-                <span>&rsaquo; ติดตามปัญหาที่แจ้งไว้แล้ว</span>
+                <span> ติดตามปัญหาที่แจ้งไว้แล้ว</span>
               </Link>
             </div>
           </div>
 
           {/* แบบฟอร์มกรอกข้อมูล */}
           <form onSubmit={handleSubmit} className="flex-1 px-4 md:px-5 py-6 space-y-6 overflow-y-auto bg-slate-50 dark:bg-slate-900">
-            
+
             {/* รายละเอียดปัญหา Section */}
             <AppCard>
               <div className="flex items-start gap-2.5 mb-5">
@@ -457,9 +472,8 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={() => setDropdownOpen(!dropdownOpen)}
-                    className={`w-full text-left flex items-center justify-between text-[12px] font-normal transition-all px-4 py-3.5 rounded-[16px] bg-slate-100/50 dark:bg-slate-900/50 border ${
-                      formErrors.category ? "border-rose-500 text-rose-500" : "border-[#EDF0F4] dark:border-slate-700 text-slate-900 dark:text-white"
-                    } focus:ring-0 cursor-pointer`}
+                    className={`w-full text-left flex items-center justify-between text-[12px] font-normal transition-all px-4 py-3.5 rounded-[16px] bg-slate-100/50 dark:bg-slate-900/50 border ${formErrors.category ? "border-rose-500 text-rose-500" : "border-[#EDF0F4] dark:border-slate-700 text-slate-900 dark:text-white"
+                      } focus:ring-0 cursor-pointer`}
                   >
                     <span className="flex items-center gap-2">
                       {category ? (
@@ -501,9 +515,8 @@ export default function Home() {
                                     return copy;
                                   });
                                 }}
-                                className={`w-full px-5 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center justify-between transition-colors cursor-pointer ${
-                                  isSelected ? "bg-primary/5 text-primary font-bold" : "text-slate-700 dark:text-slate-300 font-medium"
-                                }`}
+                                className={`w-full px-5 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center justify-between transition-colors cursor-pointer ${isSelected ? "bg-primary/5 text-primary font-bold" : "text-slate-700 dark:text-slate-300 font-medium"
+                                  }`}
                               >
                                 <span className="flex items-center gap-3 text-[12px]">
                                   <span className="text-xl shrink-0">{details.icon}</span>
@@ -547,9 +560,8 @@ export default function Home() {
                       }
                     }}
                     placeholder="เช่น อาคาร 1 ห้อง 1104"
-                    className={`w-full text-[12px] font-normal placeholder-slate-400 bg-slate-100/50 dark:bg-slate-900/50 border px-4 py-3.5 rounded-[16px] focus:ring-2 focus:ring-primary/20 ${
-                      formErrors.location ? "border-rose-500 text-rose-500" : "border-[#EDF0F4] dark:border-slate-700 text-slate-900 dark:text-white"
-                    }`}
+                    className={`w-full text-[12px] font-normal placeholder-slate-400 bg-slate-100/50 dark:bg-slate-900/50 border px-4 py-3.5 rounded-[16px] focus:ring-2 focus:ring-primary/20 ${formErrors.location ? "border-rose-500 text-rose-500" : "border-[#EDF0F4] dark:border-slate-700 text-slate-900 dark:text-white"
+                      }`}
                   />
                   {formErrors.location && (
                     <p className="text-xs text-rose-500 font-medium mt-2">{formErrors.location}</p>
@@ -577,9 +589,8 @@ export default function Home() {
                       }
                     }}
                     placeholder="อธิบายรายละเอียดปัญหาที่พบ เช่น เกิดขึ้นเมื่อไหร่ ส่งผลกระทบอย่างไร"
-                    className={`w-full text-[12px] font-normal placeholder-slate-400 bg-slate-100/50 dark:bg-slate-900/50 border px-4 py-3.5 rounded-[16px] resize-none focus:ring-2 focus:ring-primary/20 ${
-                      formErrors.description ? "border-rose-500 text-rose-500" : "border-[#EDF0F4] dark:border-slate-700 text-slate-900 dark:text-white"
-                    }`}
+                    className={`w-full text-[12px] font-normal placeholder-slate-400 bg-slate-100/50 dark:bg-slate-900/50 border px-4 py-3.5 rounded-[16px] resize-none focus:ring-2 focus:ring-primary/20 ${formErrors.description ? "border-rose-500 text-rose-500" : "border-[#EDF0F4] dark:border-slate-700 text-slate-900 dark:text-white"
+                      }`}
                   />
                   {formErrors.description && (
                     <p className="text-xs text-rose-500 font-medium mt-2">{formErrors.description}</p>
@@ -591,7 +602,7 @@ export default function Home() {
                   <label className="block text-[12px] font-medium text-slate-700 dark:text-slate-300 mb-2">
                     รูปภาพประกอบ <span className="text-primary">*</span>
                   </label>
-                  
+
                   {imagePreview ? (
                     <div className="relative rounded-[16px] overflow-hidden border border-[#EDF0F4] dark:border-slate-700 bg-slate-50 dark:bg-slate-900 aspect-video group">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -618,11 +629,10 @@ export default function Home() {
                       onDragLeave={handleDrag}
                       onDrop={handleDrop}
                       onClick={() => fileInputRef.current?.click()}
-                      className={`border-2 border-dashed rounded-[16px] p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-3 bg-slate-100/30 dark:bg-slate-900/30 ${
-                        dragActive 
-                          ? "border-primary bg-primary/5" 
-                          : "border-[#EDF0F4] dark:border-slate-700 hover:border-primary/50 dark:hover:border-primary/50"
-                      } ${formErrors.image ? "border-rose-300 bg-rose-50" : ""}`}
+                      className={`border-2 border-dashed rounded-[16px] p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-3 bg-slate-100/30 dark:bg-slate-900/30 ${dragActive
+                        ? "border-primary bg-primary/5"
+                        : "border-[#EDF0F4] dark:border-slate-700 hover:border-primary/50 dark:hover:border-primary/50"
+                        } ${formErrors.image ? "border-rose-300 bg-rose-50" : ""}`}
                     >
                       <input
                         type="file"
@@ -735,7 +745,7 @@ export default function Home() {
                   </>
                 )}
               </AppButton>
-              
+
               {/* ลิงก์ตรวจสอบสถานะด้านล่างสุด */}
               <div className="text-center mt-6">
                 <Link

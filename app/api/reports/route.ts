@@ -53,9 +53,15 @@ export async function POST(req: Request) {
         minute: '2-digit'
       }) + ' น.';
 
-      const message = `🔔 มีคำร้องใหม่\nเลขอ้างอิง: ${data.public_id}\nหมวดหมู่: ${data.category}\nหัวข้อ: ${data.description}\nสถานที่: ${data.location}\nวันที่แจ้ง: ${createdAt}\nสถานะ: รอรับเรื่อง`;
+      const message = `🔔 มีคำร้องใหม่\n\nเลขอ้างอิง: ${data.public_id}\n\nหมวดหมู่: ${data.category}\n\nหัวข้อ: ${data.description}\n\nสถานที่: ${data.location}\n\nวันที่แจ้ง: ${createdAt}\n\nสถานะ: รอรับเรื่อง\n\n--------------------\n\nเปิดระบบ:\nhttps://supportsoc.vercel.app`;
+
+      console.log("=== CALLING LINE ===");
+      console.log(message);
 
       const notifyResult = await notifyLine(message);
+      
+      console.log("LINE RESULT:", notifyResult);
+
       if (!notifyResult.success) {
         console.error("LINE Notification Failed:", notifyResult.error);
       }

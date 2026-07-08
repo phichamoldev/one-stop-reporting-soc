@@ -1,5 +1,5 @@
 import React from 'react';
-import { Report } from '@/types/report';
+import { Report, STATUS_DETAILS } from '@/types/report';
 import { Check, Wrench } from 'lucide-react';
 
 interface TimelineStepperProps {
@@ -7,20 +7,20 @@ interface TimelineStepperProps {
 }
 
 export const TimelineStepper: React.FC<TimelineStepperProps> = ({ report }) => {
-  const isRejected = report.status === 'rejected';
+  const status = report.status;
+  const statusInfo = STATUS_DETAILS[status];
 
-  if (isRejected) {
+  if (status === 'rejected' || status === 'cancelled') {
     return (
-      <div className="p-4 rounded-2xl bg-rose-50 text-rose-700 text-[13px] font-medium">
-         คำร้องไม่ถูกรับเรื่อง
+      <div className={`p-4 rounded-2xl ${statusInfo.bgClass} ${statusInfo.colorClass} border ${statusInfo.borderClass} text-[13px] font-medium`}>
+        <div className="font-bold mb-1">{statusInfo.label}</div>
+        <div className="text-[11px] opacity-80">{statusInfo.description}</div>
       </div>
     );
   }
 
-  const status = report.status;
-  
   // Status logic
-  const isInProgress = status === 'in_progress' || status === 'investigating';
+  const isInProgress = status === 'in_progress';
   const isResolved = status === 'resolved';
 
   const s1State = 'completed';
@@ -29,7 +29,7 @@ export const TimelineStepper: React.FC<TimelineStepperProps> = ({ report }) => {
 
   const getLineColor = (nextState: string) => {
     if (nextState === 'completed') return 'bg-[#10B981]';
-    if (nextState === 'active') return 'bg-[#F59E0B]';
+    if (nextState === 'active') return 'bg-[#F97316]'; // Orange-500
     return 'bg-[#E5E7EB]';
   };
 
@@ -46,7 +46,7 @@ export const TimelineStepper: React.FC<TimelineStepperProps> = ({ report }) => {
     }
     if (state === 'active') {
       return (
-        <div className="w-6 h-6 rounded-full bg-[#F59E0B] flex items-center justify-center shrink-0">
+        <div className="w-6 h-6 rounded-full bg-[#F97316] flex items-center justify-center shrink-0">
           <Wrench className="w-3 h-3 text-white" strokeWidth={2.5} />
         </div>
       );
@@ -57,6 +57,10 @@ export const TimelineStepper: React.FC<TimelineStepperProps> = ({ report }) => {
     );
   };
 
+  const s1 = STATUS_DETAILS.pending;
+  const s2 = STATUS_DETAILS.in_progress;
+  const s3 = STATUS_DETAILS.resolved;
+
   return (
     <div className="flex flex-col">
       {/* Step 1 */}
@@ -66,8 +70,8 @@ export const TimelineStepper: React.FC<TimelineStepperProps> = ({ report }) => {
           <div className={`w-[2px] grow ${line1Color} my-1`}></div>
         </div>
         <div className="flex flex-col pb-4">
-          <span className="text-[13px] font-semibold text-slate-800 leading-none pt-1">รับเรื่องแล้ว</span>
-          <span className="text-[11px] text-gray-500 leading-none mt-1">อยู่ระหว่างการรอคัดกรอง</span>
+          <span className="text-[13px] font-semibold text-slate-800 leading-none pt-1">{s1.label}</span>
+          <span className="text-[11px] text-gray-500 leading-none mt-1">{s1.description}</span>
         </div>
       </div>
 
@@ -78,8 +82,8 @@ export const TimelineStepper: React.FC<TimelineStepperProps> = ({ report }) => {
           <div className={`w-[2px] grow ${line2Color} my-1`}></div>
         </div>
         <div className="flex flex-col pb-4">
-          <span className="text-[13px] font-semibold text-slate-800 leading-none pt-1">กำลังดำเนินการ</span>
-          <span className="text-[11px] text-gray-500 leading-none mt-1">ดำเนินการแจ้งไปยังหน่วยที่เกี่ยวข้องแล้ว</span>
+          <span className="text-[13px] font-semibold text-slate-800 leading-none pt-1">{s2.label}</span>
+          <span className="text-[11px] text-gray-500 leading-none mt-1">{s2.description}</span>
         </div>
       </div>
 
@@ -89,8 +93,8 @@ export const TimelineStepper: React.FC<TimelineStepperProps> = ({ report }) => {
           {getIcon(s3State)}
         </div>
         <div className="flex flex-col">
-          <span className="text-[13px] font-semibold text-slate-800 leading-none pt-1">เสร็จสิ้น</span>
-          <span className="text-[11px] text-gray-500 leading-none mt-1">ขอบคุณที่ช่วยกันพัฒนาคณะของเรา</span>
+          <span className="text-[13px] font-semibold text-slate-800 leading-none pt-1">{s3.label}</span>
+          <span className="text-[11px] text-gray-500 leading-none mt-1">{s3.description}</span>
         </div>
       </div>
     </div>

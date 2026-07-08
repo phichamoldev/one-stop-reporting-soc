@@ -7,6 +7,7 @@ import { AppContainer } from "@/components/design-system/AppContainer";
 import { AppNavbar } from "@/components/shared/AppNavbar";
 import { AppCard } from "@/components/design-system/AppCard";
 import { AppButton } from "@/components/design-system/AppButton";
+import { GlobalFooter } from "@/components/shared/GlobalFooter";
 
 export default function TrackLookupPage() {
   const router = useRouter();
@@ -108,6 +109,7 @@ export default function TrackLookupPage() {
           </p>
         </div>
 
+        <GlobalFooter />
       </div>
     </AppContainer>
   );

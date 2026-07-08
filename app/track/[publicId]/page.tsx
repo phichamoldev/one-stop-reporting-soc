@@ -5,11 +5,12 @@ import Link from "next/link";
 import { AppNavbar } from "@/components/shared/AppNavbar";
 import { AppContainer } from "@/components/design-system/AppContainer";
 import { AppCard } from "@/components/design-system/AppCard";
-import { StatusBadge, StatusType } from "@/components/design-system/StatusBadge";
+import { StatusBadge } from "@/components/design-system/StatusBadge";
 import { AppButton } from "@/components/design-system/AppButton";
 import { TimelineStepper } from "@/components/design-system/TimelineStepper";
 import { supabase } from "@/lib/supabase";
 import { Report, STATUS_DETAILS, CATEGORY_DETAILS } from "@/types/report";
+import { GlobalFooter } from "@/components/shared/GlobalFooter";
 
 interface TrackPageProps {
   params: Promise<{
@@ -114,6 +115,7 @@ export default function TrackPage({ params }: TrackPageProps) {
               </AppButton>
             </Link>
           </div>
+          <GlobalFooter />
         </div>
       </AppContainer>
     );
@@ -122,16 +124,6 @@ export default function TrackPage({ params }: TrackPageProps) {
   const currentStatusInfo = STATUS_DETAILS[report.status] || STATUS_DETAILS.pending;
   const currentCategoryInfo = CATEGORY_DETAILS[report.category] || CATEGORY_DETAILS.Other;
 
-  const getStatusType = (status: string): StatusType => {
-    switch (status) {
-      case 'resolved': return 'success';
-      case 'in_progress': return 'warning';
-      case 'investigating': return 'warning';
-      case 'pending': return 'warning'; // Design usually uses warning for pending/in_progress
-      case 'rejected': return 'danger';
-      default: return 'neutral';
-    }
-  };
 
   return (
     <AppContainer>
@@ -152,7 +144,7 @@ export default function TrackPage({ params }: TrackPageProps) {
                 </span>
               </div>
               <StatusBadge 
-                status={getStatusType(report.status)} 
+                status={report.status} 
                 label={currentStatusInfo.label} 
               />
             </div>
@@ -303,6 +295,7 @@ export default function TrackPage({ params }: TrackPageProps) {
             </button>
           </div>
           
+          <GlobalFooter />
         </div>
       </div>
       

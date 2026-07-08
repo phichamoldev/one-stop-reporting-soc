@@ -10,6 +10,19 @@ import { supabase } from "@/lib/supabase";
 import { Report, ReportCategory, CATEGORY_DETAILS } from "@/types/report";
 import { generatePublicId, generateTrackingToken } from "@/lib/utils";
 import Image from "next/image";
+import { GlobalFooter } from "@/components/shared/GlobalFooter";
+import { BookOpen, Users, GraduationCap, Building2, Wrench, MonitorSmartphone, ShieldCheck, MessageSquareWarning } from 'lucide-react';
+
+const FORM_CATEGORIES = [
+  { id: "academic", label: "วิชาการและการเรียนการสอน", Icon: BookOpen },
+  { id: "student", label: "นักศึกษาและกิจกรรมนิสิต", Icon: Users },
+  { id: "staff", label: "อาจารย์และบุคลากร", Icon: GraduationCap },
+  { id: "building", label: "อาคารและสถานที่", Icon: Building2 },
+  { id: "utility", label: "สาธารณูปโภค (ไฟฟ้า ประปา แอร์)", Icon: Wrench },
+  { id: "it", label: "เทคโนโลยีสารสนเทศ (IT)", Icon: MonitorSmartphone },
+  { id: "environment", label: "ความสะอาด สิ่งแวดล้อม และความปลอดภัย", Icon: ShieldCheck },
+  { id: "general", label: "ร้องเรียน ข้อเสนอแนะ และเรื่องทั่วไป", Icon: MessageSquareWarning }
+];
 
 export default function Home() {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -301,7 +314,7 @@ export default function Home() {
                   <div className="w-1 h-4 rounded-full bg-[#D1350F] shrink-0"></div>
                   <span className="text-[16px] font-bold text-slate-800">หมายเลขการแจ้ง</span>
                 </div>
-                <StatusBadge status="warning" label="รอดำเนินการ" />
+                <StatusBadge status="pending" label="รับเรื่องแล้ว" />
               </div>
 
               {/* Box */}
@@ -377,6 +390,8 @@ export default function Home() {
               แจ้งปัญหาใหม่
             </button>
           </div>
+          
+          <GlobalFooter />
         </div>
       ) : (
 
@@ -477,10 +492,17 @@ export default function Home() {
                   >
                     <span className="flex items-center gap-2">
                       {category ? (
-                        <>
-                          <span className="text-lg shrink-0">{CATEGORY_DETAILS[category]?.icon}</span>
-                          <span>{CATEGORY_DETAILS[category]?.label}</span>
-                        </>
+                        (() => {
+                          const selected = FORM_CATEGORIES.find(c => c.id === category);
+                          return selected ? (
+                            <>
+                              <selected.Icon className="w-4 h-4 text-slate-500 shrink-0" />
+                              <span>{selected.label}</span>
+                            </>
+                          ) : (
+                            <span className="text-slate-400">เลือกประเภทปัญหา</span>
+                          );
+                        })()
                       ) : (
                         <span className="text-slate-400">เลือกประเภทปัญหา</span>
                       )}
@@ -500,14 +522,14 @@ export default function Home() {
                   {dropdownOpen && (
                     <div className="absolute z-30 left-0 top-full mt-2 w-full bg-white dark:bg-slate-800 rounded-2xl border border-[#EDF0F4] dark:border-slate-700 shadow-xl overflow-hidden animate-scale-up">
                       <ul className="py-2">
-                        {Object.entries(CATEGORY_DETAILS).map(([key, details]) => {
-                          const isSelected = category === key;
+                        {FORM_CATEGORIES.map(({ id, label, Icon }) => {
+                          const isSelected = category === id;
                           return (
-                            <li key={key}>
+                            <li key={id}>
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setCategory(key as ReportCategory);
+                                  setCategory(id as ReportCategory);
                                   setDropdownOpen(false);
                                   setFormErrors(prev => {
                                     const copy = { ...prev };
@@ -519,8 +541,8 @@ export default function Home() {
                                   }`}
                               >
                                 <span className="flex items-center gap-3 text-[12px]">
-                                  <span className="text-xl shrink-0">{details.icon}</span>
-                                  <span>{details.label}</span>
+                                  <Icon className="w-4 h-4 text-slate-500 shrink-0" />
+                                  <span>{label}</span>
                                 </span>
                                 {isSelected && (
                                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-5 h-5 text-primary">
@@ -756,6 +778,8 @@ export default function Home() {
                 </Link>
               </div>
             </div>
+
+            <GlobalFooter />
           </form>
         </>
       )}

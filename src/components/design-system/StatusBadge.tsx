@@ -1,9 +1,8 @@
 import React from 'react';
-
-export type StatusType = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
+import { ReportStatus } from '@/types/report';
 
 interface StatusBadgeProps {
-  status: StatusType;
+  status: ReportStatus;
   label: string;
   animatePulse?: boolean;
   className?: string;
@@ -15,20 +14,20 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
   animatePulse = false,
   className = '' 
 }) => {
-  const badgeStyles = {
-    success: 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/30',
-    warning: 'bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900/30',
-    danger: 'bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-900/30',
-    info: 'bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-900/30',
-    neutral: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+  const badgeStyles: Record<ReportStatus, string> = {
+    resolved: 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/30',
+    pending: 'bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900/30',
+    rejected: 'bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-900/30',
+    in_progress: 'bg-orange-50 dark:bg-orange-950/20 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-900/30',
+    cancelled: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700'
   };
 
-  const indicatorStyles = {
-    success: 'bg-emerald-500',
-    warning: 'bg-amber-500',
-    danger: 'bg-rose-500',
-    info: 'bg-blue-500',
-    neutral: 'bg-slate-400'
+  const indicatorStyles: Record<ReportStatus, string> = {
+    resolved: 'bg-emerald-500',
+    pending: 'bg-amber-500',
+    rejected: 'bg-red-500',
+    in_progress: 'bg-orange-500',
+    cancelled: 'bg-gray-400'
   };
 
   return (

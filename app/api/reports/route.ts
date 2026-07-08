@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { notifyLine } from "@/lib/line";
 
 console.log(
   "SERVICE ROLE EXISTS:",
@@ -40,6 +41,26 @@ export async function POST(req: Request) {
         { error: error.message },
         { status: 400 }
       );
+    }
+
+    try {
+      const createdAt = new Date(data.created_at).toLocaleString('th-TH', {
+        timeZone: 'Asia/Bangkok',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }) + ' น.';
+
+      const message = `🔔 มีคำร้องใหม่\nเลขอ้างอิง: ${data.public_id}\nหมวดหมู่: ${data.category}\nหัวข้อ: ${data.description}\nสถานที่: ${data.location}\nวันที่แจ้ง: ${createdAt}\nสถานะ: รอรับเรื่อง`;
+
+      const notifyResult = await notifyLine(message);
+      if (!notifyResult.success) {
+        console.error("LINE Notification Failed:", notifyResult.error);
+      }
+    } catch (lineError) {
+      console.error("LINE Notification Exception:", lineError);
     }
 
     return NextResponse.json(

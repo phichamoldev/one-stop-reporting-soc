@@ -56,7 +56,7 @@ export async function notifyLine(message: string): Promise<LineNotificationResul
     const statusText = message.match(/สถานะ:\s*(.*?)(?=\n\n|$)/)?.[1] || "";
 
     let mappedStatus = "🟡 รอรับเรื่อง";
-    
+
     if (statusText === "pending" || statusText.includes("รอรับเรื่อง")) {
       mappedStatus = "🟡 รอรับเรื่อง";
     }
@@ -98,143 +98,143 @@ export async function notifyLine(message: string): Promise<LineNotificationResul
                 contents: [
                   {
                     type: "image",
-                    url: "https://supportsoc.vercel.app/notification.svg",
+                    url: "https://supportsoc.vercel.app/images/notification.svg",
                     size: "24px"
                   }
                 ]
-              },
-              {
-                type: "box",
-                layout: "vertical",
-                margin: "md",
-                contents: [
-                  {
-                    type: "text",
-                    text: "ONE STOP SERVICE",
-                    color: "#ffffff",
-                    weight: "bold",
-                    size: "sm"
-                  },
-                  {
-                    type: "text",
-                    text: "มีคำร้องใหม่เข้าสู่ระบบ",
-                    color: "#ffffff",
-                    size: "xs"
-                  }
-                ]
-              }
+  },
+  {
+    type: "box",
+      layout: "vertical",
+        margin: "md",
+          contents: [
+            {
+              type: "text",
+              text: "ONE STOP SERVICE",
+              color: "#ffffff",
+              weight: "bold",
+              size: "sm"
+            },
+            {
+              type: "text",
+              text: "มีคำร้องใหม่เข้าสู่ระบบ",
+              color: "#ffffff",
+              size: "xs"
+            }
+          ]
+  }
             ],
-            paddingAll: "16px"
-          },
-          body: {
+  paddingAll: "16px"
+},
+body: {
+  type: "box",
+    layout: "vertical",
+      paddingAll: "20px",
+        contents: [
+          {
             type: "box",
             layout: "vertical",
-            paddingAll: "20px",
+            spacing: "xs",
             contents: [
-              {
-                type: "box",
-                layout: "vertical",
-                spacing: "xs",
-                contents: [
-                  { type: "text", text: "เลขอ้างอิง", color: "#8c8c8c", size: "xs" },
-                  { type: "text", text: publicId, color: "#1A1A2E", size: "xs", wrap: true }
-                ]
-              },
-              { type: "separator", margin: "md", color: "#f0f0f0" },
-              {
-                type: "box",
-                layout: "vertical",
-                spacing: "xs",
-                margin: "md",
-                contents: [
-                  { type: "text", text: "หมวดหมู่", color: "#8c8c8c", size: "xs" },
-                  { type: "text", text: categoryLabel, color: "#1A1A2E", size: "xs", wrap: true }
-                ]
-              },
-              { type: "separator", margin: "md", color: "#f0f0f0" },
-              {
-                type: "box",
-                layout: "vertical",
-                spacing: "xs",
-                margin: "md",
-                contents: [
-                  { type: "text", text: "หัวข้อ", color: "#8c8c8c", size: "xs" },
-                  { type: "text", text: description, color: "#1A1A2E", size: "xs", wrap: true }
-                ]
-              },
-              { type: "separator", margin: "md", color: "#f0f0f0" },
-              {
-                type: "box",
-                layout: "vertical",
-                spacing: "xs",
-                margin: "md",
-                contents: [
-                  { type: "text", text: "สถานที่", color: "#8c8c8c", size: "xs" },
-                  { type: "text", text: location, color: "#1A1A2E", size: "xs", wrap: true }
-                ]
-              },
-              { type: "separator", margin: "md", color: "#f0f0f0" },
-              {
-                type: "box",
-                layout: "vertical",
-                spacing: "xs",
-                margin: "md",
-                contents: [
-                  { type: "text", text: "วันที่แจ้ง", color: "#8c8c8c", size: "xs" },
-                  { type: "text", text: date, color: "#1A1A2E", size: "xs", wrap: true }
-                ]
-              },
-              { type: "separator", margin: "md", color: "#f0f0f0" },
-              {
-                type: "box",
-                layout: "vertical",
-                spacing: "xs",
-                margin: "md",
-                contents: [
-                  { type: "text", text: "สถานะ", color: "#8c8c8c", size: "xs" },
-                  { type: "text", text: mappedStatus, color: "#1A1A2E", size: "xs", wrap: true }
-                ]
-              }
+              { type: "text", text: "เลขอ้างอิง", color: "#8c8c8c", size: "xs" },
+              { type: "text", text: publicId, color: "#1A1A2E", size: "xs", wrap: true }
+            ]
+          },
+          { type: "separator", margin: "md", color: "#f0f0f0" },
+          {
+            type: "box",
+            layout: "vertical",
+            spacing: "xs",
+            margin: "md",
+            contents: [
+              { type: "text", text: "หมวดหมู่", color: "#8c8c8c", size: "xs" },
+              { type: "text", text: categoryLabel, color: "#1A1A2E", size: "xs", wrap: true }
+            ]
+          },
+          { type: "separator", margin: "md", color: "#f0f0f0" },
+          {
+            type: "box",
+            layout: "vertical",
+            spacing: "xs",
+            margin: "md",
+            contents: [
+              { type: "text", text: "หัวข้อ", color: "#8c8c8c", size: "xs" },
+              { type: "text", text: description, color: "#1A1A2E", size: "xs", wrap: true }
+            ]
+          },
+          { type: "separator", margin: "md", color: "#f0f0f0" },
+          {
+            type: "box",
+            layout: "vertical",
+            spacing: "xs",
+            margin: "md",
+            contents: [
+              { type: "text", text: "สถานที่", color: "#8c8c8c", size: "xs" },
+              { type: "text", text: location, color: "#1A1A2E", size: "xs", wrap: true }
+            ]
+          },
+          { type: "separator", margin: "md", color: "#f0f0f0" },
+          {
+            type: "box",
+            layout: "vertical",
+            spacing: "xs",
+            margin: "md",
+            contents: [
+              { type: "text", text: "วันที่แจ้ง", color: "#8c8c8c", size: "xs" },
+              { type: "text", text: date, color: "#1A1A2E", size: "xs", wrap: true }
+            ]
+          },
+          { type: "separator", margin: "md", color: "#f0f0f0" },
+          {
+            type: "box",
+            layout: "vertical",
+            spacing: "xs",
+            margin: "md",
+            contents: [
+              { type: "text", text: "สถานะ", color: "#8c8c8c", size: "xs" },
+              { type: "text", text: mappedStatus, color: "#1A1A2E", size: "xs", wrap: true }
             ]
           }
+        ]
+}
         }
       }
     ];
   }
 
-  try {
-    const response = await fetch("https://api.line.me/v2/bot/message/push", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        to: groupId,
-        messages: lineMessages
-      })
-    });
+try {
+  const response = await fetch("https://api.line.me/v2/bot/message/push", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      to: groupId,
+      messages: lineMessages
+    })
+  });
 
-    const responseText = await response.text();
+  const responseText = await response.text();
 
-    console.log("LINE STATUS:", response.status);
-    console.log("LINE RESPONSE:", responseText);
+  console.log("LINE STATUS:", response.status);
+  console.log("LINE RESPONSE:", responseText);
 
-    if (!response.ok) {
-      console.error("LINE API Error:", responseText);
-      return {
-        success: false,
-        error: `LINE API responded with status ${response.status}: ${responseText}`
-      };
-    }
-
-    return { success: true };
-
-  } catch (error) {
-    console.error("Failed to send LINE notification:", error);
+  if (!response.ok) {
+    console.error("LINE API Error:", responseText);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error occurred"
+      error: `LINE API responded with status ${response.status}: ${responseText}`
     };
   }
+
+  return { success: true };
+
+} catch (error) {
+  console.error("Failed to send LINE notification:", error);
+  return {
+    success: false,
+    error: error instanceof Error ? error.message : "Unknown error occurred"
+  };
+}
 }

@@ -1,0 +1,1270 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "description": "",
+    "title": "standard public schema",
+    "version": "14.5"
+  },
+  "host": "wueeapudprrbhwardjuw.supabase.co:443",
+  "basePath": "/",
+  "schemes": [
+    "https"
+  ],
+  "consumes": [
+    "application/json",
+    "application/vnd.pgrst.object+json;nulls=stripped",
+    "application/vnd.pgrst.object+json",
+    "text/csv"
+  ],
+  "produces": [
+    "application/json",
+    "application/vnd.pgrst.object+json;nulls=stripped",
+    "application/vnd.pgrst.object+json",
+    "text/csv"
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "produces": [
+          "application/openapi+json",
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "OpenAPI description (this document)",
+        "tags": [
+          "Introspection"
+        ]
+      }
+    },
+    "/subcategories": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.subcategories.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.subcategories.category_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.subcategories.name_th"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.subcategories.is_active"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.subcategories.created_at"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/subcategories"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "subcategories"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.subcategories"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "subcategories"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.subcategories.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.subcategories.category_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.subcategories.name_th"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.subcategories.is_active"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.subcategories.created_at"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "subcategories"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.subcategories.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.subcategories.category_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.subcategories.name_th"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.subcategories.is_active"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.subcategories.created_at"
+          },
+          {
+            "$ref": "#/parameters/body.subcategories"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "subcategories"
+        ]
+      }
+    },
+    "/reports": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.reports.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.public_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.tracking_token"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.location"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.description"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.image_url"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.reporter_name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.email"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.status"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.priority"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.admin_remark"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.updated_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.category_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.subcategory_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.phone"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/reports"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "reports"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.reports"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "reports"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.reports.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.public_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.tracking_token"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.location"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.description"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.image_url"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.reporter_name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.email"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.status"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.priority"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.admin_remark"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.updated_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.category_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.subcategory_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.phone"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "reports"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.reports.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.public_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.tracking_token"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.location"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.description"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.image_url"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.reporter_name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.email"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.status"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.priority"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.admin_remark"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.updated_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.category_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.subcategory_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.reports.phone"
+          },
+          {
+            "$ref": "#/parameters/body.reports"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/departments": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.departments.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.departments.code"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.departments.name_th"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.departments.line_group_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.departments.is_active"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.departments.created_at"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/departments"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "departments"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.departments"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "departments"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.departments.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.departments.code"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.departments.name_th"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.departments.line_group_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.departments.is_active"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.departments.created_at"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "departments"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.departments.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.departments.code"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.departments.name_th"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.departments.line_group_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.departments.is_active"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.departments.created_at"
+          },
+          {
+            "$ref": "#/parameters/body.departments"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "departments"
+        ]
+      }
+    },
+    "/categories": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.categories.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.categories.code"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.categories.name_th"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.categories.department_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.categories.is_active"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.categories.created_at"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/order"
+          },
+          {
+            "$ref": "#/parameters/range"
+          },
+          {
+            "$ref": "#/parameters/rangeUnit"
+          },
+          {
+            "$ref": "#/parameters/offset"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/preferCount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/categories"
+              },
+              "type": "array"
+            }
+          },
+          "206": {
+            "description": "Partial Content"
+          }
+        },
+        "tags": [
+          "categories"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/body.categories"
+          },
+          {
+            "$ref": "#/parameters/select"
+          },
+          {
+            "$ref": "#/parameters/preferPost"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        },
+        "tags": [
+          "categories"
+        ]
+      },
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.categories.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.categories.code"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.categories.name_th"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.categories.department_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.categories.is_active"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.categories.created_at"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "categories"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "$ref": "#/parameters/rowFilter.categories.id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.categories.code"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.categories.name_th"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.categories.department_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.categories.is_active"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.categories.created_at"
+          },
+          {
+            "$ref": "#/parameters/body.categories"
+          },
+          {
+            "$ref": "#/parameters/preferReturn"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "categories"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "subcategories": {
+      "required": [
+        "id",
+        "category_id",
+        "name_th"
+      ],
+      "properties": {
+        "id": {
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "integer",
+          "type": "integer"
+        },
+        "category_id": {
+          "description": "Note:\nThis is a Foreign Key to `categories.id`.<fk table='categories' column='id'/>",
+          "format": "integer",
+          "type": "integer"
+        },
+        "name_th": {
+          "format": "character varying",
+          "maxLength": 255,
+          "type": "string"
+        },
+        "is_active": {
+          "default": true,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "created_at": {
+          "default": "now()",
+          "format": "timestamp with time zone",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "reports": {
+      "required": [
+        "id",
+        "public_id",
+        "tracking_token",
+        "location",
+        "description",
+        "reporter_name",
+        "email",
+        "phone"
+      ],
+      "properties": {
+        "id": {
+          "default": "gen_random_uuid()",
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "public_id": {
+          "format": "text",
+          "type": "string"
+        },
+        "tracking_token": {
+          "format": "text",
+          "type": "string"
+        },
+        "location": {
+          "format": "text",
+          "type": "string"
+        },
+        "description": {
+          "format": "text",
+          "type": "string"
+        },
+        "image_url": {
+          "format": "text",
+          "type": "string"
+        },
+        "reporter_name": {
+          "format": "text",
+          "type": "string"
+        },
+        "email": {
+          "format": "text",
+          "type": "string"
+        },
+        "status": {
+          "default": "received",
+          "format": "text",
+          "type": "string"
+        },
+        "priority": {
+          "default": "normal",
+          "format": "text",
+          "type": "string"
+        },
+        "admin_remark": {
+          "format": "text",
+          "type": "string"
+        },
+        "created_at": {
+          "default": "now()",
+          "format": "timestamp with time zone",
+          "type": "string"
+        },
+        "updated_at": {
+          "default": "now()",
+          "format": "timestamp with time zone",
+          "type": "string"
+        },
+        "category_id": {
+          "description": "Note:\nThis is a Foreign Key to `categories.id`.<fk table='categories' column='id'/>",
+          "format": "integer",
+          "type": "integer"
+        },
+        "subcategory_id": {
+          "format": "integer",
+          "type": "integer"
+        },
+        "phone": {
+          "format": "character varying",
+          "maxLength": 20,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "departments": {
+      "required": [
+        "id",
+        "code",
+        "name_th"
+      ],
+      "properties": {
+        "id": {
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "integer",
+          "type": "integer"
+        },
+        "code": {
+          "format": "character varying",
+          "maxLength": 50,
+          "type": "string"
+        },
+        "name_th": {
+          "format": "character varying",
+          "maxLength": 255,
+          "type": "string"
+        },
+        "line_group_id": {
+          "format": "text",
+          "type": "string"
+        },
+        "is_active": {
+          "default": true,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "created_at": {
+          "default": "now()",
+          "format": "timestamp with time zone",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "categories": {
+      "required": [
+        "id",
+        "code",
+        "name_th",
+        "department_id"
+      ],
+      "properties": {
+        "id": {
+          "description": "Note:\nThis is a Primary Key.<pk/>",
+          "format": "integer",
+          "type": "integer"
+        },
+        "code": {
+          "format": "character varying",
+          "maxLength": 50,
+          "type": "string"
+        },
+        "name_th": {
+          "format": "character varying",
+          "maxLength": 255,
+          "type": "string"
+        },
+        "department_id": {
+          "description": "Note:\nThis is a Foreign Key to `departments.id`.<fk table='departments' column='id'/>",
+          "format": "integer",
+          "type": "integer"
+        },
+        "is_active": {
+          "default": true,
+          "format": "boolean",
+          "type": "boolean"
+        },
+        "created_at": {
+          "default": "now()",
+          "format": "timestamp with time zone",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "parameters": {
+    "preferParams": {
+      "name": "Prefer",
+      "description": "Preference",
+      "required": false,
+      "in": "header",
+      "type": "string"
+    },
+    "preferReturn": {
+      "name": "Prefer",
+      "description": "Preference",
+      "required": false,
+      "enum": [
+        "return=representation",
+        "return=minimal",
+        "return=none"
+      ],
+      "in": "header",
+      "type": "string"
+    },
+    "preferCount": {
+      "name": "Prefer",
+      "description": "Preference",
+      "required": false,
+      "enum": [
+        "count=none"
+      ],
+      "in": "header",
+      "type": "string"
+    },
+    "preferPost": {
+      "name": "Prefer",
+      "description": "Preference",
+      "required": false,
+      "enum": [
+        "return=representation",
+        "return=minimal",
+        "return=none",
+        "resolution=ignore-duplicates",
+        "resolution=merge-duplicates"
+      ],
+      "in": "header",
+      "type": "string"
+    },
+    "select": {
+      "name": "select",
+      "description": "Filtering Columns",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "on_conflict": {
+      "name": "on_conflict",
+      "description": "On Conflict",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "order": {
+      "name": "order",
+      "description": "Ordering",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "range": {
+      "name": "Range",
+      "description": "Limiting and Pagination",
+      "required": false,
+      "in": "header",
+      "type": "string"
+    },
+    "rangeUnit": {
+      "name": "Range-Unit",
+      "description": "Limiting and Pagination",
+      "required": false,
+      "default": "items",
+      "in": "header",
+      "type": "string"
+    },
+    "offset": {
+      "name": "offset",
+      "description": "Limiting and Pagination",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "limit": {
+      "name": "limit",
+      "description": "Limiting and Pagination",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.subcategories": {
+      "name": "subcategories",
+      "description": "subcategories",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/subcategories"
+      }
+    },
+    "rowFilter.subcategories.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.subcategories.category_id": {
+      "name": "category_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.subcategories.name_th": {
+      "name": "name_th",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.subcategories.is_active": {
+      "name": "is_active",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.subcategories.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.reports": {
+      "name": "reports",
+      "description": "reports",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/reports"
+      }
+    },
+    "rowFilter.reports.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.reports.public_id": {
+      "name": "public_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.reports.tracking_token": {
+      "name": "tracking_token",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.reports.location": {
+      "name": "location",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.reports.description": {
+      "name": "description",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.reports.image_url": {
+      "name": "image_url",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.reports.reporter_name": {
+      "name": "reporter_name",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.reports.email": {
+      "name": "email",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.reports.status": {
+      "name": "status",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.reports.priority": {
+      "name": "priority",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.reports.admin_remark": {
+      "name": "admin_remark",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.reports.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.reports.updated_at": {
+      "name": "updated_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.reports.category_id": {
+      "name": "category_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.reports.subcategory_id": {
+      "name": "subcategory_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.reports.phone": {
+      "name": "phone",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.departments": {
+      "name": "departments",
+      "description": "departments",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/departments"
+      }
+    },
+    "rowFilter.departments.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.departments.code": {
+      "name": "code",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.departments.name_th": {
+      "name": "name_th",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.departments.line_group_id": {
+      "name": "line_group_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.departments.is_active": {
+      "name": "is_active",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.departments.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "body.categories": {
+      "name": "categories",
+      "description": "categories",
+      "required": false,
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/categories"
+      }
+    },
+    "rowFilter.categories.id": {
+      "name": "id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.categories.code": {
+      "name": "code",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.categories.name_th": {
+      "name": "name_th",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.categories.department_id": {
+      "name": "department_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.categories.is_active": {
+      "name": "is_active",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.categories.created_at": {
+      "name": "created_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    }
+  },
+  "externalDocs": {
+    "description": "PostgREST Documentation",
+    "url": "https://postgrest.org/en/v14/references/api.html"
+  }
+}

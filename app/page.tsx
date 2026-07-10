@@ -7,35 +7,42 @@ import { AppCard } from "@/components/design-system/AppCard";
 import { AppButton } from "@/components/design-system/AppButton";
 import { StatusBadge } from "@/components/design-system/StatusBadge";
 import { supabase } from "@/lib/supabase";
-import { Report, ReportCategory, CATEGORY_DETAILS } from "@/types/report";
+import { Report, DBCategory, DBSubcategory } from "@/types/report";
 import { generatePublicId, generateTrackingToken } from "@/lib/utils";
 import Image from "next/image";
 import { GlobalFooter } from "@/components/shared/GlobalFooter";
-import { BookOpen, Users, GraduationCap, Building2, Wrench, MonitorSmartphone, ShieldCheck, MessageSquareWarning } from 'lucide-react';
+import { BookOpenText, Users, GraduationCap, Building2, Wrench, MonitorSmartphone, ShieldCheck, MessageSquareWarning, Monitor, MessageSquare, Briefcase } from 'lucide-react';
 
-const FORM_CATEGORIES = [
-  { id: "academic", label: "วิชาการและการเรียนการสอน", Icon: BookOpen },
-  { id: "student", label: "นักศึกษาและกิจกรรมนิสิต", Icon: Users },
-  { id: "staff", label: "อาจารย์และบุคลากร", Icon: GraduationCap },
-  { id: "building", label: "อาคารและสถานที่", Icon: Building2 },
-  { id: "utility", label: "สาธารณูปโภค (ไฟฟ้า ประปา แอร์)", Icon: Wrench },
-  { id: "it", label: "เทคโนโลยีสารสนเทศ (IT)", Icon: MonitorSmartphone },
-  { id: "environment", label: "ความสะอาด สิ่งแวดล้อม และความปลอดภัย", Icon: ShieldCheck },
-  { id: "general", label: "ร้องเรียน ข้อเสนอแนะ และเรื่องทั่วไป", Icon: MessageSquareWarning }
-];
+export function getCategoryIcon(categoryCode: string) {
+  if (categoryCode.includes('วิชาการ')) return GraduationCap;
+  if (categoryCode.includes('นิสิต')) return Users;
+  if (categoryCode.includes('บริหารงานบุคคล') || categoryCode.includes('บริหารงานบุคคล')) return Briefcase;
+  if (categoryCode.includes('กายภาพ') || categoryCode.includes('อาคาร')) return Building2;
+  if (categoryCode.includes('ระบบดิจิทัล') || categoryCode.includes('IT') || categoryCode.includes('ระบบดิจิทัล')) return Monitor;
+  if (categoryCode.includes('ห้องสมุด')) return BookOpenText;
+  return MessageSquare; // general/fallback
+}
+
+
 
 export default function Home() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // สถานะข้อมูลในฟอร์ม
-  const [category, setCategory] = useState<ReportCategory | "">("");
+
+  const [categoryId, setCategoryId] = useState<number | "">("");
+  const [subcategoryId, setSubcategoryId] = useState<number | "">("");
+  
+  const [categories, setCategories] = useState<DBCategory[]>([]);
+  const [subcategories, setSubcategories] = useState<DBSubcategory[]>([]);
+
   const [location, setLocation] = useState<string>("");
   const [description, setDescription] = useState<string>("");
   const [reporterName, setReporterName] = useState<string>("");
   const [email, setEmail] = useState<string>("");
+  const [phone, setPhone] = useState<string>("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-
 
   // สถานะ UI
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -43,11 +50,52 @@ export default function Home() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState<boolean>(false);
-  const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState<boolean>(false);
+  const [subcategoryDropdownOpen, setSubcategoryDropdownOpen] = useState<boolean>(false);
 
   // หลังส่งข้อมูลเสร็จสิ้น
   const [submittedReport, setSubmittedReport] = useState<Report | null>(null);
   const [copied, setCopied] = useState<boolean>(false);
+
+  // โหลด categories
+  useEffect(() => {
+    async function loadCategories() {
+      try {
+        const { data, error } = await supabase
+          .from("categories")
+          .select("id,name_th")
+          .order("id");
+        if (data) {
+          setCategories(data);
+        }
+      } catch (err) {
+        console.error("ไม่สามารถโหลดหมวดหมู่ได้:", err);
+      }
+    }
+    loadCategories();
+  }, []);
+
+  // โหลด subcategories เมื่อ categoryId เปลี่ยน
+  useEffect(() => {
+    async function loadSubcategories() {
+      if (!categoryId) {
+        setSubcategories([]);
+        return;
+      }
+      try {
+        const { data, error } = await supabase
+          .from("subcategories")
+          .select("id,name_th")
+          .eq("category_id", categoryId);
+        if (data) {
+          setSubcategories(data);
+        }
+      } catch (err) {
+        console.error("ไม่สามารถโหลดหมวดหมู่ย่อยได้:", err);
+      }
+    }
+    loadSubcategories();
+  }, [categoryId]);
 
   // โหลดสถิติด้านหลัง
   useEffect(() => {
@@ -139,17 +187,26 @@ export default function Home() {
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
 
-    if (!category) errors.category = "กรุณาเลือกหมวดหมู่ของปัญหา";
+    if (!categoryId) errors.categoryId = "กรุณาเลือกหมวดหมู่หลัก";
+    if (!subcategoryId) errors.subcategoryId = "กรุณาเลือกหมวดหมู่ย่อย";
     if (!location.trim()) errors.location = "กรุณาระบุสถานที่เกิดเหตุหรือจุดสังเกต";
     if (!description.trim()) {
       errors.description = "กรุณากรอกรายละเอียดปัญหา";
-    } else if (description.trim().length < 10) {
-      errors.description = "กรุณากรอกรายละเอียดอย่างน้อย 10 ตัวอักษร";
     }
-    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    
+    if (!reporterName.trim()) errors.reporterName = "กรุณาระบุชื่อ-นามสกุล";
+    
+    if (!email.trim()) {
+      errors.email = "กรุณาระบุอีเมลติดต่อกลับ";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       errors.email = "รูปแบบอีเมลไม่ถูกต้อง";
     }
-    if (!imageFile) errors.image = "กรุณาอัปโหลดรูปถ่ายสถานที่เกิดเหตุ";
+    
+    if (!phone.trim()) {
+      errors.phone = "กรุณาระบุเบอร์โทรศัพท์ติดต่อ";
+    } else if (!/^[0-9]{9,10}$/.test(phone.replace(/[- ]/g, ""))) {
+      errors.phone = "รูปแบบเบอร์โทรศัพท์ไม่ถูกต้อง";
+    }
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -172,24 +229,30 @@ export default function Home() {
     try {
       setIsSubmitting(true);
 
-      setSubmitStep("กำลังอัปโหลดรูปภาพหลักฐาน...");
-      const fileExt = imageFile!.name.split(".").pop();
-      const randomFileToken = Math.random().toString(36).substring(2, 12);
-      const fileName = `${Date.now()}-${randomFileToken}.${fileExt}`;
+      let publicUrl: string | null = null;
+      if (imageFile) {
+        setSubmitStep("กำลังอัปโหลดรูปภาพหลักฐาน...");
+        const fileExt = imageFile.name.split(".").pop();
+        const randomFileToken = Math.random().toString(36).substring(2, 12);
+        const fileName = `${Date.now()}-${randomFileToken}.${fileExt}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from("report-images")
-        .upload(fileName, imageFile!, {
-          cacheControl: "3600",
-          upsert: false,
-        });
+        const { error: uploadError } = await supabase.storage
+          .from("report-images")
+          .upload(fileName, imageFile, {
+            cacheControl: "3600",
+            upsert: false,
+          });
 
-      if (uploadError) throw uploadError;
+        if (uploadError) throw uploadError;
+
+        const { data } = supabase.storage
+          .from("report-images")
+          .getPublicUrl(fileName);
+        
+        publicUrl = data.publicUrl;
+      }
 
       setSubmitStep("กำลังเตรียมข้อมูลแจ้งซ่อม...");
-      const { data: { publicUrl } } = supabase.storage
-        .from("report-images")
-        .getPublicUrl(fileName);
 
       setSubmitStep("กำลังลงทะเบียนข้อมูลเข้าระบบ...");
       const publicId = generatePublicId();
@@ -198,12 +261,14 @@ export default function Home() {
       const newReportData = {
         public_id: publicId,
         tracking_token: trackingToken,
-        category,
+        category_id: categoryId,
+        subcategory_id: subcategoryId,
         location: location.trim(),
         description: description.trim(),
         image_url: publicUrl,
         reporter_name: reporterName.trim(),
         email: email.trim().toLowerCase(),
+        phone: phone.trim(),
         status: "pending",
         priority: "low",
         admin_remark: null,
@@ -240,11 +305,14 @@ export default function Home() {
   };
 
   const resetForm = () => {
-    setCategory("");
+
+    setCategoryId("");
+    setSubcategoryId("");
     setLocation("");
     setDescription("");
     setReporterName("");
     setEmail("");
+    setPhone("");
     setImageFile(null);
     setImagePreview(null);
     setSubmittedReport(null);
@@ -482,29 +550,29 @@ export default function Home() {
                 {/* Category */}
                 <div className="relative">
                   <label className="block text-[12px] font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    ประเภทปัญหา <span className="text-primary">*</span>
+                    หมวดหมู่หลัก <span className="text-primary">*</span>
                   </label>
                   <button
                     type="button"
-                    onClick={() => setDropdownOpen(!dropdownOpen)}
-                    className={`w-full text-left flex items-center justify-between text-[12px] font-normal transition-all px-4 py-3.5 rounded-[16px] bg-slate-100/50 dark:bg-slate-900/50 border ${formErrors.category ? "border-rose-500 text-rose-500" : "border-[#EDF0F4] dark:border-slate-700 text-slate-900 dark:text-white"
+                    onClick={() => { setCategoryDropdownOpen(!categoryDropdownOpen); setSubcategoryDropdownOpen(false); }}
+                    className={`w-full text-left flex items-center justify-between text-[12px] font-normal transition-all px-4 py-3.5 rounded-[16px] bg-slate-100/50 dark:bg-slate-900/50 border ${formErrors.categoryId ? "border-rose-500 text-rose-500" : "border-[#EDF0F4] dark:border-slate-700 text-slate-900 dark:text-white"
                       } focus:ring-0 cursor-pointer`}
                   >
                     <span className="flex items-center gap-2">
-                      {category ? (
+                      {categoryId ? (
                         (() => {
-                          const selected = FORM_CATEGORIES.find(c => c.id === category);
-                          return selected ? (
+                          const cat = categories.find(c => c.id === categoryId);
+                          if (!cat) return <span className="text-slate-400">เลือกหมวดหมู่หลัก</span>;
+                          const Icon = getCategoryIcon(cat.name_th);
+                          return (
                             <>
-                              <selected.Icon className="w-4 h-4 text-slate-500 shrink-0" />
-                              <span>{selected.label}</span>
+                              <Icon className="w-4 h-4 text-slate-500 shrink-0" />
+                              <span>{cat.name_th}</span>
                             </>
-                          ) : (
-                            <span className="text-slate-400">เลือกประเภทปัญหา</span>
                           );
                         })()
                       ) : (
-                        <span className="text-slate-400">เลือกประเภทปัญหา</span>
+                        <span className="text-slate-400">เลือกหมวดหมู่หลัก</span>
                       )}
                     </span>
                     <svg
@@ -513,27 +581,29 @@ export default function Home() {
                       viewBox="0 0 24 24"
                       strokeWidth={2.5}
                       stroke="currentColor"
-                      className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${dropdownOpen ? "rotate-180" : ""}`}
+                      className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${categoryDropdownOpen ? "rotate-180" : ""}`}
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                     </svg>
                   </button>
 
-                  {dropdownOpen && (
-                    <div className="absolute z-30 left-0 top-full mt-2 w-full bg-white dark:bg-slate-800 rounded-2xl border border-[#EDF0F4] dark:border-slate-700 shadow-xl overflow-hidden animate-scale-up">
+                  {categoryDropdownOpen && (
+                    <div className="absolute z-30 left-0 top-full mt-2 w-full max-h-[300px] overflow-y-auto bg-white dark:bg-slate-800 rounded-2xl border border-[#EDF0F4] dark:border-slate-700 shadow-xl overflow-hidden animate-scale-up">
                       <ul className="py-2">
-                        {FORM_CATEGORIES.map(({ id, label, Icon }) => {
-                          const isSelected = category === id;
+                        {categories.map((cat) => {
+                          const isSelected = categoryId === cat.id;
+                          const Icon = getCategoryIcon(cat.name_th);
                           return (
-                            <li key={id}>
+                            <li key={cat.id}>
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setCategory(id as ReportCategory);
-                                  setDropdownOpen(false);
+                                  setCategoryId(cat.id);
+                                  setSubcategoryId(""); // reset subcategory when category changes
+                                  setCategoryDropdownOpen(false);
                                   setFormErrors(prev => {
                                     const copy = { ...prev };
-                                    delete copy.category;
+                                    delete copy.categoryId;
                                     return copy;
                                   });
                                 }}
@@ -542,7 +612,7 @@ export default function Home() {
                               >
                                 <span className="flex items-center gap-3 text-[12px]">
                                   <Icon className="w-4 h-4 text-slate-500 shrink-0" />
-                                  <span>{label}</span>
+                                  <span>{cat.name_th}</span>
                                 </span>
                                 {isSelected && (
                                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-5 h-5 text-primary">
@@ -556,8 +626,83 @@ export default function Home() {
                       </ul>
                     </div>
                   )}
-                  {formErrors.category && (
-                    <p className="text-xs text-rose-500 font-medium mt-2">{formErrors.category}</p>
+                  {formErrors.categoryId && (
+                    <p className="text-xs text-rose-500 font-medium mt-2">{formErrors.categoryId}</p>
+                  )}
+                </div>
+
+                {/* Subcategory */}
+                <div className="relative mt-4">
+                  <label className="block text-[12px] font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    หมวดหมู่ย่อย <span className="text-primary">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => { setSubcategoryDropdownOpen(!subcategoryDropdownOpen); setCategoryDropdownOpen(false); }}
+                    disabled={!categoryId || subcategories.length === 0}
+                    className={`w-full text-left flex items-center justify-between text-[12px] font-normal transition-all px-4 py-3.5 rounded-[16px] border focus:ring-0 ${
+                      !categoryId || subcategories.length === 0 
+                        ? "bg-slate-50 dark:bg-slate-800/50 text-slate-400 border-[#EDF0F4] dark:border-slate-700 cursor-not-allowed" 
+                        : "bg-slate-100/50 dark:bg-slate-900/50 text-slate-900 dark:text-white cursor-pointer hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
+                    } ${formErrors.subcategoryId ? "border-rose-500 text-rose-500" : "border-[#EDF0F4] dark:border-slate-700"}`}
+                  >
+                    <span className="flex items-center gap-2">
+                      {subcategoryId ? (
+                        <span>{subcategories.find(s => s.id === subcategoryId)?.name_th || "เลือกหมวดหมู่ย่อย"}</span>
+                      ) : (
+                        <span className="text-slate-400">เลือกหมวดหมู่ย่อย</span>
+                      )}
+                    </span>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={2.5}
+                      stroke="currentColor"
+                      className={`w-4 h-4 transition-transform duration-200 ${subcategoryDropdownOpen ? "rotate-180" : ""} ${!categoryId || subcategories.length === 0 ? "text-slate-300 dark:text-slate-600" : "text-slate-400"}`}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                    </svg>
+                  </button>
+
+                  {subcategoryDropdownOpen && subcategories.length > 0 && (
+                    <div className="absolute z-30 left-0 top-full mt-2 w-full max-h-[300px] overflow-y-auto bg-white dark:bg-slate-800 rounded-2xl border border-[#EDF0F4] dark:border-slate-700 shadow-xl overflow-hidden animate-scale-up">
+                      <ul className="py-2">
+                        {subcategories.map((subcat) => {
+                          const isSelected = subcategoryId === subcat.id;
+                          return (
+                            <li key={subcat.id}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSubcategoryId(subcat.id);
+                                  setSubcategoryDropdownOpen(false);
+                                  setFormErrors(prev => {
+                                    const copy = { ...prev };
+                                    delete copy.subcategoryId;
+                                    return copy;
+                                  });
+                                }}
+                                className={`w-full px-5 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center justify-between transition-colors cursor-pointer ${isSelected ? "bg-primary/5 text-primary font-bold" : "text-slate-700 dark:text-slate-300 font-medium"
+                                  }`}
+                              >
+                                <span className="flex items-center gap-3 text-[12px]">
+                                  <span>{subcat.name_th}</span>
+                                </span>
+                                {isSelected && (
+                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-5 h-5 text-primary">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                  </svg>
+                                )}
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  )}
+                  {formErrors.subcategoryId && (
+                    <p className="text-xs text-rose-500 font-medium mt-2">{formErrors.subcategoryId}</p>
                   )}
                 </div>
 
@@ -622,7 +767,7 @@ export default function Home() {
                 {/* Image Upload */}
                 <div>
                   <label className="block text-[12px] font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    รูปภาพประกอบ <span className="text-primary">*</span>
+                    รูปภาพประกอบ
                   </label>
 
                   {imagePreview ? (
@@ -690,13 +835,13 @@ export default function Home() {
                 <div className="w-1 h-4 rounded-full bg-[#D1350F] shrink-0 mt-1"></div>
                 <div>
                   <h3 className="text-[16px] font-bold text-slate-800 dark:text-white leading-none mb-1.5">ข้อมูลผู้แจ้ง</h3>
-                  <p className="text-[11px] text-slate-500 leading-none">ไม่บังคับ เพื่อให้เจ้าหน้าที่ติดต่อกลับ</p>
+                  <p className="text-[11px] text-slate-500 leading-none">เพื่อให้เจ้าหน้าที่ติดต่อกลับ</p>
                 </div>
               </div>
 
               <div className="space-y-3">
                 <div>
-                  <label htmlFor="reporterName" className="block text-[12px] font-medium text-slate-700 dark:text-slate-300 mb-2">ชื่อ-นามสกุล</label>
+                  <label htmlFor="reporterName" className="block text-[12px] font-medium text-slate-700 dark:text-slate-300 mb-2">ชื่อ-นามสกุล <span className="text-primary">*</span></label>
                   <input
                     type="text"
                     id="reporterName"
@@ -712,15 +857,15 @@ export default function Home() {
                         });
                       }
                     }}
-                    placeholder="ไม่ต้องระบุก็ได้"
-                    className="w-full text-[12px] font-normal text-slate-900 dark:text-white placeholder-slate-400 bg-slate-100/50 dark:bg-slate-900/50 border border-[#EDF0F4] dark:border-slate-700 px-4 py-3.5 rounded-[16px] focus:ring-2 focus:ring-primary/20"
+                    placeholder="ระบุชื่อ-นามสกุล"
+                    className={`w-full text-[12px] font-normal text-slate-900 dark:text-white placeholder-slate-400 bg-slate-100/50 dark:bg-slate-900/50 border px-4 py-3.5 rounded-[16px] focus:ring-2 focus:ring-primary/20 ${formErrors.reporterName ? "border-rose-500 text-rose-500" : "border-[#EDF0F4] dark:border-slate-700"}`}
                   />
                   {formErrors.reporterName && (
                     <p className="text-xs text-rose-500 font-medium mt-2">{formErrors.reporterName}</p>
                   )}
                 </div>
                 <div>
-                  <label htmlFor="email" className="block text-[12px] font-medium text-slate-700 dark:text-slate-300 mb-2">อีเมลติดต่อกลับ</label>
+                  <label htmlFor="email" className="block text-[12px] font-medium text-slate-700 dark:text-slate-300 mb-2">อีเมลติดต่อกลับ <span className="text-primary">*</span></label>
                   <input
                     type="email"
                     id="email"
@@ -736,11 +881,35 @@ export default function Home() {
                         });
                       }
                     }}
-                    placeholder="ไม่ต้องระบุก็ได้"
-                    className="w-full text-[12px] font-normal text-slate-900 dark:text-white placeholder-slate-400 bg-slate-100/50 dark:bg-slate-900/50 border border-[#EDF0F4] dark:border-slate-700 px-4 py-3.5 rounded-[16px] focus:ring-2 focus:ring-primary/20"
+                    placeholder="ระบุอีเมลติดต่อกลับ"
+                    className={`w-full text-[12px] font-normal text-slate-900 dark:text-white placeholder-slate-400 bg-slate-100/50 dark:bg-slate-900/50 border px-4 py-3.5 rounded-[16px] focus:ring-2 focus:ring-primary/20 ${formErrors.email ? "border-rose-500 text-rose-500" : "border-[#EDF0F4] dark:border-slate-700"}`}
                   />
                   {formErrors.email && (
                     <p className="text-xs text-rose-500 font-medium mt-2">{formErrors.email}</p>
+                  )}
+                </div>
+                <div>
+                  <label htmlFor="phone" className="block text-[12px] font-medium text-slate-700 dark:text-slate-300 mb-2">เบอร์โทรศัพท์ติดต่อ <span className="text-primary">*</span></label>
+                  <input
+                    type="tel"
+                    id="phone"
+                    name="phone"
+                    value={phone}
+                    onChange={(e) => {
+                      setPhone(e.target.value);
+                      if (e.target.value.trim()) {
+                        setFormErrors(prev => {
+                          const copy = { ...prev };
+                          delete copy.phone;
+                          return copy;
+                        });
+                      }
+                    }}
+                    placeholder="ระบุเบอร์โทรศัพท์ 10 หลัก"
+                    className={`w-full text-[12px] font-normal text-slate-900 dark:text-white placeholder-slate-400 bg-slate-100/50 dark:bg-slate-900/50 border px-4 py-3.5 rounded-[16px] focus:ring-2 focus:ring-primary/20 ${formErrors.phone ? "border-rose-500 text-rose-500" : "border-[#EDF0F4] dark:border-slate-700"}`}
+                  />
+                  {formErrors.phone && (
+                    <p className="text-xs text-rose-500 font-medium mt-2">{formErrors.phone}</p>
                   )}
                 </div>
               </div>

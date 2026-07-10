@@ -9,7 +9,7 @@ import { StatusBadge } from "@/components/design-system/StatusBadge";
 import { AppButton } from "@/components/design-system/AppButton";
 import { TimelineStepper } from "@/components/design-system/TimelineStepper";
 import { supabase } from "@/lib/supabase";
-import { Report, STATUS_DETAILS, CATEGORY_DETAILS } from "@/types/report";
+import { Report, STATUS_DETAILS } from "@/types/report";
 import { GlobalFooter } from "@/components/shared/GlobalFooter";
 
 interface TrackPageProps {
@@ -36,9 +36,23 @@ export default function TrackPage({ params }: TrackPageProps) {
 
         const { data, error: supabaseError } = await supabase
           .from("reports")
-          .select("*")
+          .select(`
+            *,
+            categories (
+              id,
+              name_th
+            ),
+            subcategories (
+              id,
+              name_th
+            )
+          `)
           .eq("public_id", publicId)
           .maybeSingle(); // FIX: Use maybeSingle() instead of single() to avoid throwing on 0 rows
+
+        console.log("PUBLIC ID:", publicId);
+        console.log("DATA:", data);
+        console.log("ERROR DETAILS:", JSON.stringify(supabaseError, null, 2));
 
         if (supabaseError) {
           console.error("เกิดข้อผิดพลาดจาก Supabase:", supabaseError);
@@ -122,7 +136,9 @@ export default function TrackPage({ params }: TrackPageProps) {
   }
 
   const currentStatusInfo = STATUS_DETAILS[report.status] || STATUS_DETAILS.pending;
-  const currentCategoryInfo = CATEGORY_DETAILS[report.category] || CATEGORY_DETAILS.Other;
+  // Use new relations if available, fallback to old category string
+  const displayCategory = report.categories?.name_th;
+  const displaySubcategory = report.subcategories?.name_th;
 
 
   return (
@@ -164,7 +180,7 @@ export default function TrackPage({ params }: TrackPageProps) {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6Z" />
                 </svg>
-                {currentCategoryInfo.label}
+                {displayCategory}
               </span>
             </div>
           </AppCard>
@@ -195,10 +211,22 @@ export default function TrackPage({ params }: TrackPageProps) {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6Z" />
                 </svg>
                 <div>
-                  <span className="text-[12px] text-slate-400 font-medium block mb-1">ประเภท</span>
-                  <span className="text-[12px] font-normal text-slate-700">{currentCategoryInfo.label}</span>
+                  <span className="text-[12px] text-slate-400 font-medium block mb-1">หมวดหมู่หลัก</span>
+                  <span className="text-[12px] font-normal text-slate-700">{displayCategory}</span>
                 </div>
               </div>
+
+              {displaySubcategory && (
+                <div className="flex items-start gap-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-slate-400 shrink-0 mt-0.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
+                  </svg>
+                  <div>
+                    <span className="text-[12px] text-slate-400 font-medium block mb-1">หมวดหมู่ย่อย</span>
+                    <span className="text-[12px] font-normal text-slate-700">{displaySubcategory}</span>
+                  </div>
+                </div>
+              )}
 
               <div className="flex items-start gap-3">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-slate-400 shrink-0 mt-0.5">
@@ -222,6 +250,44 @@ export default function TrackPage({ params }: TrackPageProps) {
                   </p>
                 </div>
               </div>
+
+              <div className="border-t border-[#EDF0F4] my-2" />
+              
+              {report.reporter_name && (
+                <div className="flex items-start gap-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-slate-400 shrink-0 mt-0.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                  </svg>
+                  <div>
+                    <span className="text-[12px] text-slate-400 font-medium block mb-1">ชื่อผู้แจ้ง</span>
+                    <span className="text-[12px] font-normal text-slate-700">{report.reporter_name}</span>
+                  </div>
+                </div>
+              )}
+
+              {report.email && (
+                <div className="flex items-start gap-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-slate-400 shrink-0 mt-0.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
+                  </svg>
+                  <div>
+                    <span className="text-[12px] text-slate-400 font-medium block mb-1">อีเมล</span>
+                    <span className="text-[12px] font-normal text-slate-700">{report.email}</span>
+                  </div>
+                </div>
+              )}
+
+              {report.phone && (
+                <div className="flex items-start gap-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-slate-400 shrink-0 mt-0.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-2.896-1.596-5.54-4.24-7.136-7.136l1.292-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z" />
+                  </svg>
+                  <div>
+                    <span className="text-[12px] text-slate-400 font-medium block mb-1">เบอร์โทรศัพท์</span>
+                    <span className="text-[12px] font-normal text-slate-700">{report.phone}</span>
+                  </div>
+                </div>
+              )}
             </div>
           </AppCard>
 

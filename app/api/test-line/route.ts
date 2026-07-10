@@ -5,10 +5,26 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const message = `🔔 ทดสอบแจ้งเตือน One Stop Service\n\nระบบสามารถเชื่อมต่อ LINE OA ได้สำเร็จ`;
+    const payload = {
+      publicId: "SOC-TEST-1234",
+      categoryName: "ระบบดิจิทัล คอมพิวเตอร์ และโสตทัศนูปกรณ์",
+      subcategoryName: "อินเทอร์เน็ต / Wi-Fi",
+      description: "ใช้งาน Wi-Fi คณะไม่ได้ เชื่อมต่อแล้วหลุดบ่อยมาก",
+      location: "ห้องสมุดคณะ",
+      date: new Date().toLocaleString('th-TH', {
+        timeZone: 'Asia/Bangkok',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }) + ' น.',
+      reporterName: "นายทดสอบ ระบบ",
+      statusText: "pending"
+    };
     
     console.log("Sending LINE notification test...");
-    const result = await notifyLine(message);
+    const result = await notifyLine(payload);
     
     console.log("LINE Notification API Response:", result);
 

@@ -1,9 +1,4 @@
-export type ReportCategory = 
-  | 'Safety' 
-  | 'Infrastructure' 
-  | 'Sanitation' 
-  | 'Traffic' 
-  | 'Other';
+
 
 export type ReportStatus = 
   | 'pending' 
@@ -21,47 +16,40 @@ export interface Report {
   id: string; // UUID จากฐานข้อมูล
   public_id: string; // SOC-XXXXX
   tracking_token: string; // UUID สำหรับตรวจสอบสถานะ
-  category: ReportCategory;
+  category_id?: number;
+  subcategory_id?: number;
   location: string;
   description: string;
   image_url: string | null;
   reporter_name: string;
   email: string;
+  phone?: string;
   status: ReportStatus;
   priority: ReportPriority;
   admin_remark: string | null;
   created_at: string;
   updated_at: string;
+  categories?: {
+    id: number;
+    name_th: string;
+  };
+  subcategories?: {
+    id: number;
+    name_th: string;
+  };
 }
 
-// ป้ายกำกับและไอคอนภาษาไทยสำหรับแต่ละหมวดหมู่
-export const CATEGORY_DETAILS: Record<ReportCategory, { label: string; icon: string; description: string }> = {
-  Safety: {
-    label: 'ความปลอดภัย',
-    icon: '🛡️',
-    description: 'เรื่องที่เป็นอันตรายต่อชีวิต ทรัพย์สิน หรือความปลอดภัยสาธารณะ'
-  },
-  Infrastructure: {
-    label: 'โครงสร้างพื้นฐาน',
-    icon: '🚧',
-    description: 'ถนนชำรุด ท่อระบายน้ำอุดตัน ไฟถนนดับ เสาไฟเอียง'
-  },
-  Sanitation: {
-    label: 'สุขาภิบาล/ขยะ',
-    icon: '🧹',
-    description: 'ขยะมูลฝอยตกค้าง กลิ่นเหม็น สิ่งปฏิกูล น้ำเสีย'
-  },
-  Traffic: {
-    label: 'การจราจร/ถนน',
-    icon: '🚗',
-    description: 'จอดรถกีดขวาง ป้ายจราจรเสียหาย สัญญาณไฟจราจรเสีย'
-  },
-  Other: {
-    label: 'เรื่องอื่น ๆ',
-    icon: '📁',
-    description: 'ข้อเสนอแนะ ข้อร้องเรียน หรือเรื่องทั่วไปอื่น ๆ'
-  }
-};
+export interface DBCategory {
+  id: number;
+  name_th: string;
+}
+
+export interface DBSubcategory {
+  id: number;
+  name_th: string;
+}
+
+
 
 // รายละเอียดสไตล์และป้ายกำกับภาษาไทยสำหรับแต่ละสถานะ
 export interface StatusConfig {

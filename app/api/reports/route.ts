@@ -28,10 +28,22 @@ export async function POST(req: Request) {
 
     console.log("INSERT BODY", body);
 
+
+
     const { data, error } = await supabaseAdmin
       .from("reports")
       .insert(body)
-      .select()
+      .select(`
+        *,
+        categories (
+          id,
+          name_th
+        ),
+        subcategories (
+          id,
+          name_th
+        )
+      `)
       .single();
 
     console.log("SUPABASE ERROR =", error);
@@ -53,12 +65,51 @@ export async function POST(req: Request) {
         minute: '2-digit'
       }) + ' น.';
 
-      const message = `🔔 มีคำร้องใหม่\n\nเลขอ้างอิง: ${data.public_id}\n\nหมวดหมู่: ${data.category}\n\nหัวข้อ: ${data.description}\n\nสถานที่: ${data.location}\n\nวันที่แจ้ง: ${createdAt}\n\nสถานะ: รอรับเรื่อง\n\n--------------------\n\nเปิดระบบ:\nhttps://supportsoc.vercel.app`;
+      const payload = {
+        publicId: data.public_id,
+        categoryName: data.categories?.name_th || data.category || "-",
+        subcategoryName: data.subcategories?.name_th || "-",
+        description: data.description,
+        location: data.location,
+        date: createdAt,
+        statusText: "pending",
+        reporterName: data.reporter_name
+      };
+
+      let targetGroupId: string | null = null;
+      let departmentId: number | null = null;
+      const categoryId = data.category_id;
+
+      if (categoryId) {
+        const { data: categoryData } = await supabaseAdmin
+          .from("categories")
+          .select("department_id")
+          .eq("id", categoryId)
+          .single();
+
+        departmentId = categoryData?.department_id || null;
+
+        if (departmentId) {
+          const { data: deptData } = await supabaseAdmin
+            .from("departments")
+            .select("line_group_id")
+            .eq("id", departmentId)
+            .single();
+            
+          targetGroupId = deptData?.line_group_id || null;
+        }
+      }
+
+      console.log("=== DEPARTMENT ROUTING LOGS ===");
+      console.log("Category ID:", categoryId);
+      console.log("Department ID:", departmentId);
+      console.log("Target Group ID:", targetGroupId);
+      console.log("===============================");
 
       console.log("=== CALLING LINE ===");
-      console.log(message);
+      console.log(payload);
 
-      const notifyResult = await notifyLine(message);
+      const notifyResult = await notifyLine(payload, targetGroupId);
       
       console.log("LINE RESULT:", notifyResult);
 

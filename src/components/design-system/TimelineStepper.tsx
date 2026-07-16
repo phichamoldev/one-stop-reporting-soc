@@ -21,7 +21,7 @@ export const TimelineStepper: React.FC<TimelineStepperProps> = ({ report }) => {
 
   // Status logic
   const isInProgress = status === 'in_progress';
-  const isResolved = status === 'resolved';
+  const isResolved = status === 'completed';
 
   const s1State = 'completed';
   const s2State = isResolved ? 'completed' : (isInProgress ? 'active' : 'inactive');
@@ -59,7 +59,7 @@ export const TimelineStepper: React.FC<TimelineStepperProps> = ({ report }) => {
 
   const s1 = STATUS_DETAILS.pending;
   const s2 = STATUS_DETAILS.in_progress;
-  const s3 = STATUS_DETAILS.resolved;
+  const s3 = STATUS_DETAILS.completed;
 
   return (
     <div className="flex flex-col">

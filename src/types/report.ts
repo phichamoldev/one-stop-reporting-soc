@@ -3,7 +3,7 @@
 export type ReportStatus = 
   | 'pending' 
   | 'in_progress' 
-  | 'resolved' 
+  | 'completed' 
   | 'rejected'
   | 'cancelled';
 
@@ -27,16 +27,20 @@ export interface Report {
   status: ReportStatus;
   priority: ReportPriority;
   admin_remark: string | null;
+  completed_by?: string | null;
+  completed_at?: string | null;
   created_at: string;
   updated_at: string;
   categories?: {
     id: number;
     name_th: string;
+    department_id?: number;
   };
   subcategories?: {
     id: number;
     name_th: string;
   };
+  report_logs?: ReportLog[];
 }
 
 export interface DBCategory {
@@ -47,6 +51,31 @@ export interface DBCategory {
 export interface DBSubcategory {
   id: number;
   name_th: string;
+}
+
+export interface StaffProfile {
+  id: string;
+  full_name: string;
+  department_id: number | null;
+  role: string;
+  departments?: {
+    name_th: string;
+  };
+}
+
+export interface ReportLog {
+  id: number;
+  report_id: string;
+  user_id: string | null;
+  action: string;
+  old_status: ReportStatus | null;
+  new_status: ReportStatus;
+  remark: string | null;
+  created_at: string;
+  staff_users?: {
+    full_name: string;
+  } | null;
+  custom_label?: string;
 }
 
 
@@ -81,7 +110,7 @@ export const STATUS_DETAILS: Record<ReportStatus, StatusConfig> = {
     dotClass: 'bg-orange-500',
     stepIndex: 1
   },
-  resolved: {
+  completed: {
     label: 'เสร็จสิ้น',
     description: 'ขอบคุณที่ช่วยกันพัฒนาคณะของเรา',
     colorClass: 'text-green-700 dark:text-green-400',

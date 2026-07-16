@@ -14,7 +14,7 @@ export const AppNavbar: React.FC = () => {
             alt="Kasetsart University"
             width={20}
             height={20}
-            className="object-contain"
+            className="object-contain w-auto h-auto"
             priority
           />
         </div>

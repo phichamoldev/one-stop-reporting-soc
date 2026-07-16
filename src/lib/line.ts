@@ -56,7 +56,7 @@ export async function notifyLine(message: string | LineNotificationPayload, cust
     else if (statusText === "in_progress" || statusText.includes("กำลังดำเนินการ")) {
       mappedStatus = "🔵 กำลังดำเนินการ";
     }
-    else if (statusText === "resolved" || statusText.includes("เสร็จสิ้น")) {
+    else if (statusText === "completed" || statusText.includes("เสร็จสิ้น")) {
       mappedStatus = "🟢 ดำเนินการเสร็จสิ้น";
     }
     else if (statusText === "rejected" || statusText.includes("ปฏิเสธ")) {
@@ -168,7 +168,7 @@ export async function notifyLine(message: string | LineNotificationPayload, cust
           footer: {
             type: "box",
             layout: "vertical",
-            paddingAll: "20px",
+            paddingAll: "12px",
             contents: [
               {
                 type: "button",

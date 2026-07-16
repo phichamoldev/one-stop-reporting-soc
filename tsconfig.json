@@ -36,5 +36,5 @@
     "**/*.mts"
   ],
 
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "temp_ui_ref"]
 }

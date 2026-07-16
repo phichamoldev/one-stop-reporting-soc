@@ -1,6 +1,0 @@
-{
-  "name": "ระบบหลังบ้านแจ้งซ่อมและร้องเรียน",
-  "description": "ระบบจัดการคำร้องและติดตามสถานะแจ้งซ่อม คณะสังคมศาสตร์ ภาษาไทย 100% รองรับ Real-time และการสถิติเชิงลึก",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

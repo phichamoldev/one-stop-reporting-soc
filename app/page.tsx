@@ -61,12 +61,10 @@ export default function Home() {
   useEffect(() => {
     async function loadCategories() {
       try {
-        const { data, error } = await supabase
-          .from("categories")
-          .select("id,name_th")
-          .order("id");
-        if (data) {
-          setCategories(data);
+        const res = await fetch("/api/categories");
+        if (res.ok) {
+          const { categories } = await res.json();
+          setCategories(categories || []);
         }
       } catch (err) {
         console.error("ไม่สามารถโหลดหมวดหมู่ได้:", err);
@@ -83,12 +81,10 @@ export default function Home() {
         return;
       }
       try {
-        const { data, error } = await supabase
-          .from("subcategories")
-          .select("id,name_th")
-          .eq("category_id", categoryId);
-        if (data) {
-          setSubcategories(data);
+        const res = await fetch(`/api/subcategories?categoryId=${categoryId}`);
+        if (res.ok) {
+          const { subcategories } = await res.json();
+          setSubcategories(subcategories || []);
         }
       } catch (err) {
         console.error("ไม่สามารถโหลดหมวดหมู่ย่อยได้:", err);
@@ -97,22 +93,8 @@ export default function Home() {
     loadSubcategories();
   }, [categoryId]);
 
-  // โหลดสถิติด้านหลัง
-  useEffect(() => {
-    async function loadStats() {
-      try {
-        const { data } = await supabase
-          .from("reports")
-          .select("status");
-        if (data) {
-          // stats tracking code was here
-        }
-      } catch (err) {
-        console.error("ไม่สามารถโหลดสถิติได้:", err);
-      }
-    }
-    loadStats();
-  }, [submittedReport]);
+  // (Removed loadStats as it was unused and violates RLS)
+  // (Removed loadStats as it was unused and violates RLS)
 
   // จัดการไฟล์ภาพ
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -485,7 +467,7 @@ export default function Home() {
                     alt="Kasetsart University"
                     width={20}
                     height={20}
-                    className="object-contain"
+                    className="object-contain w-auto h-auto"
                     priority
                   />
                 </div>

@@ -7,10 +7,23 @@ import { AppContainer } from "@/components/design-system/AppContainer";
 import { AppCard } from "@/components/design-system/AppCard";
 import { StatusBadge } from "@/components/design-system/StatusBadge";
 import { AppButton } from "@/components/design-system/AppButton";
-import { TimelineStepper } from "@/components/design-system/TimelineStepper";
 import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 import { Report, STATUS_DETAILS } from "@/types/report";
 import { GlobalFooter } from "@/components/shared/GlobalFooter";
+import { 
+  Calendar, 
+  RefreshCcw, 
+  FileText, 
+  Image as ImageIcon, 
+  User, 
+  Mail, 
+  Phone,
+  CheckCircle2,
+  Clock,
+  ArrowLeft,
+  Plus
+} from "lucide-react";
 
 interface TrackPageProps {
   params: Promise<{
@@ -21,6 +34,7 @@ interface TrackPageProps {
 export default function TrackPage({ params }: TrackPageProps) {
   const { publicId } = use(params);
 
+  const router = useRouter();
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,42 +48,21 @@ export default function TrackPage({ params }: TrackPageProps) {
         setLoading(true);
         setError(null);
 
-        const { data, error: supabaseError } = await supabase
-          .from("reports")
-          .select(`
-            *,
-            categories (
-              id,
-              name_th
-            ),
-            subcategories (
-              id,
-              name_th
-            )
-          `)
-          .eq("public_id", publicId)
-          .maybeSingle(); // FIX: Use maybeSingle() instead of single() to avoid throwing on 0 rows
+        const res = await fetch(`/api/reports/${publicId}`);
+        const result = await res.json();
 
-        console.log("PUBLIC ID:", publicId);
-        console.log("DATA:", data);
-        console.log("ERROR DETAILS:", JSON.stringify(supabaseError, null, 2));
+        if (!res.ok) {
+          throw new Error(result.error || "เกิดข้อผิดพลาดในการโหลดข้อมูล");
+        }
 
-        if (supabaseError) {
-          console.error("เกิดข้อผิดพลาดจาก Supabase:", supabaseError);
-          setError("ไม่พบข้อมูลรายงานที่สืบค้น กรุณาตรวจสอบรหัสติดตามอีกครั้ง");
+        if (!result.report) {
+          setError("ไม่พบข้อมูลรายงาน");
           return;
         }
 
-        if (!data) {
-          setError("ไม่พบข้อมูลรายงานที่สืบค้น กรุณาตรวจสอบรหัสติดตามอีกครั้ง");
-          setReport(null);
-          return;
-        }
-
-        setReport(data);
-      } catch (err) {
-        console.error("เกิดข้อผิดพลาดในการดึงข้อมูล:", err);
-        setError("การเชื่อมต่อฐานข้อมูลล้มเหลว กรุณาลองใหม่อีกครั้ง");
+        setReport(result.report as Report);
+      } catch (err: any) {
+        setError(err.message || "เกิดข้อผิดพลาดในการโหลดข้อมูล");
       } finally {
         setLoading(false);
       }
@@ -80,20 +73,26 @@ export default function TrackPage({ params }: TrackPageProps) {
     }
   }, [publicId]);
 
+  // ฟังก์ชันสำหรับการคัดลอกลิงก์
   const handleCopyLink = () => {
-    if (typeof window !== "undefined") {
-      navigator.clipboard.writeText(window.location.href);
+    const url = window.location.href;
+    navigator.clipboard.writeText(url).then(() => {
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
+      setTimeout(() => setCopied(false), 2000); // รีเซ็ตกลับเป็นปกติหลัง 2 วินาที
+    }).catch(err => {
+      console.error('Failed to copy link: ', err);
+    });
   };
 
   if (loading) {
     return (
-      <AppContainer className="flex items-center justify-center">
-        <div className="flex flex-col items-center justify-center p-8 space-y-4">
-          <div className="w-10 h-10 rounded-full border-4 border-primary/20 border-t-primary animate-spin"></div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 animate-pulse">กำลังสืบค้นข้อมูลสถานะคำร้อง...</p>
+      <AppContainer>
+        <AppNavbar />
+        <div className="flex-1 p-5 md:p-8 flex items-center justify-center bg-[#F8FAFC]">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-slate-500 font-medium">กำลังโหลดข้อมูล...</p>
+          </div>
         </div>
       </AppContainer>
     );
@@ -103,241 +102,321 @@ export default function TrackPage({ params }: TrackPageProps) {
     return (
       <AppContainer>
         <AppNavbar />
-        <div className="p-6 flex flex-col justify-between items-center text-center animate-scale-up h-[calc(100vh-72px)]">
-          <div className="space-y-6 pt-24">
-            <div className="w-16 h-16 rounded-full bg-slate-50 text-slate-400 flex items-center justify-center mx-auto border border-slate-100">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-7 h-7">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+        <div className="flex-1 p-5 md:p-8 flex items-center justify-center bg-[#F8FAFC]">
+          <AppCard className="max-w-md w-full text-center py-10 shadow-sm border-[#EDF0F4]">
+            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-8 h-8 text-red-500">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
             </div>
-            <div className="space-y-2">
-              <h2 className="text-[17px] font-bold text-slate-800">ไม่พบรายงานปัญหาที่ค้นหา</h2>
-              <p className="text-[13px] text-slate-500 max-w-[280px] mx-auto leading-relaxed">
-                {error || "รหัสติดตามที่ระบุใน URL ไม่ถูกต้องหรือข้อมูลอาจถูกลบไปแล้ว"}
-              </p>
-            </div>
-          </div>
-          <div className="w-full flex flex-col gap-3 mt-auto pt-6 pb-6">
-            <Link href="/" className="block">
-              <AppButton fullWidth variant="primary">
-                กลับหน้าหลักเพื่อแจ้งเรื่องใหม่
-              </AppButton>
+            <h2 className="text-xl font-bold text-slate-800 mb-2">ไม่พบข้อมูล</h2>
+            <p className="text-slate-500 mb-6 px-4">
+              {error || "หมายเลขอ้างอิงที่คุณระบุไม่ถูกต้อง หรือถูกลบออกจากระบบแล้ว"}
+            </p>
+            <Link href="/">
+              <AppButton variant="primary">กลับสู่หน้าหลัก</AppButton>
             </Link>
-            <Link href="/track/lookup" className="block">
-              <AppButton fullWidth variant="secondary">
-                ลองค้นหาด้วยรหัสติดตามใหม่อีกครั้ง
-              </AppButton>
-            </Link>
-          </div>
-          <GlobalFooter />
+          </AppCard>
         </div>
       </AppContainer>
     );
   }
 
-  const currentStatusInfo = STATUS_DETAILS[report.status] || STATUS_DETAILS.pending;
-  // Use new relations if available, fallback to old category string
-  const displayCategory = report.categories?.name_th;
-  const displaySubcategory = report.subcategories?.name_th;
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/");
+    }
+  };
 
+  const currentStatusInfo = STATUS_DETAILS[report.status] || STATUS_DETAILS.pending;
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('th-TH', { 
+      day: '2-digit', month: 'short', year: 'numeric',
+    }) + ', ' + new Date(dateString).toLocaleTimeString('th-TH', {
+      hour: '2-digit', minute: '2-digit'
+    }) + ' น.';
+  };
+
+  // Reduce timeline events to max 3 items
+  const rawLogs = [...(report.report_logs || [])].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  
+  const displayLogs: any[] = [];
+  
+  // 1. Created Event
+  const createdLog = rawLogs.find(l => l.action === 'created');
+  if (createdLog) {
+    displayLogs.push({
+      ...createdLog,
+      custom_label: 'ส่งเรื่องเข้าระบบแล้ว'
+    });
+  }
+
+  // 2. In Progress Event (combine received and in_progress)
+  const inProgressLogs = rawLogs.filter(l => l.new_status === 'in_progress');
+  if (inProgressLogs.length > 0) {
+    const latestInProgress = inProgressLogs[inProgressLogs.length - 1];
+    displayLogs.push({
+      ...latestInProgress,
+      new_status: 'in_progress',
+      custom_label: 'กำลังดำเนินการ'
+    });
+  }
+
+  // 3. Final Event
+  const finalLogs = rawLogs.filter(l => ['completed', 'rejected', 'cancelled'].includes(l.new_status));
+  if (finalLogs.length > 0) {
+    const latestFinal = finalLogs[finalLogs.length - 1];
+    let finalLabel = "เสร็จสิ้น";
+    if (latestFinal.new_status === 'rejected') finalLabel = "ไม่สามารถดำเนินการได้";
+    if (latestFinal.new_status === 'cancelled') finalLabel = "ยกเลิกรายการ";
+    
+    displayLogs.push({
+      ...latestFinal,
+      custom_label: finalLabel
+    });
+  }
+
+  const sortedLogs = displayLogs.reverse();
 
   return (
     <AppContainer>
-      <AppNavbar />
-
-      {/* คอนเทนต์หลักแบบ Scroll */}
-      <div className="flex-1 flex flex-col overflow-y-auto bg-[#F8FAFC]">
+      <div className="flex-1 flex flex-col overflow-y-auto bg-[#F4F6F8] min-h-screen">
         
-        {/* 1. Summary Card */}
-        <div className="p-5 pb-2">
-          <AppCard className="!p-6 border-[#EDF0F4] shadow-sm">
-            {/* Top row */}
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <span className="text-[12px] text-slate-400 font-bold block mb-1">หมายเลขอ้างอิง</span>
-                <span className="text-[28px] font-black text-[#0B2E59] tracking-wide block leading-none">
-                  {report.public_id}
-                </span>
-              </div>
-              <StatusBadge 
-                status={report.status} 
-                label={currentStatusInfo.label} 
-              />
+        {/* 1. Header Section (นอก Card ตาม Reference Image) */}
+        <div className="bg-white border-b border-slate-200">
+          <div className="max-w-3xl mx-auto w-full p-6 md:p-6">
+            <div className="flex items-center gap-4 mb-4">
+               <button onClick={handleBack} className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 hover:bg-slate-100 transition-colors border border-slate-100">
+                  <ArrowLeft className="w-5 h-5" />
+               </button>
+               <div>
+                 <span className="text-[13px] text-slate-400 font-medium block mb-0.5">รายงาน</span>
+                 <h1 className="text-[20px] font-bold text-slate-800 tracking-tight leading-none">{report.public_id}</h1>
+               </div>
+               <div className="ml-auto">
+                 <StatusBadge status={report.status} label={currentStatusInfo.label} />
+               </div>
             </div>
             
-            <div className="h-px bg-[#EDF0F4] my-4" />
-            
-            {/* Bottom row */}
-            <div className="flex items-center gap-6 text-[12px] text-slate-500 font-medium">
-              <span className="flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
-                </svg>
-                {new Date(report.created_at).toLocaleDateString('th-TH', { day: '2-digit', month: 'long', year: 'numeric' })}
-              </span>
-              <span className="flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6Z" />
-                </svg>
-                {displayCategory}
-              </span>
+            <div className="flex flex-row items-center gap-4 pt-1 text-[11px] text-slate-400 font-normal">
+               <span className="flex items-center gap-1.5">
+                 <Calendar className="w-3 h-3" />
+                 สร้าง: {formatDate(report.created_at)}
+               </span>
+               <span className="flex items-center gap-1.5">
+                 <RefreshCcw className="w-3 h-3" />
+                 อัปเดต: {formatDate(report.updated_at)}
+               </span>
             </div>
-          </AppCard>
+          </div>
         </div>
 
-        <div className="px-5 pb-5 space-y-4">
+        <div className="p-6 md:p-6 pb-12 space-y-6 max-w-3xl mx-auto w-full">
           
-          {/* 2. ไทม์ไลน์สถานะ (Timeline Card) */}
-          <AppCard className="!p-5 border-[#EDF0F4] shadow-sm">
-            <div className="flex items-center gap-2.5 mb-6">
-              <div className="w-1 h-4 rounded-full bg-[#D1350F] shrink-0"></div>
-              <h3 className="text-[16px] font-bold text-slate-800 leading-none">ความคืบหน้า</h3>
-            </div>
-            <TimelineStepper report={report} />
+          {/* 2. รายละเอียดการแจ้ง (Main Card with top border accent) */}
+          <AppCard className="!p-0 border-[#EDF0F4] shadow-sm overflow-hidden border-t-[4px] border-t-primary rounded-[8px]">
+             
+             <div className="p-4 border-b border-slate-100 flex items-center gap-3">
+               <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center text-primary shrink-0">
+                 <FileText className="w-4 h-4" />
+               </div>
+               <h2 className="text-[16px] font-bold text-slate-800">รายละเอียดการแจ้ง</h2>
+             </div>
+
+             <div className="p-4 border-b border-slate-100 space-y-4">
+               <div>
+                 <span className="text-[12px] text-slate-400 font-medium flex items-center gap-1.5 mb-1.5">
+                   หมวดหมู่หลัก
+                 </span>
+                 <span className="text-[14px] font-medium text-slate-800 block ">{report.categories?.name_th || "-"}</span>
+               </div>
+               
+               <div className="pt-1">
+                 <span className="text-[12px] text-slate-400 font-medium flex items-center gap-1.5 mb-1.5">
+                   หมวดหมู่ย่อย
+                 </span>
+                 <span className="text-[14px] font-medium text-slate-800 block ">{report.subcategories?.name_th || "-"}</span>
+               </div>
+             </div>
+
+             <div className="p-4 border-b border-slate-100">
+               <div>
+                 <span className="text-[12px] text-slate-400 font-medium flex items-center gap-1.5 mb-1.5">
+                   สถานที่
+                 </span>
+                 <span className="text-[14px] font-normal text-slate-700 block  leading-relaxed">{report.location || "-"}</span>
+               </div>
+             </div>
+
+             <div className="p-4">
+                 <span className="text-[12px] text-slate-400 font-medium flex items-center gap-1.5 mb-2.5">
+                   รายละเอียด
+                 </span>
+                 <div className="bg-slate-50 rounded-xl p-4 ml-0 mt-2">
+                   <p className="text-[14px] font-normal text-slate-700 leading-loose whitespace-pre-wrap">
+                     {report.description || "-"}
+                   </p>
+                 </div>
+             </div>
           </AppCard>
 
-          {/* 3. รายละเอียดการแจ้ง (Detail Card) */}
-          <AppCard className="!p-5 border-[#EDF0F4] shadow-sm">
-            <div className="flex items-center gap-2.5 mb-5">
-              <div className="w-1 h-4 rounded-full bg-[#D1350F] shrink-0"></div>
-              <h3 className="text-[16px] font-bold text-slate-800 leading-none">รายละเอียดการแจ้ง</h3>
-            </div>
-            
-            <div className="space-y-5">
-              <div className="flex items-start gap-3">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-slate-400 shrink-0 mt-0.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6Z" />
-                </svg>
-                <div>
-                  <span className="text-[12px] text-slate-400 font-medium block mb-1">หมวดหมู่หลัก</span>
-                  <span className="text-[12px] font-normal text-slate-700">{displayCategory}</span>
-                </div>
-              </div>
-
-              {displaySubcategory && (
-                <div className="flex items-start gap-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-slate-400 shrink-0 mt-0.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
-                  </svg>
-                  <div>
-                    <span className="text-[12px] text-slate-400 font-medium block mb-1">หมวดหมู่ย่อย</span>
-                    <span className="text-[12px] font-normal text-slate-700">{displaySubcategory}</span>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex items-start gap-3">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-slate-400 shrink-0 mt-0.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
-                </svg>
-                <div>
-                  <span className="text-[12px] text-slate-400 font-medium block mb-1">สถานที่</span>
-                  <span className="text-[12px] font-normal text-slate-700">{report.location}</span>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-slate-400 shrink-0 mt-0.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-                </svg>
-                <div>
-                  <span className="text-[12px] text-slate-400 font-medium block mb-1">รายละเอียด</span>
-                  <p className="text-[12px] font-normal text-slate-700 leading-relaxed pr-2">
-                    {report.description}
-                  </p>
-                </div>
-              </div>
-
-              <div className="border-t border-[#EDF0F4] my-2" />
-              
-              {report.reporter_name && (
-                <div className="flex items-start gap-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-slate-400 shrink-0 mt-0.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
-                  </svg>
-                  <div>
-                    <span className="text-[12px] text-slate-400 font-medium block mb-1">ชื่อผู้แจ้ง</span>
-                    <span className="text-[12px] font-normal text-slate-700">{report.reporter_name}</span>
-                  </div>
-                </div>
-              )}
-
-              {report.email && (
-                <div className="flex items-start gap-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-slate-400 shrink-0 mt-0.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
-                  </svg>
-                  <div>
-                    <span className="text-[12px] text-slate-400 font-medium block mb-1">อีเมล</span>
-                    <span className="text-[12px] font-normal text-slate-700">{report.email}</span>
-                  </div>
-                </div>
-              )}
-
-              {report.phone && (
-                <div className="flex items-start gap-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-slate-400 shrink-0 mt-0.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-2.896-1.596-5.54-4.24-7.136-7.136l1.292-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z" />
-                  </svg>
-                  <div>
-                    <span className="text-[12px] text-slate-400 font-medium block mb-1">เบอร์โทรศัพท์</span>
-                    <span className="text-[12px] font-normal text-slate-700">{report.phone}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </AppCard>
-
-          {/* 4. แสดงรูปถ่าย (Attachment Card) */}
+          {/* 3. รูปภาพประกอบ */}
           {report.image_url && (
-            <AppCard className="!p-5 border-[#EDF0F4] shadow-sm">
-              <div className="flex items-center gap-2.5 mb-4">
-                <div className="w-1 h-4 rounded-full bg-[#D1350F] shrink-0"></div>
-                <h3 className="text-[16px] font-bold text-slate-800 leading-none">รูปภาพประกอบ</h3>
-              </div>
-              <div className="relative rounded-[16px] overflow-hidden bg-slate-50 dark:bg-slate-950 ring-1 ring-[#EDF0F4] dark:ring-slate-800">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={report.image_url}
-                  alt={`รูปปัญหา ${report.public_id}`}
-                  className="w-full h-auto object-cover max-h-[300px]"
-                />
-              </div>
+            <AppCard className="!p-0 border-[#EDF0F4] shadow-sm overflow-hidden rounded-[16px]">
+               <div className="p-4 border-b border-slate-100 flex items-center gap-3">
+                 <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+                   <ImageIcon className="w-4 h-4" />
+                 </div>
+                 <h2 className="text-[16px] font-bold text-slate-800">รูปภาพประกอบ</h2>
+               </div>
+               <div className="p-4">
+                 <div className="relative rounded-xl overflow-hidden ring-1 ring-slate-200">
+                   {/* eslint-disable-next-line @next/next/no-img-element */}
+                   <img src={report.image_url} alt="รูปภาพประกอบ" className="w-full h-auto object-cover max-h-[500px]" />
+                 </div>
+               </div>
             </AppCard>
           )}
 
-          {/* 5. ความเห็นจากแอดมินเจ้าหน้าที่ (Staff Comment Card) */}
-          {report.admin_remark && (
-            <div className="bg-[#FFF8E6] border border-[#FDE3A7] rounded-3xl p-5 shadow-sm">
-              <div className="flex items-start gap-2.5 mb-2">
-                <div className="w-1 h-4 rounded-full bg-[#D1350F] shrink-0 mt-0.5"></div>
-                <h3 className="text-[16px] font-bold text-slate-800 leading-none">หมายเหตุจากเจ้าหน้าที่</h3>
-              </div>
-              <p className="text-[12px] font-normal text-[#A67C00] leading-relaxed pr-1 ml-[14px]">
-                {report.admin_remark}
-              </p>
-            </div>
-          )}
+          {/* 4. ข้อมูลผู้แจ้ง */}
+          <AppCard className="!p-0 border-[#EDF0F4] shadow-sm overflow-hidden rounded-[16px]">
+             <div className="p-4 border-b border-slate-100 flex items-center gap-3">
+               <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 shrink-0">
+                 <User className="w-4 h-4" />
+               </div>
+               <h2 className="text-[16px] font-bold text-slate-800">ข้อมูลผู้แจ้ง</h2>
+             </div>
+             
+             <div className="p-4 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 shrink-0 border border-slate-100">
+                    <User className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-slate-400 font-medium block mb-0.5">ชื่อผู้แจ้ง</span>
+                    <span className="text-[14px] font-medium text-slate-700">{report.reporter_name || "-"}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 shrink-0 border border-slate-100">
+                    <Mail className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-slate-400 font-medium block mb-0.5">อีเมล</span>
+                    <span className="text-[14px] font-medium text-slate-700">{report.email || "-"}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 shrink-0 border border-slate-100">
+                    <Phone className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-slate-400 font-medium block mb-0.5">เบอร์โทรศัพท์</span>
+                    <span className="text-[14px] font-medium text-slate-700">{report.phone || "-"}</span>
+                  </div>
+                </div>
+             </div>
+          </AppCard>
+
           
-          {/* 6. BOTTOM ACTIONS */}
+
+          {/* 6. TIMELINE SECTION */}
+          <div className="mt-8">
+            <AppCard className="!p-5 md:!p-6 border-[#EDF0F4] shadow-sm bg-white rounded-[16px]">
+              <div className="flex justify-between items-center mb-6">
+                 <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 shrink-0">
+                       <Clock className="w-4 h-4" />
+                    </div>
+                    <h3 className="text-[16px] font-bold text-slate-800">ประวัติการดำเนินงาน</h3>
+                 </div>
+                 <div className="bg-slate-100 text-slate-500 text-[11px] px-3 py-1 rounded-full font-medium shrink-0">
+                    {sortedLogs.length} รายการ
+                 </div>
+              </div>
+              
+              <div className="pl-2 pr-1">
+                <div className="relative border-l-[1px] border-slate-200 ml-[15px] space-y-8 pb-4">
+                   {sortedLogs.length === 0 ? (
+                      <p className="text-[13px] text-slate-400 pl-8">ยังไม่มีประวัติการดำเนินงาน</p>
+                   ) : sortedLogs.map((log, idx) => {
+                     const isActive = idx === 0;
+                     const statusInfo = log.custom_label ? { label: log.custom_label } : (STATUS_DETAILS[log.new_status as keyof typeof STATUS_DETAILS] || { label: log.action || "อัปเดต" });
+                     const staffName = log.action === "created" 
+                       ? "ระบบ" 
+                       : (log.staff_users?.full_name || "เจ้าหน้าที่");
+                     
+                     let Icon = Clock;
+                     if (log.new_status === 'in_progress') Icon = RefreshCcw;
+                     if (log.new_status === 'completed') Icon = CheckCircle2;
+                     
+                     const isLogCompleted = log.new_status === 'completed';
+                     
+                     let circleColorClass = 'border-slate-200 text-slate-400 bg-white';
+                     let titleColorClass = 'text-slate-600';
+                     let boxColorClass = 'bg-slate-50 text-slate-600 border border-transparent';
+                     
+                     if (isLogCompleted) {
+                       circleColorClass = 'border-emerald-400 bg-emerald-50 text-emerald-700 shadow-[0_0_10px_rgba(52,211,153,0.15)]';
+                       titleColorClass = 'text-emerald-700';
+                       boxColorClass = 'bg-emerald-50 border border-emerald-400 text-emerald-800';
+                     } else if (isActive) {
+                       circleColorClass = 'border-primary/40 text-primary shadow-[0_0_10px_rgba(209,53,15,0.1)] bg-white';
+                       titleColorClass = 'text-primary';
+                       boxColorClass = 'bg-primary/5 border border-primary/30 text-primary/90';
+                     }
+                     
+                     return (
+                       <div key={log.id} className="relative pl-10">
+                         {/* Circle Icon Indicator */}
+                         <div className={`absolute -left-[16px] top-0 w-8 h-8 rounded-full border flex items-center justify-center ${circleColorClass}`}>
+                            <Icon className={`w-3.5 h-3.5 ${isActive && log.new_status === 'in_progress' ? 'animate-spin-slow' : ''}`} />
+                         </div>
+                         
+                         <div className="flex flex-col pt-1">
+                            <h4 className={`text-[14px] font-bold mb-2 ${titleColorClass}`}>
+                              {statusInfo.label}
+                            </h4>
+                            
+                            <div className="flex items-center gap-3 text-[11px] text-slate-400 font-medium mb-3">
+                               <span className="flex items-center gap-1.5">
+                                 <Clock className="w-3.5 h-3.5" />
+                                 {formatDate(log.created_at)}
+                               </span>
+                               <span className="flex items-center gap-1.5">
+                                 <User className="w-3.5 h-3.5" />
+                                 {staffName}
+                               </span>
+                            </div>
+                            
+                            <div className={`rounded-xl p-4 text-[13px] leading-relaxed ${boxColorClass}`}>
+                               {log.remark || <span className="italic opacity-70">ไม่มีหมายเหตุเพิ่มเติม</span>}
+                            </div>
+                         </div>
+                       </div>
+                     );
+                   })}
+                </div>
+              </div>
+            </AppCard>
+          </div>
+
+          {/* 7. BOTTOM ACTIONS */}
           <div className="flex flex-col gap-3 pt-6 pb-6">
-            {/* Primary Action: แจ้งปัญหาใหม่ */}
             <Link href="/" className="block">
               <button 
                 type="button" 
                 className="w-full h-[52px] rounded-[18px] bg-[#D1350F] text-white font-bold text-[15px] flex items-center justify-center gap-2 shadow-lg shadow-[#D1350F]/20 active:scale-[0.98] transition-transform"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                </svg>
+                <Plus className="w-5 h-5" />
                 แจ้งปัญหาใหม่
               </button>
             </Link>
             
-            {/* Secondary Action: คัดลอกลิงก์ */}
             <button 
               type="button" 
               onClick={handleCopyLink}
@@ -345,26 +424,23 @@ export default function TrackPage({ params }: TrackPageProps) {
             >
               {copied ? (
                 <>
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5 text-[#10B981]">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                  </svg>
+                  <CheckCircle2 className="w-5 h-5 text-[#10B981]" />
                   <span className="text-[#10B981]">คัดลอกลิงก์สำเร็จแล้ว</span>
                 </>
               ) : (
                 <>
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-slate-500">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" />
-                  </svg>
+                  <FileText className="w-5 h-5 text-slate-500" />
                   คัดลอกลิงก์
                 </>
               )}
             </button>
           </div>
           
-          <GlobalFooter />
+          <div className="pt-6">
+            <GlobalFooter />
+          </div>
         </div>
       </div>
-      
     </AppContainer>
   );
 }

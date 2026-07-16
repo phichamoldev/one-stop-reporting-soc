@@ -15,7 +15,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
   className = '' 
 }) => {
   const badgeStyles: Record<ReportStatus, string> = {
-    resolved: 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/30',
+    completed: 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/30',
     pending: 'bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900/30',
     rejected: 'bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-900/30',
     in_progress: 'bg-orange-50 dark:bg-orange-950/20 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-900/30',
@@ -23,7 +23,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
   };
 
   const indicatorStyles: Record<ReportStatus, string> = {
-    resolved: 'bg-emerald-500',
+    completed: 'bg-emerald-500',
     pending: 'bg-amber-500',
     rejected: 'bg-red-500',
     in_progress: 'bg-orange-500',

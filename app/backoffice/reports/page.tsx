@@ -11,6 +11,7 @@ export default function BackofficeReportsPage() {
   const { user, loading: authLoading } = useStaffAuth();
   
   const [reports, setReports] = useState<any[]>([]);
+  const [filterOptions, setFilterOptions] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchReports = useCallback(async () => {
@@ -32,6 +33,11 @@ export default function BackofficeReportsPage() {
       });
       
       if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        if (errData?.code === "NO_PERMISSION") {
+          // Empty state handled naturally
+          return;
+        }
         if (res.status === 401 || res.status === 403) {
           router.replace("/backoffice/login");
         }
@@ -40,6 +46,7 @@ export default function BackofficeReportsPage() {
 
       const result = await res.json();
       setReports(result.reports || []);
+      setFilterOptions(result.filterOptions || null);
     } catch (error) {
       console.error("Error fetching reports:", error);
     } finally {
@@ -57,19 +64,17 @@ export default function BackofficeReportsPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex-1 flex items-center justify-center min-h-screen">
-        <div className="space-y-8 animate-pulse w-full max-w-6xl p-8">
-          <div className="h-10 w-64 bg-slate-200 dark:bg-slate-800 rounded-lg" />
-          <div className="h-20 bg-white dark:bg-slate-900 rounded-[20px]" />
-          <div className="h-[450px] bg-white dark:bg-slate-900 rounded-[20px]" />
-        </div>
+      <div className="flex-1 p-6 md:px-[50px] md:py-8 space-y-8 animate-pulse w-full">
+        <div className="h-10 w-64 bg-slate-200 dark:bg-slate-800 rounded-lg" />
+        <div className="h-20 bg-white dark:bg-slate-900 rounded-[20px]" />
+        <div className="h-[450px] bg-white dark:bg-slate-900 rounded-[20px]" />
       </div>
     );
   }
 
   return (
-    <div className="flex-1 p-6 md:p-8 space-y-8 animate-fade-in w-full mx-auto max-w-7xl pb-12">
-      <ReportsView reports={reports} />
+    <div className="flex-1 p-6 md:px-[50px] md:py-8 space-y-8 animate-fade-in w-full pb-12">
+      <ReportsView reports={reports} filterOptions={filterOptions} />
     </div>
   );
 }

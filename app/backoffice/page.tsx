@@ -12,6 +12,8 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip as RechartsTooltip,
   LineChart, Line, Cell
 } from "recharts";
+import { AppSelect } from "@/components/ui/AppSelect";
+import { hasAccess } from "@/lib/auth-helpers";
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "รับเรื่องแล้ว",
@@ -22,10 +24,11 @@ const STATUS_LABELS: Record<string, string> = {
 
 export default function BackofficeDashboard() {
   const router = useRouter();
-  const { user, loading: authLoading } = useStaffAuth();
+  const { user, profile, loading: authLoading } = useStaffAuth();
   
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [dateRange, setDateRange] = useState("7days");
 
   const fetchDashboardData = useCallback(async () => {
     if (!user) return;
@@ -36,7 +39,7 @@ export default function BackofficeDashboard() {
       if (!session) return;
 
       const params = new URLSearchParams({
-        dateRange: "7days"
+        dateRange: dateRange
       });
 
       const res = await fetch(`/api/backoffice/dashboard?${params.toString()}`, {
@@ -46,6 +49,11 @@ export default function BackofficeDashboard() {
       });
       
       if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        if (errData?.code === "NO_PERMISSION") {
+          setData({ noPermission: true });
+          return;
+        }
         if (res.status === 401 || res.status === 403) {
           router.replace("/backoffice/login");
         }
@@ -59,34 +67,48 @@ export default function BackofficeDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [user, router]);
+  }, [user, router, dateRange]);
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.replace("/backoffice/login");
-    } else if (user) {
-      fetchDashboardData();
+    if (!authLoading) {
+      if (!user || !profile) {
+        router.replace("/backoffice/login");
+      } else if (!hasAccess(profile.role, "/backoffice")) {
+        router.replace("/backoffice/reports");
+      } else {
+        fetchDashboardData();
+      }
     }
-  }, [user, authLoading, fetchDashboardData, router]);
+  }, [user, profile, authLoading, fetchDashboardData, router]);
 
-  if (authLoading || (loading && !data)) {
+  if (authLoading || (loading && !data) || !profile || !hasAccess(profile.role, "/backoffice")) {
     return (
-      <div className="flex-1 flex items-center justify-center min-h-screen">
-        <div className="space-y-8 animate-pulse w-full max-w-6xl p-8">
-          <div className="flex flex-col gap-2">
-            <div className="h-8 w-64 bg-slate-200 dark:bg-slate-800 rounded-lg" />
-            <div className="h-4 w-40 bg-slate-200 dark:bg-slate-800 rounded-lg" />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-28 bg-white dark:bg-slate-900 rounded-[20px] p-5 border border-slate-100 dark:border-slate-800/60" />
-            ))}
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="h-[360px] bg-white dark:bg-slate-900 rounded-[20px] border border-slate-100 dark:border-slate-800/60" />
-            <div className="h-[360px] bg-white dark:bg-slate-900 rounded-[20px] border border-slate-100 dark:border-slate-800/60" />
-          </div>
+      <div className="flex-1 p-6 md:px-[50px] md:py-8 space-y-8 animate-pulse w-full">
+        <div className="flex flex-col gap-2">
+          <div className="h-8 w-64 bg-slate-200 dark:bg-slate-800 rounded-lg" />
+          <div className="h-4 w-40 bg-slate-200 dark:bg-slate-800 rounded-lg" />
         </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="h-28 bg-white dark:bg-slate-900 rounded-[20px] p-5 border border-slate-100 dark:border-slate-800/60" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="h-[360px] bg-white dark:bg-slate-900 rounded-[20px] border border-slate-100 dark:border-slate-800/60" />
+          <div className="h-[360px] bg-white dark:bg-slate-900 rounded-[20px] border border-slate-100 dark:border-slate-800/60" />
+        </div>
+      </div>
+    );
+  }
+
+  if (data?.noPermission) {
+    return (
+      <div className="flex-1 p-6 flex flex-col items-center justify-center min-h-[60vh]">
+        <div className="bg-red-50 text-red-600 p-4 rounded-full mb-4">
+          <XCircle className="w-12 h-12" />
+        </div>
+        <h2 className="text-xl font-bold text-slate-800 mb-2">คุณไม่มีสิทธิ์เข้าถึงข้อมูล</h2>
+        <p className="text-slate-500">บัญชีของคุณยังไม่ได้รับการกำหนดสิทธิ์ให้เข้าถึงข้อมูลหน่วยงานใดๆ</p>
       </div>
     );
   }
@@ -99,6 +121,7 @@ export default function BackofficeDashboard() {
   const inProgressCount = kpis.inProgress || 0;
   const completedCount = kpis.completed || 0;
   const failedCount = kpis.cancelled || 0;
+  const todayNewCount = kpis.todayNew || 0;
 
   // Transform trend data to match UI
   const lineChartData = analytics.trend.map((t: any) => ({
@@ -166,7 +189,7 @@ export default function BackofficeDashboard() {
   };
 
   return (
-    <div className="flex-1 p-6 md:p-8 space-y-8 animate-fade-in w-full mx-auto max-w-7xl">
+    <div className="flex-1 p-6 md:px-[50px] md:py-8 space-y-8 animate-fade-in w-full pb-12">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -177,14 +200,50 @@ export default function BackofficeDashboard() {
             ภาพรวมและแผงควบคุมหลักสำหรับเจ้าหน้าที่ดูแลระบบ คณะสังคมศาสตร์
           </p>
         </div>
-        <div className="flex items-center gap-2 text-xs font-semibold bg-white dark:bg-slate-900 px-4 py-2.5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm text-slate-500 dark:text-slate-400 shrink-0">
-          <Calendar className="w-4 h-4 text-primary shrink-0" />
-          <span>ข้อมูลล่าสุด: {new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
+          <div className="w-[150px]">
+            <AppSelect
+              value={dateRange}
+              onChange={(val) => setDateRange(val as string)}
+              options={[
+                { label: "วันนี้", value: "today" },
+                { label: "7 วันล่าสุด", value: "7days" },
+                { label: "30 วันล่าสุด", value: "30days" },
+                { label: "ทั้งหมด", value: "all" },
+              ]}
+            />
+          </div>
+          <div className="flex items-center gap-2 text-xs font-semibold bg-white dark:bg-slate-900 px-4 py-2.5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm text-slate-500 dark:text-slate-400">
+            <Calendar className="w-4 h-4 text-primary shrink-0" />
+            <span>อัปเดตล่าสุด: {new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} น.</span>
+          </div>
         </div>
       </div>
 
       {/* KPI Cards Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+
+        {/* Card 0: Today New */}
+        <div className="bg-white dark:bg-slate-900 rounded-[20px] p-5 border border-slate-100 dark:border-slate-800/60 card-shadow transition-all hover:translate-y-[-2px] border-l-4 border-l-purple-500">
+          <div className="flex justify-between items-start">
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-bold mb-1">คำร้องใหม่วันนี้</p>
+            <div className="p-1.5 bg-purple-50 dark:bg-purple-950/40 rounded-lg text-purple-600 dark:text-purple-400">
+              <Inbox className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <h3 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{todayNewCount}</h3>
+            <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 mt-3.5 rounded-full overflow-hidden">
+              <div 
+                className="bg-purple-500 h-1.5 rounded-full transition-all duration-500" 
+                style={{ width: `${totalCount > 0 ? Math.min(100, Math.round((todayNewCount / totalCount) * 100)) : 0}%` }}
+              />
+            </div>
+            <p className="text-[9px] text-slate-400 font-bold mt-1 text-right">
+              {totalCount > 0 ? Math.round((todayNewCount / totalCount) * 100) : 0}% ของทั้งหมด
+            </p>
+          </div>
+        </div>
 
         {/* Card 1: New */}
         <div className="bg-white dark:bg-slate-900 rounded-[20px] p-5 border border-slate-100 dark:border-slate-800/60 card-shadow transition-all hover:translate-y-[-2px] border-l-4 border-l-blue-500">

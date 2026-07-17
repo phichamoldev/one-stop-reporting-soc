@@ -12,6 +12,9 @@ export interface LineNotificationPayload {
   date: string;
   statusText?: string;
   reporterName?: string;
+  isTransfer?: boolean;
+  oldDepartmentName?: string;
+  transferRemark?: string;
 }
 
 /**
@@ -65,11 +68,15 @@ export async function notifyLine(message: string | LineNotificationPayload, cust
     else if (statusText === "cancelled" || statusText.includes("ยกเลิก")) {
       mappedStatus = "⚫ ยกเลิกคำร้อง";
     }
+    const isTransfer = message.isTransfer;
+    const headerColor = isTransfer ? "#9333EA" : "#D1350F"; // Purple for transfer, Orange for normal
+    const headerText = isTransfer ? "🔄 แจ้งโอนคำร้อง (ONE STOP SERVICE)" : "ONE STOP SERVICE";
+    const altText = isTransfer ? `🔄 มีการโอนคำร้อง: ${message.publicId}` : `🔔 มีคำร้องใหม่: ${message.publicId}`;
 
     lineMessages = [
       {
         type: "flex",
-        altText: `🔔 มีคำร้องใหม่: ${message.publicId}`,
+        altText: altText,
         contents: {
           type: "bubble",
           size: "kilo",
@@ -84,8 +91,8 @@ export async function notifyLine(message: string | LineNotificationPayload, cust
             contents: [
               {
                 type: "text",
-                text: "ONE STOP SERVICE",
-                color: "#D1350F",
+                text: headerText,
+                color: headerColor,
                 weight: "bold",
                 size: "md",
               }
@@ -109,13 +116,26 @@ export async function notifyLine(message: string | LineNotificationPayload, cust
                 ]
               },
               { type: "separator", margin: "md", color: "#f0f0f0" },
+              ...(isTransfer ? [
+                {
+                  type: "box",
+                  layout: "vertical",
+                  spacing: "xs",
+                  margin: "md",
+                  contents: [
+                    { type: "text", text: "โอนจากหน่วยงาน", color: "#8c8c8c", size: "xs" },
+                    { type: "text", text: message.oldDepartmentName || "-", color: "#9333EA", size: "xs", weight: "bold", wrap: true }
+                  ]
+                },
+                { type: "separator", margin: "md", color: "#f0f0f0" },
+              ] : []),
               {
                 type: "box",
                 layout: "vertical",
                 spacing: "xs",
                 margin: "md",
                 contents: [
-                  { type: "text", text: "หมวดหมู่", color: "#8c8c8c", size: "xs" },
+                  { type: "text", text: "หมวดหมู่ (ปัจจุบัน)", color: "#8c8c8c", size: "xs" },
                   { type: "text", text: `${message.categoryName}\n-\n${message.subcategoryName}`, color: "#1A1A2E", size: "xs", wrap: true }
                 ]
               },
@@ -142,6 +162,19 @@ export async function notifyLine(message: string | LineNotificationPayload, cust
                 ]
               },
               { type: "separator", margin: "md", color: "#f0f0f0" },
+              ...(isTransfer && message.transferRemark ? [
+                {
+                  type: "box",
+                  layout: "vertical",
+                  spacing: "xs",
+                  margin: "md",
+                  contents: [
+                    { type: "text", text: "หมายเหตุการโอน", color: "#8c8c8c", size: "xs" },
+                    { type: "text", text: message.transferRemark, color: "#1A1A2E", size: "xs", wrap: true }
+                  ]
+                },
+                { type: "separator", margin: "md", color: "#f0f0f0" },
+              ] : []),
               {
                 type: "box",
                 layout: "vertical",

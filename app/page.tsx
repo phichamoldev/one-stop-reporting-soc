@@ -6,6 +6,7 @@ import { AppContainer } from "@/components/design-system/AppContainer";
 import { AppCard } from "@/components/design-system/AppCard";
 import { AppButton } from "@/components/design-system/AppButton";
 import { StatusBadge } from "@/components/design-system/StatusBadge";
+import { AppSelect } from "@/components/ui/AppSelect";
 import { supabase } from "@/lib/supabase";
 import { Report, DBCategory, DBSubcategory } from "@/types/report";
 import { generatePublicId, generateTrackingToken } from "@/lib/utils";
@@ -534,80 +535,21 @@ export default function Home() {
                   <label className="block text-[12px] font-medium text-slate-700 dark:text-slate-300 mb-2">
                     หมวดหมู่หลัก <span className="text-primary">*</span>
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => { setCategoryDropdownOpen(!categoryDropdownOpen); setSubcategoryDropdownOpen(false); }}
-                    className={`w-full text-left flex items-center justify-between text-[12px] font-normal transition-all px-4 py-3.5 rounded-[16px] bg-slate-100/50 dark:bg-slate-900/50 border ${formErrors.categoryId ? "border-rose-500 text-rose-500" : "border-[#EDF0F4] dark:border-slate-700 text-slate-900 dark:text-white"
-                      } focus:ring-0 cursor-pointer`}
-                  >
-                    <span className="flex items-center gap-2">
-                      {categoryId ? (
-                        (() => {
-                          const cat = categories.find(c => c.id === categoryId);
-                          if (!cat) return <span className="text-slate-400">เลือกหมวดหมู่หลัก</span>;
-                          const Icon = getCategoryIcon(cat.name_th);
-                          return (
-                            <>
-                              <Icon className="w-4 h-4 text-slate-500 shrink-0" />
-                              <span>{cat.name_th}</span>
-                            </>
-                          );
-                        })()
-                      ) : (
-                        <span className="text-slate-400">เลือกหมวดหมู่หลัก</span>
-                      )}
-                    </span>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={2.5}
-                      stroke="currentColor"
-                      className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${categoryDropdownOpen ? "rotate-180" : ""}`}
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                    </svg>
-                  </button>
-
-                  {categoryDropdownOpen && (
-                    <div className="absolute z-30 left-0 top-full mt-2 w-full max-h-[300px] overflow-y-auto bg-white dark:bg-slate-800 rounded-2xl border border-[#EDF0F4] dark:border-slate-700 shadow-xl overflow-hidden animate-scale-up">
-                      <ul className="py-2">
-                        {categories.map((cat) => {
-                          const isSelected = categoryId === cat.id;
-                          const Icon = getCategoryIcon(cat.name_th);
-                          return (
-                            <li key={cat.id}>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setCategoryId(cat.id);
-                                  setSubcategoryId(""); // reset subcategory when category changes
-                                  setCategoryDropdownOpen(false);
-                                  setFormErrors(prev => {
-                                    const copy = { ...prev };
-                                    delete copy.categoryId;
-                                    return copy;
-                                  });
-                                }}
-                                className={`w-full px-5 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center justify-between transition-colors cursor-pointer ${isSelected ? "bg-primary/5 text-primary font-bold" : "text-slate-700 dark:text-slate-300 font-medium"
-                                  }`}
-                              >
-                                <span className="flex items-center gap-3 text-[12px]">
-                                  <Icon className="w-4 h-4 text-slate-500 shrink-0" />
-                                  <span>{cat.name_th}</span>
-                                </span>
-                                {isSelected && (
-                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-5 h-5 text-primary">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                                  </svg>
-                                )}
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  )}
+                  <AppSelect 
+                    options={categories.map(c => ({ label: c.name_th, value: c.id }))}
+                    value={categoryId}
+                    onChange={(val) => {
+                      setCategoryId(Number(val));
+                      setSubcategoryId("");
+                      setFormErrors(prev => {
+                        const copy = { ...prev };
+                        delete copy.categoryId;
+                        return copy;
+                      });
+                    }}
+                    placeholder="เลือกหมวดหมู่หลัก"
+                    error={!!formErrors.categoryId}
+                  />
                   {formErrors.categoryId && (
                     <p className="text-xs text-rose-500 font-medium mt-2">{formErrors.categoryId}</p>
                   )}
@@ -618,71 +560,21 @@ export default function Home() {
                   <label className="block text-[12px] font-medium text-slate-700 dark:text-slate-300 mb-2">
                     หมวดหมู่ย่อย <span className="text-primary">*</span>
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => { setSubcategoryDropdownOpen(!subcategoryDropdownOpen); setCategoryDropdownOpen(false); }}
+                  <AppSelect 
+                    options={subcategories.map(s => ({ label: s.name_th, value: s.id }))}
+                    value={subcategoryId}
+                    onChange={(val) => {
+                      setSubcategoryId(Number(val));
+                      setFormErrors(prev => {
+                        const copy = { ...prev };
+                        delete copy.subcategoryId;
+                        return copy;
+                      });
+                    }}
+                    placeholder="เลือกหมวดหมู่ย่อย"
                     disabled={!categoryId || subcategories.length === 0}
-                    className={`w-full text-left flex items-center justify-between text-[12px] font-normal transition-all px-4 py-3.5 rounded-[16px] border focus:ring-0 ${
-                      !categoryId || subcategories.length === 0 
-                        ? "bg-slate-50 dark:bg-slate-800/50 text-slate-400 border-[#EDF0F4] dark:border-slate-700 cursor-not-allowed" 
-                        : "bg-slate-100/50 dark:bg-slate-900/50 text-slate-900 dark:text-white cursor-pointer hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
-                    } ${formErrors.subcategoryId ? "border-rose-500 text-rose-500" : "border-[#EDF0F4] dark:border-slate-700"}`}
-                  >
-                    <span className="flex items-center gap-2">
-                      {subcategoryId ? (
-                        <span>{subcategories.find(s => s.id === subcategoryId)?.name_th || "เลือกหมวดหมู่ย่อย"}</span>
-                      ) : (
-                        <span className="text-slate-400">เลือกหมวดหมู่ย่อย</span>
-                      )}
-                    </span>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={2.5}
-                      stroke="currentColor"
-                      className={`w-4 h-4 transition-transform duration-200 ${subcategoryDropdownOpen ? "rotate-180" : ""} ${!categoryId || subcategories.length === 0 ? "text-slate-300 dark:text-slate-600" : "text-slate-400"}`}
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                    </svg>
-                  </button>
-
-                  {subcategoryDropdownOpen && subcategories.length > 0 && (
-                    <div className="absolute z-30 left-0 top-full mt-2 w-full max-h-[300px] overflow-y-auto bg-white dark:bg-slate-800 rounded-2xl border border-[#EDF0F4] dark:border-slate-700 shadow-xl overflow-hidden animate-scale-up">
-                      <ul className="py-2">
-                        {subcategories.map((subcat) => {
-                          const isSelected = subcategoryId === subcat.id;
-                          return (
-                            <li key={subcat.id}>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSubcategoryId(subcat.id);
-                                  setSubcategoryDropdownOpen(false);
-                                  setFormErrors(prev => {
-                                    const copy = { ...prev };
-                                    delete copy.subcategoryId;
-                                    return copy;
-                                  });
-                                }}
-                                className={`w-full px-5 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center justify-between transition-colors cursor-pointer ${isSelected ? "bg-primary/5 text-primary font-bold" : "text-slate-700 dark:text-slate-300 font-medium"
-                                  }`}
-                              >
-                                <span className="flex items-center gap-3 text-[12px]">
-                                  <span>{subcat.name_th}</span>
-                                </span>
-                                {isSelected && (
-                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-5 h-5 text-primary">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                                  </svg>
-                                )}
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  )}
+                    error={!!formErrors.subcategoryId}
+                  />
                   {formErrors.subcategoryId && (
                     <p className="text-xs text-rose-500 font-medium mt-2">{formErrors.subcategoryId}</p>
                   )}

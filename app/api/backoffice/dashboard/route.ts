@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { createClient } from "@supabase/supabase-js";
 
+import { getAccessibleDepartmentIds } from "@/lib/auth-helpers";
+
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
@@ -35,9 +37,6 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Staff profile not found" }, { status: 403 });
     }
 
-    const { role, department_id } = profile;
-    const isSuperAdmin = role === "super_admin";
-
     const { searchParams } = new URL(req.url);
     const search = searchParams.get("search");
     const status = searchParams.get("status");
@@ -63,14 +62,30 @@ export async function GET(req: Request) {
       .order("created_at", { ascending: false });
 
     // Enforce permissions
-    if (!isSuperAdmin && department_id) {
-      // Find categories that belong to this department
+    const accessibleDeptIds = await getAccessibleDepartmentIds(user.id, profile, supabaseAdmin);
+
+    if (accessibleDeptIds.length === 1 && accessibleDeptIds[0] === -1) {
+      return NextResponse.json({ error: "คุณไม่มีสิทธิ์เข้าถึงข้อมูล", code: "NO_PERMISSION" }, { status: 403 });
+    }
+
+    let filterOptions = { departments: [] as string[], categories: [] as string[] };
+
+    if (accessibleDeptIds.length > 0) {
+      // Find departments
+      const { data: deptData } = await supabaseAdmin
+         .from("departments")
+         .select("name_th")
+         .in("id", accessibleDeptIds);
+      filterOptions.departments = deptData ? deptData.map(d => d.name_th).filter(Boolean) : [];
+
+      // Find categories that belong to these departments
       const { data: catData } = await supabaseAdmin
         .from("categories")
-        .select("id")
-        .eq("department_id", department_id);
+        .select("id, name_th")
+        .in("department_id", accessibleDeptIds);
         
       const catIds = catData ? catData.map(c => c.id) : [];
+      filterOptions.categories = catData ? Array.from(new Set(catData.map(c => c.name_th).filter(Boolean))) : [];
       
       if (catIds.length > 0) {
         query = query.in("category_id", catIds);
@@ -78,6 +93,13 @@ export async function GET(req: Request) {
         // If department has no categories, return empty
         query = query.in("category_id", [0]); // Force empty
       }
+    } else {
+      // Super Admin / Admin
+      const { data: deptData } = await supabaseAdmin.from("departments").select("name_th");
+      filterOptions.departments = deptData ? deptData.map(d => d.name_th).filter(Boolean) : [];
+      
+      const { data: catData } = await supabaseAdmin.from("categories").select("name_th");
+      filterOptions.categories = catData ? Array.from(new Set(catData.map(c => c.name_th).filter(Boolean))) : [];
     }
 
     // Apply filters
@@ -120,12 +142,16 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: reportsError.message }, { status: 500 });
     }
 
-    // Calculate KPIs (from the fetched filtered reports, or we can query unfiltered for KPIs. Usually KPIs are affected by date/category filters, but let's just compute from 'reports' array)
+    const todayDate = new Date();
+    todayDate.setHours(0, 0, 0, 0);
+
     const kpis = {
       total: reports.length,
       pending: reports.filter(r => r.status === "pending" || r.status === "received").length,
       inProgress: reports.filter(r => r.status === "in_progress").length,
       completed: reports.filter(r => r.status === "completed").length,
+      cancelled: reports.filter(r => r.status === "cancelled").length,
+      todayNew: reports.filter(r => new Date(r.created_at) >= todayDate).length,
     };
 
     // Calculate Analytics
@@ -177,6 +203,7 @@ export async function GET(req: Request) {
     return NextResponse.json({
       reports,
       kpis,
+      filterOptions,
       analytics: {
         category: Object.entries(byCategory).map(([name, value]) => ({ name, value })),
         status: Object.entries(byStatus).map(([name, value]) => ({ name, value })),

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ publicId
 
     if (!publicId) {
       return NextResponse.json({ error: "Missing publicId" }, { status: 400 });
+    }
+
+    let isAuthenticated = false;
+    const authHeader = req.headers.get("authorization");
+    if (authHeader) {
+      const token = authHeader.replace("Bearer ", "");
+      const supabaseClient = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+      const { data: { user } } = await supabaseClient.auth.getUser(token);
+      if (user) isAuthenticated = true;
     }
 
     const { data, error } = await supabaseAdmin
@@ -44,6 +57,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ publicId
 
     if (!data) {
       return NextResponse.json({ error: "ไม่พบข้อมูลรายงาน" }, { status: 404 });
+    }
+
+    // PII filtering for public access
+    if (!isAuthenticated) {
+      delete data.tracking_token;
+      delete data.admin_remark;
+      delete data.assigned_to;
+      delete data.completed_by;
     }
 
     return NextResponse.json({ report: data });

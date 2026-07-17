@@ -14,29 +14,29 @@ export const StaffDetailModal: React.FC<StaffDetailModalProps> = ({ staff, isOpe
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    const fetchTimeline = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/backoffice/staff/${staff.id}/timeline`, {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setTimeline(data.timeline || []);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (isOpen && staff) {
       fetchTimeline();
     }
-  }, [isOpen, staff]);
-
-  const fetchTimeline = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/backoffice/staff/${staff.id}/timeline`, {
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setTimeline(data.timeline || []);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [isOpen, staff, token]);
 
   if (!isOpen || !staff) return null;
 

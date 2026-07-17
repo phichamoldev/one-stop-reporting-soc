@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   Clock,
   ArrowLeft,
+  ArrowRightLeft,
   Plus
 } from "lucide-react";
 
@@ -139,7 +140,7 @@ export default function TrackPage({ params }: TrackPageProps) {
     }) + ' น.';
   };
 
-  // Reduce timeline events to max 3 items
+  // Reduce timeline events
   const rawLogs = [...(report.report_logs || [])].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   
   const displayLogs: any[] = [];
@@ -153,7 +154,16 @@ export default function TrackPage({ params }: TrackPageProps) {
     });
   }
 
-  // 2. In Progress Event (combine received and in_progress)
+  // 2. Transfer Events
+  const transferLogs = rawLogs.filter(l => l.action === 'transfer');
+  transferLogs.forEach(log => {
+    displayLogs.push({
+      ...log,
+      custom_label: 'โอนคำร้อง'
+    });
+  });
+
+  // 3. In Progress Event (combine received and in_progress)
   const inProgressLogs = rawLogs.filter(l => l.new_status === 'in_progress');
   if (inProgressLogs.length > 0) {
     const latestInProgress = inProgressLogs[inProgressLogs.length - 1];
@@ -164,7 +174,7 @@ export default function TrackPage({ params }: TrackPageProps) {
     });
   }
 
-  // 3. Final Event
+  // 4. Final Event
   const finalLogs = rawLogs.filter(l => ['completed', 'rejected', 'cancelled'].includes(l.new_status));
   if (finalLogs.length > 0) {
     const latestFinal = finalLogs[finalLogs.length - 1];
@@ -178,6 +188,7 @@ export default function TrackPage({ params }: TrackPageProps) {
     });
   }
 
+  displayLogs.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   const sortedLogs = displayLogs.reverse();
 
   return (
@@ -353,14 +364,20 @@ export default function TrackPage({ params }: TrackPageProps) {
                      let Icon = Clock;
                      if (log.new_status === 'in_progress') Icon = RefreshCcw;
                      if (log.new_status === 'completed') Icon = CheckCircle2;
+                     if (log.action === 'transfer') Icon = ArrowRightLeft;
                      
                      const isLogCompleted = log.new_status === 'completed';
+                     const isTransfer = log.action === 'transfer';
                      
                      let circleColorClass = 'border-slate-200 text-slate-400 bg-white';
                      let titleColorClass = 'text-slate-600';
                      let boxColorClass = 'bg-slate-50 text-slate-600 border border-transparent';
                      
-                     if (isLogCompleted) {
+                     if (isTransfer) {
+                       circleColorClass = 'border-purple-400 bg-purple-50 text-purple-600 shadow-[0_0_10px_rgba(168,85,247,0.15)]';
+                       titleColorClass = 'text-purple-700';
+                       boxColorClass = 'bg-purple-50 border border-purple-200 text-purple-800';
+                     } else if (isLogCompleted) {
                        circleColorClass = 'border-emerald-400 bg-emerald-50 text-emerald-700 shadow-[0_0_10px_rgba(52,211,153,0.15)]';
                        titleColorClass = 'text-emerald-700';
                        boxColorClass = 'bg-emerald-50 border border-emerald-400 text-emerald-800';

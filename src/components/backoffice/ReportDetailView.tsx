@@ -19,8 +19,10 @@ import {
   History,
   AlertTriangle,
   Play,
-  ChevronDown
+  ChevronDown,
+  ArrowRightLeft
 } from 'lucide-react';
+import { AppSelect } from "@/components/ui/AppSelect";
 
 interface ReportDetailViewProps {
   publicId: string;
@@ -51,6 +53,8 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   const [selectedStatus, setSelectedStatus] = useState<string>('pending');
+  const [departments, setDepartments] = useState<{id: number, name_th: string}[]>([]);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<number | ''>('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [adminNotes, setAdminNotes] = useState('');
   const [isFullscreenImage, setIsFullscreenImage] = useState(false);
@@ -62,7 +66,13 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
     if (!silent) setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/reports/${publicId}`);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = {};
+      if (session) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      const res = await fetch(`/api/reports/${publicId}`, { headers });
       const resData = await res.json();
       if (resData.error) throw new Error(resData.error);
       setData(resData.report);
@@ -79,6 +89,14 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
     fetchData();
   }, [fetchData]);
 
+  useEffect(() => {
+    if (userRole && userRole !== "staff" && departments.length === 0) {
+      fetch('/api/departments').then(r => r.json()).then(d => {
+        if (d.departments) setDepartments(d.departments);
+      }).catch(console.error);
+    }
+  }, [userRole, departments.length]);
+
   const handleSaveStatus = async () => {
     if (!data) return;
     setIsSaving(true);
@@ -91,7 +109,13 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
       const isStatusChanged = selectedStatus !== data.status;
       const isRemarkChanged = adminNotes.trim().length > 0;
 
-      if (!isStatusChanged && !isRemarkChanged) {
+      if (selectedStatus === 'transfer') {
+        if (!selectedDepartmentId) {
+          setSaveMessage({ type: 'error', text: 'กรุณาเลือกหน่วยงานปลายทาง' });
+          setIsSaving(false);
+          return;
+        }
+      } else if (!isStatusChanged && !isRemarkChanged) {
         setSaveMessage({ type: 'error', text: 'กรุณาเลือกสถานะใหม่ หรือระบุหมายเหตุ' });
         setIsSaving(false);
         return;
@@ -105,9 +129,10 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
         },
         body: JSON.stringify({
           reportId: data.id,
-          status: isStatusChanged ? selectedStatus : undefined,
-          remark: isRemarkChanged ? adminNotes : undefined,
-          oldStatus: data.status
+          status: isStatusChanged || selectedStatus === 'transfer' ? selectedStatus : undefined,
+          remark: isRemarkChanged || selectedStatus === 'transfer' ? adminNotes : undefined,
+          oldStatus: data.status,
+          departmentId: selectedStatus === 'transfer' ? selectedDepartmentId : undefined
         })
       });
 
@@ -118,6 +143,7 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
 
       setSaveMessage({ type: 'success', text: 'อัปเดตสถานะเรียบร้อยแล้ว' });
       setAdminNotes("");
+      setSelectedDepartmentId("");
       await fetchData(true);
 
       setTimeout(() => {
@@ -138,7 +164,7 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
 
   if (isLoading || !data) {
     return (
-      <div className="space-y-8 animate-pulse">
+      <div className="space-y-6 animate-pulse p-6 md:px-[50px] md:py-8 w-full">
         <div className="h-10 w-40 bg-slate-200 dark:bg-slate-800 rounded-lg" />
         <div className="grid grid-cols-1 lg:grid-cols-10 gap-8">
           <div className="col-span-1 lg:col-span-7 h-[600px] bg-white dark:bg-slate-900 rounded-[20px]" />
@@ -200,6 +226,12 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
             <AlertTriangle className="w-5 h-5" />
           </div>
         );
+      case 'transfer':
+        return (
+          <div className="w-9 h-9 rounded-full bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400 flex items-center justify-center border-4 border-white dark:border-slate-900 z-10 shrink-0">
+            <ArrowRightLeft className="w-5 h-5" />
+          </div>
+        );
       default:
         return (
           <div className="w-9 h-9 rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 flex items-center justify-center border-4 border-white dark:border-slate-900 z-10 shrink-0">
@@ -212,7 +244,7 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
   const logs = data.report_logs || [];
 
   return (
-    <div className="space-y-6 animate-fade-in p-6 md:p-8 max-w-6xl mx-auto w-full">
+    <div className="space-y-6 animate-fade-in p-6 md:px-[50px] md:py-8 w-full">
       {/* Header and Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
         <button
@@ -376,56 +408,39 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
               </label>
               
               <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className={`w-full flex items-center justify-between bg-white dark:bg-slate-800 border ${isDropdownOpen ? 'border-primary ring-4 ring-primary/10' : 'border-slate-200 dark:border-slate-700'} rounded-xl px-4 py-3 text-xs font-bold text-slate-800 dark:text-slate-200 outline-none cursor-pointer transition-all shadow-sm`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${
-                      selectedStatus === 'pending' ? 'bg-blue-500' :
-                      selectedStatus === 'in_progress' ? 'bg-amber-500' :
-                      selectedStatus === 'completed' ? 'bg-emerald-500' :
-                      'bg-rose-500'
-                    }`} />
-                    {STATUS_LABELS[selectedStatus] || selectedStatus}
-                  </div>
-                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
-                </button>
-
-                {isDropdownOpen && (
-                  <>
-                    <div 
-                      className="fixed inset-0 z-40" 
-                      onClick={() => setIsDropdownOpen(false)} 
-                    />
-                    <div className="absolute z-50 w-full mt-2 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden py-1 animate-fade-in">
-                      {[
-                        { id: 'pending', label: 'รับเรื่องแล้ว', color: 'bg-blue-500', bg: 'hover:bg-blue-50 dark:hover:bg-blue-900/20' },
-                        { id: 'in_progress', label: 'กำลังดำเนินการ', color: 'bg-amber-500', bg: 'hover:bg-amber-50 dark:hover:bg-amber-900/20' },
-                        { id: 'completed', label: 'เสร็จสิ้น', color: 'bg-emerald-500', bg: 'hover:bg-emerald-50 dark:hover:bg-emerald-900/20' },
-                        { id: 'cancelled', label: 'ไม่สามารถดำเนินการได้', color: 'bg-rose-500', bg: 'hover:bg-rose-50 dark:hover:bg-rose-900/20' }
-                      ].map((status) => (
-                        <button
-                          key={status.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedStatus(status.id);
-                            setIsDropdownOpen(false);
-                          }}
-                          className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold transition-colors ${status.bg} ${selectedStatus === status.id ? 'bg-slate-50 dark:bg-slate-800' : ''}`}
-                        >
-                          <span className={`w-2 h-2 rounded-full ${status.color}`} />
-                          <span className={selectedStatus === status.id ? 'text-slate-800 dark:text-slate-200' : 'text-slate-600 dark:text-slate-400'}>
-                            {status.label}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
+                <AppSelect
+                  value={selectedStatus}
+                  onChange={(val) => setSelectedStatus(val as string)}
+                  options={[
+                    { label: 'รับเรื่องแล้ว', value: 'pending' },
+                    { label: 'กำลังดำเนินการ', value: 'in_progress' },
+                    { label: 'เสร็จสิ้น', value: 'completed' },
+                    { label: 'ไม่สามารถดำเนินการได้', value: 'cancelled' },
+                    ...(userRole !== 'staff' ? [{ label: 'โอนคำร้อง', value: 'transfer' }] : [])
+                  ]}
+                />
               </div>
             </div>
+
+            {selectedStatus === 'transfer' && (
+              <div className="space-y-1.5 relative mt-1">
+                <label className="block text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                  โอนคำร้องไปยังหน่วยงาน
+                </label>
+                <div className="relative">
+                  <AppSelect
+                    value={selectedDepartmentId.toString()}
+                    onChange={(val) => setSelectedDepartmentId(Number(val))}
+                    options={[
+                      { label: 'เลือกหน่วยงาน...', value: '' },
+                      ...departments
+                        .filter(d => d.id !== data.categories?.department_id)
+                        .map(d => ({ label: d.name_th, value: d.id.toString() }))
+                    ]}
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <label className="block text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
@@ -468,11 +483,11 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
               <div className="relative pl-2.5 space-y-6 before:absolute before:left-6 before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-100 dark:before:bg-slate-800">
                 {logs.map((log: any) => (
                   <div key={log.id} className="relative flex gap-4 items-start">
-                    {getTimelineIcon(log.new_status)}
+                    {getTimelineIcon(log.action === 'transfer' ? 'transfer' : log.new_status)}
                     <div className="flex-1 bg-slate-50/50 dark:bg-slate-800/20 p-3.5 rounded-2xl border border-slate-100/50 dark:border-slate-800/20 text-xs">
                       <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
                         <span className="font-extrabold text-slate-800 dark:text-slate-200">
-                          เปลี่ยนสถานะเป็น {STATUS_LABELS[log.new_status] || log.new_status}
+                          {log.action === 'transfer' ? 'โอนคำร้อง' : `เปลี่ยนสถานะเป็น ${STATUS_LABELS[log.new_status] || log.new_status}`}
                         </span>
                         <span className="text-[10px] text-slate-400 font-mono">
                           {new Date(log.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.

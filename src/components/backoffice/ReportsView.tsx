@@ -12,6 +12,7 @@ import {
   Eye
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { AppSelect } from "@/components/ui/AppSelect";
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "รับเรื่องแล้ว",
@@ -22,9 +23,13 @@ const STATUS_LABELS: Record<string, string> = {
 
 interface ReportsViewProps {
   reports: any[];
+  filterOptions?: {
+    departments: string[];
+    categories: string[];
+  } | null;
 }
 
-export const ReportsView: React.FC<ReportsViewProps> = ({ reports }) => {
+export const ReportsView: React.FC<ReportsViewProps> = ({ reports, filterOptions }) => {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   
@@ -32,7 +37,6 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ reports }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('ทั้งหมด');
   const [selectedCategory, setSelectedCategory] = useState<string>('ทั้งหมด');
-  const [selectedDept, setSelectedDept] = useState<string>('ทั้งหมด');
   const [selectedTimeframe, setSelectedTimeframe] = useState<string>('ทั้งหมด');
   const [sortBy, setSortBy] = useState<'date-desc' | 'date-asc'>('date-desc');
   
@@ -48,9 +52,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ reports }) => {
     return () => clearTimeout(timer);
   }, []);
 
-  // Compute distinct options dynamically from data
-  const departments = ['ทั้งหมด', ...Array.from(new Set(reports.map(r => r.categories?.departments?.name_th || 'ไม่ระบุ')))];
-  const categories = ['ทั้งหมด', ...Array.from(new Set(reports.map(r => r.categories?.name_th || 'ไม่ระบุ')))];
+  // Compute distinct options from filterOptions or dynamically from data
+  const categories = filterOptions?.categories
+    ? ['ทั้งหมด', ...filterOptions.categories]
+    : ['ทั้งหมด', ...Array.from(new Set(reports.map(r => r.categories?.name_th || 'ไม่ระบุ')))];
   const statuses = ['ทั้งหมด', 'pending', 'in_progress', 'completed', 'cancelled'];
 
   const getStatusLabel = (s: string) => {
@@ -75,10 +80,6 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ reports }) => {
     const catName = report.categories?.name_th || 'ไม่ระบุ';
     const matchesCategory = selectedCategory === 'ทั้งหมด' || catName === selectedCategory;
 
-    // Department match
-    const deptName = report.categories?.departments?.name_th || 'ไม่ระบุ';
-    const matchesDept = selectedDept === 'ทั้งหมด' || deptName === selectedDept;
-
     // Timeframe match
     let matchesTime = true;
     if (selectedTimeframe !== 'ทั้งหมด') {
@@ -96,7 +97,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ reports }) => {
       }
     }
 
-    return matchesSearch && matchesStatus && matchesCategory && matchesDept && matchesTime;
+    return matchesSearch && matchesStatus && matchesCategory && matchesTime;
   });
 
   // Sorting Logic
@@ -199,7 +200,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ reports }) => {
           <span>ระบบคัดกรองข้อมูลขั้นสูง</span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
@@ -211,46 +212,28 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ reports }) => {
             />
           </div>
 
-          <select
+          <AppSelect
             value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
-            className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border-0 focus:ring-2 focus:ring-primary/20 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none appearance-none cursor-pointer"
-          >
-            {statuses.map(s => (
-              <option key={s} value={s}>{getStatusLabel(s)}</option>
-            ))}
-          </select>
+            onChange={(val) => setSelectedStatus(val as string)}
+            options={statuses.map(s => ({ label: getStatusLabel(s), value: s }))}
+          />
 
-          <select
+          <AppSelect
             value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border-0 focus:ring-2 focus:ring-primary/20 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none appearance-none cursor-pointer"
-          >
-            {categories.map(c => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
+            onChange={(val) => setSelectedCategory(val as string)}
+            options={categories.map(c => ({ label: c, value: c }))}
+          />
 
-          <select
-            value={selectedDept}
-            onChange={(e) => setSelectedDept(e.target.value)}
-            className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border-0 focus:ring-2 focus:ring-primary/20 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none appearance-none cursor-pointer"
-          >
-            {departments.map(d => (
-              <option key={d} value={d}>{d}</option>
-            ))}
-          </select>
-
-          <select
+          <AppSelect
             value={selectedTimeframe}
-            onChange={(e) => setSelectedTimeframe(e.target.value)}
-            className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border-0 focus:ring-2 focus:ring-primary/20 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none appearance-none cursor-pointer"
-          >
-            <option value="ทั้งหมด">ทุกช่วงเวลา</option>
-            <option value="วันนี้">แจ้งวันนี้</option>
-            <option value="สัปดาห์นี้">สัปดาห์นี้</option>
-            <option value="เดือนนี้">เดือนนี้</option>
-          </select>
+            onChange={(val) => setSelectedTimeframe(val as string)}
+            options={[
+              { label: "ทุกช่วงเวลา", value: "ทั้งหมด" },
+              { label: "แจ้งวันนี้", value: "วันนี้" },
+              { label: "สัปดาห์นี้", value: "สัปดาห์นี้" },
+              { label: "เดือนนี้", value: "เดือนนี้" },
+            ]}
+          />
         </div>
       </div>
 
@@ -265,14 +248,16 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ reports }) => {
 
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-slate-400">เรียงตาม:</span>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border-0 focus:ring-2 focus:ring-primary/20 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
-            >
-              <option value="date-desc">วันที่ (ใหม่-เก่า)</option>
-              <option value="date-asc">วันที่ (เก่า-ใหม่)</option>
-            </select>
+            <div className="w-[180px]">
+              <AppSelect
+                value={sortBy}
+                onChange={(val) => setSortBy(val as any)}
+                options={[
+                  { label: "วันที่ (ใหม่-เก่า)", value: "date-desc" },
+                  { label: "วันที่ (เก่า-ใหม่)", value: "date-asc" }
+                ]}
+              />
+            </div>
           </div>
         </div>
 

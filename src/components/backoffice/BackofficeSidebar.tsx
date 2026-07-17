@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useStaffAuth } from "@/hooks/useStaffAuth";
+import { hasAccess } from "@/lib/auth-helpers";
 import { 
   LayoutDashboard, 
   ClipboardList, 
@@ -56,9 +57,10 @@ export const BackofficeSidebar: React.FC = () => {
   const menuItems = [
     { href: '/backoffice', label: 'แดชบอร์ด', icon: LayoutDashboard },
     { href: '/backoffice/reports', label: 'จัดการคำร้อง', icon: ClipboardList },
+    { href: '/backoffice/analytics', label: 'สถิติเชิงลึก', icon: BarChart3 },
     { href: '/backoffice/staff', label: 'เจ้าหน้าที่', icon: Users },
     { href: '/backoffice/settings', label: 'ตั้งค่าระบบ', icon: Settings },
-  ];
+  ].filter(item => hasAccess(profile?.role, item.href));
 
   return (
     <aside className="fixed inset-y-0 left-0 z-50 flex flex-col w-[260px] bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800/60">

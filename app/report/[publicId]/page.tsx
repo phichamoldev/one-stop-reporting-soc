@@ -11,6 +11,7 @@ import { supabase } from "@/lib/supabase";
 import { Report, STATUS_DETAILS } from "@/types/report";
 import { GlobalFooter } from "@/components/shared/GlobalFooter";
 import { useStaffAuth } from "@/hooks/useStaffAuth";
+import { AppSelect } from "@/components/ui/AppSelect";
 import {
   Calendar,
   RefreshCcw,
@@ -24,7 +25,9 @@ import {
   Lock,
   CheckCircle2,
   Clock,
-  X
+  X,
+  LogOut,
+  ArrowRightLeft
 } from "lucide-react";
 
 interface ReportDetailPageProps {
@@ -68,6 +71,8 @@ export default function ReportDetailPage({ params }: ReportDetailPageProps) {
   };
 
   const [updateStatus, setUpdateStatus] = useState<string>("pending");
+  const [departments, setDepartments] = useState<{id: number, name_th: string}[]>([]);
+  const [updateDepartmentId, setUpdateDepartmentId] = useState<number | ''>('');
   const [updateRemark, setUpdateRemark] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -128,6 +133,14 @@ export default function ReportDetailPage({ params }: ReportDetailPageProps) {
   }, [publicId, fetchReport]);
 
   useEffect(() => {
+    if (profile && profile.role !== "staff" && departments.length === 0) {
+      fetch('/api/departments').then(r => r.json()).then(d => {
+        if (d.departments) setDepartments(d.departments);
+      }).catch(console.error);
+    }
+  }, [profile, departments.length]);
+
+  useEffect(() => {
     if (report) {
       setUpdateStatus(report.status);
       setUpdateRemark(report.admin_remark || "");
@@ -140,7 +153,13 @@ export default function ReportDetailPage({ params }: ReportDetailPageProps) {
     const isStatusChanged = report.status !== updateStatus;
     const isRemarkChanged = (report.admin_remark || "") !== (updateRemark || "");
 
-    if (!isStatusChanged && !isRemarkChanged) {
+    if (updateStatus === 'transfer') {
+      if (!updateDepartmentId) {
+        setSaveMessage({ type: 'error', text: 'กรุณาเลือกหน่วยงานปลายทาง' });
+        setIsSaving(false);
+        return;
+      }
+    } else if (!isStatusChanged && !isRemarkChanged) {
       setIsEditMode(false);
       return;
     }
@@ -160,9 +179,10 @@ export default function ReportDetailPage({ params }: ReportDetailPageProps) {
         },
         body: JSON.stringify({
           reportId: report.id,
-          status: isStatusChanged ? updateStatus : undefined,
-          remark: isRemarkChanged ? updateRemark : undefined,
-          oldStatus: report.status
+          status: isStatusChanged || (updateStatus as string) === 'transfer' ? updateStatus : undefined,
+          remark: isRemarkChanged || (updateStatus as string) === 'transfer' ? updateRemark : undefined,
+          oldStatus: report.status,
+          departmentId: (updateStatus as string) === 'transfer' ? updateDepartmentId : undefined
         })
       });
 
@@ -172,6 +192,7 @@ export default function ReportDetailPage({ params }: ReportDetailPageProps) {
       }
 
       setSaveMessage({ type: 'success', text: 'บันทึกข้อมูลเรียบร้อยแล้ว' });
+      setUpdateDepartmentId("");
       await fetchReport(true);
 
       setIsEditMode(false);
@@ -499,7 +520,7 @@ export default function ReportDetailPage({ params }: ReportDetailPageProps) {
                 </div>
 
                 <div className="p-4 space-y-5 bg-white">
-                  {!(profile.role === "admin" || profile.department_id === report.categories?.department_id) ? (
+                  {!(["super_admin", "admin", "manager"].includes(profile.role) || profile.department_id === report.categories?.department_id) ? (
                     <div className="bg-red-50 text-red-800 p-4 rounded-xl border border-red-200 text-[13px] font-medium flex items-center gap-3">
                       <Lock className="w-5 h-5 text-red-600 shrink-0" />
                       คุณไม่มีสิทธิ์จัดการคำร้องนี้ เนื่องจากไม่ได้อยู่ในหน่วยงานที่รับผิดชอบ
@@ -528,19 +549,38 @@ export default function ReportDetailPage({ params }: ReportDetailPageProps) {
                       )}
                       <div>
                         <label className="text-[12px] text-slate-700 font-bold block mb-2">เปลี่ยนสถานะคำร้อง</label>
-                        <select
-                          className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-[14px] bg-slate-50 focus:ring-2 focus:ring-primary/20 outline-none disabled:opacity-50"
+                        <AppSelect
                           value={updateStatus}
-                          onChange={(e) => setUpdateStatus(e.target.value)}
+                          onChange={(val) => setUpdateStatus(val as string)}
                           disabled={isSaving}
-                        >
-                          <option value="pending">รอรับเรื่อง</option>
-                          <option value="in_progress">กำลังดำเนินการ</option>
-                          <option value="completed">ดำเนินการเสร็จสิ้น</option>
-                          <option value="rejected">ปฏิเสธคำร้อง</option>
-                          <option value="cancelled">ยกเลิกรายการ</option>
-                        </select>
+                          options={[
+                            { label: "รอรับเรื่อง", value: "pending" },
+                            { label: "กำลังดำเนินการ", value: "in_progress" },
+                            { label: "ดำเนินการเสร็จสิ้น", value: "completed" },
+                            { label: "ปฏิเสธคำร้อง", value: "rejected" },
+                            { label: "ยกเลิกรายการ", value: "cancelled" },
+                            ...(profile?.role !== 'staff' ? [{ label: 'โอนคำร้อง', value: 'transfer' }] : [])
+                          ]}
+                        />
                       </div>
+                      
+                      {updateStatus === 'transfer' && (
+                        <div>
+                          <label className="text-[12px] text-slate-700 font-bold block mb-2">โอนคำร้องไปยังหน่วยงาน</label>
+                          <AppSelect
+                            value={updateDepartmentId.toString()}
+                            onChange={(val) => setUpdateDepartmentId(Number(val))}
+                            disabled={isSaving}
+                            options={[
+                              { label: 'เลือกหน่วยงาน...', value: '' },
+                              ...departments
+                                .filter(d => d.id !== report.categories?.department_id)
+                                .map(d => ({ label: d.name_th, value: d.id.toString() }))
+                            ]}
+                          />
+                        </div>
+                      )}
+                      
                       <div>
                         <label className="text-[12px] text-slate-700 font-bold block mb-2">บันทึกข้อความภายใน</label>
                         <textarea
@@ -590,7 +630,7 @@ export default function ReportDetailPage({ params }: ReportDetailPageProps) {
                     <p className="text-[13px] text-slate-400 pl-8">ยังไม่มีประวัติการดำเนินงาน</p>
                   ) : sortedLogs.map((log, idx) => {
                     const isActive = idx === 0;
-                    const statusInfo = STATUS_DETAILS[log.new_status] || { label: log.action || "อัปเดต" };
+                    const statusInfo = log.action === 'transfer' ? { label: "โอนคำร้อง" } : (STATUS_DETAILS[log.new_status] || { label: log.action || "อัปเดต" });
                     // Use the actual staff full_name if available
                     const staffName = log.action === "created" 
                       ? "ระบบ" 
@@ -599,14 +639,20 @@ export default function ReportDetailPage({ params }: ReportDetailPageProps) {
                     let Icon = Clock;
                     if (log.new_status === 'in_progress') Icon = RefreshCcw;
                     if (log.new_status === 'completed') Icon = CheckCircle2;
+                    if (log.action === 'transfer') Icon = ArrowRightLeft;
 
                     const isLogCompleted = log.new_status === 'completed';
+                    const isTransfer = log.action === 'transfer';
 
                     let circleColorClass = 'border-slate-200 text-slate-400 bg-white';
                     let titleColorClass = 'text-slate-600';
                     let boxColorClass = 'bg-slate-50 text-slate-600 border border-transparent';
 
-                    if (isLogCompleted) {
+                    if (isTransfer) {
+                      circleColorClass = 'border-purple-400 bg-purple-50 text-purple-600 shadow-[0_0_10px_rgba(168,85,247,0.15)]';
+                      titleColorClass = 'text-purple-700';
+                      boxColorClass = 'bg-purple-50 border border-purple-200 text-purple-800';
+                    } else if (isLogCompleted) {
                       circleColorClass = 'border-emerald-400 bg-emerald-50 text-emerald-700 shadow-[0_0_10px_rgba(52,211,153,0.15)]';
                       titleColorClass = 'text-emerald-700';
                       boxColorClass = 'bg-emerald-50 border border-emerald-400 text-emerald-800';

@@ -30,13 +30,15 @@ import {
   ArrowRightLeft
 } from "lucide-react";
 
+import { StaffAuthProvider } from "@/contexts/StaffAuthContext";
+
 interface ReportDetailPageProps {
   params: Promise<{
     publicId: string;
   }>;
 }
 
-export default function ReportDetailPage({ params }: ReportDetailPageProps) {
+function ReportDetailPageContent({ params }: ReportDetailPageProps) {
   const { publicId } = use(params);
 
   const [report, setReport] = useState<Report | null>(null);
@@ -766,5 +768,13 @@ export default function ReportDetailPage({ params }: ReportDetailPageProps) {
       )}
 
     </AppContainer>
+  );
+}
+
+export default function ReportDetailPage(props: ReportDetailPageProps) {
+  return (
+    <StaffAuthProvider>
+      <ReportDetailPageContent {...props} />
+    </StaffAuthProvider>
   );
 }

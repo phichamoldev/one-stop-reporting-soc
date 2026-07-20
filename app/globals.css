@@ -145,3 +145,19 @@ body {
   scrollbar-width: none;
 }
 
+@keyframes toast-in {
+  from { transform: translateY(50px) scale(0.9); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+.animate-toast-in {
+  animation: toast-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes toast-progress {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+.animate-toast-progress {
+  animation: toast-progress 5s linear forwards;
+}
+

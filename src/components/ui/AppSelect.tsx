@@ -57,7 +57,7 @@ export const AppSelect: React.FC<AppSelectProps> = ({
             : "hover:bg-[#F8FAFC] dark:hover:bg-slate-800/50 cursor-pointer"
         }`}
       >
-        <span className={`text-[14px] truncate ${!selectedOption ? "text-slate-400 dark:text-slate-500" : "text-slate-800 dark:text-slate-200"}`}>
+        <span className={`text-[14px] truncate ${!selectedOption ? "text-slate-500 dark:text-slate-400" : "text-slate-800 dark:text-slate-200"}`}>
           {selectedOption ? selectedOption.label : placeholder}
         </span>
         <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />

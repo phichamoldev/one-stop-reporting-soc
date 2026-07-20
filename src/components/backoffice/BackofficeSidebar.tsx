@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useStaffAuth } from "@/hooks/useStaffAuth";
 import { hasAccess } from "@/lib/auth-helpers";
+import { preload, useSWRConfig } from "swr";
+import { fetcherWithAuth } from "@/lib/fetcher";
 import { 
   LayoutDashboard, 
   ClipboardList, 
@@ -20,13 +22,13 @@ import {
 export const BackofficeSidebar: React.FC = () => {
   const { profile, signOut } = useStaffAuth();
   const pathname = usePathname();
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const [isSimulating, setIsSimulating] = useState(true);
+  const { cache } = useSWRConfig();
+  const prefetchTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Sync Dark Mode class from storage
   useEffect(() => {
     const storedDarkMode = localStorage.getItem('soc_backoffice_darkmode') === 'true';
-    setIsDarkMode(storedDarkMode);
     if (storedDarkMode) {
       document.documentElement.classList.add('dark');
     } else {
@@ -37,21 +39,34 @@ export const BackofficeSidebar: React.FC = () => {
     setIsSimulating(storedSim);
   }, []);
 
-  const handleToggleDarkMode = () => {
-    const nextDark = !isDarkMode;
-    setIsDarkMode(nextDark);
-    localStorage.setItem('soc_backoffice_darkmode', String(nextDark));
-    if (nextDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  };
-
   const handleToggleSimulation = () => {
     const nextSim = !isSimulating;
     setIsSimulating(nextSim);
     localStorage.setItem('soc_backoffice_simulating', String(nextSim));
+  };
+
+  const handleMouseEnter = (href: string) => {
+    if (prefetchTimerRef.current) clearTimeout(prefetchTimerRef.current);
+    
+    prefetchTimerRef.current = setTimeout(() => {
+      let key = null;
+      if (href === '/backoffice') {
+        key = '/api/backoffice/dashboard?dateRange=7days';
+      } else if (href === '/backoffice/reports') {
+        key = '/api/backoffice/dashboard?dateRange=all';
+      } else if (href === '/backoffice/analytics') {
+        key = '/api/backoffice/analytics?dateRange=all&status=all&department=all';
+      }
+
+      // Skip preload if SWR already has fresh cached data
+      if (key && !cache.get(key)) {
+        preload(key, fetcherWithAuth);
+      }
+    }, 200); // 200ms hover delay
+  };
+
+  const handleMouseLeave = () => {
+    if (prefetchTimerRef.current) clearTimeout(prefetchTimerRef.current);
   };
 
   const menuItems = [
@@ -91,6 +106,8 @@ export const BackofficeSidebar: React.FC = () => {
             <Link
               key={item.href}
               href={item.href}
+              onMouseEnter={() => handleMouseEnter(item.href)}
+              onMouseLeave={handleMouseLeave}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 cursor-pointer text-left ${
                 isActive 
                   ? 'bg-primary/10 text-primary shadow-sm dark:bg-primary/15' 
@@ -126,11 +143,12 @@ export const BackofficeSidebar: React.FC = () => {
             </button>
           </div>
         ) : (
-          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800/40">
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold mb-1 uppercase tracking-wider">เข้าใช้งานล่าสุด</p>
-            <p className="text-xs font-bold text-slate-700 dark:text-slate-200">
-              กำลังโหลด...
-            </p>
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800/40 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 animate-pulse shrink-0"></div>
+            <div className="flex flex-col space-y-2 flex-1">
+              <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded animate-pulse w-3/4"></div>
+              <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded animate-pulse w-1/2"></div>
+            </div>
           </div>
         )}
 
@@ -154,23 +172,6 @@ export const BackofficeSidebar: React.FC = () => {
           </span>
         </button>
 
-        {/* Dark Mode toggle */}
-        <button
-          onClick={handleToggleDarkMode}
-          className="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 text-[11px] font-bold cursor-pointer transition-all"
-        >
-          <div className="flex items-center gap-1.5">
-            {isDarkMode ? (
-              <Sun className="w-4 h-4 text-amber-500 shrink-0" />
-            ) : (
-              <Moon className="w-4 h-4 text-slate-500 shrink-0" />
-            )}
-            <span>{isDarkMode ? 'โหมดสว่าง' : 'โหมดมืด'}</span>
-          </div>
-          <span className="text-[9px] font-bold text-slate-400">
-            {isDarkMode ? 'Light' : 'Dark'}
-          </span>
-        </button>
       </div>
     </aside>
   );

@@ -45,8 +45,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ public
       return NextResponse.json({ error: "Staff profile not found" }, { status: 403 });
     }
 
-    if (staffProfile.role === "staff") {
-      return NextResponse.json({ error: "Staff cannot update status or transfer reports" }, { status: 403 });
+    if (staffProfile.role === "staff" && status === "transfer") {
+      return NextResponse.json({ error: "Staff cannot transfer reports" }, { status: 403 });
     }
 
     // 2. Load report information
@@ -74,7 +74,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ public
     );
 
     // 4. Ownership Validation
-    if (staffProfile.role === "manager") {
+    if (staffProfile.role === "manager" || staffProfile.role === "staff") {
       if (!currentDepartmentId || !accessibleDepartmentIds.includes(currentDepartmentId)) {
         return NextResponse.json({ error: "Forbidden: You do not have access to this report's department" }, { status: 403 });
       }

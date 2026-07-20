@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { X, Clock, CheckCircle2, AlertTriangle, XCircle, Ban, Activity } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+
 
 interface StaffDetailModalProps {
   staff: any;
@@ -14,29 +14,29 @@ export const StaffDetailModal: React.FC<StaffDetailModalProps> = ({ staff, isOpe
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    const fetchTimeline = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/backoffice/staff/${staff.id}/timeline`, {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setTimeline(data.timeline || []);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (isOpen && staff) {
       fetchTimeline();
     }
-  }, [isOpen, staff]);
-
-  const fetchTimeline = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/backoffice/staff/${staff.id}/timeline`, {
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setTimeline(data.timeline || []);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [isOpen, staff, token]);
 
   if (!isOpen || !staff) return null;
 
@@ -44,21 +44,14 @@ export const StaffDetailModal: React.FC<StaffDetailModalProps> = ({ staff, isOpe
   const initial = staff.full_name ? staff.full_name.charAt(0) : "?";
 
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex justify-end bg-slate-900/20 backdrop-blur-sm">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+    <>
+      <div className={`fixed inset-0 z-[100] flex justify-end bg-slate-900/20 backdrop-blur-sm transition-opacity duration-300 ${isOpen ? 'opacity-100 visible' : 'opacity-0 invisible'}`}>
+        <div
           onClick={onClose}
           className="absolute inset-0"
         />
-        <motion.div
-          initial={{ x: "100%" }}
-          animate={{ x: 0 }}
-          exit={{ x: "100%" }}
-          transition={{ type: "spring", bounce: 0, duration: 0.4 }}
-          className="relative w-full max-w-md h-full bg-white dark:bg-slate-900 shadow-2xl flex flex-col border-l border-slate-100 dark:border-slate-800"
+        <div
+          className={`relative w-full max-w-md h-full bg-white dark:bg-slate-900 shadow-2xl flex flex-col border-l border-slate-100 dark:border-slate-800 transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
         >
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-800">
@@ -138,8 +131,8 @@ export const StaffDetailModal: React.FC<StaffDetailModalProps> = ({ staff, isOpe
               )}
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
-    </AnimatePresence>
+    </>
   );
 };

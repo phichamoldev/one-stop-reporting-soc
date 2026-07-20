@@ -1,68 +1,24 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import React, { useEffect } from "react";
+
 import { useStaffAuth } from "@/hooks/useStaffAuth";
-import { supabase } from "@/lib/supabase";
+import useSWR from "swr";
+import { fetcherWithAuth } from "@/lib/fetcher";
 import { ReportsView } from "@/components/backoffice/ReportsView";
 
 export default function BackofficeReportsPage() {
-  const router = useRouter();
   const { user, loading: authLoading } = useStaffAuth();
   
-  const [reports, setReports] = useState<any[]>([]);
-  const [filterOptions, setFilterOptions] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const params = new URLSearchParams({ dateRange: "all" });
+  
+  const { data, error, isLoading } = useSWR(
+    user ? `/api/backoffice/dashboard?${params.toString()}` : null,
+    fetcherWithAuth,
+    { dedupingInterval: 60000 }
+  );
 
-  const fetchReports = useCallback(async () => {
-    if (!user) return;
-    
-    setLoading(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const params = new URLSearchParams({
-        dateRange: "all"
-      });
-
-      const res = await fetch(`/api/backoffice/dashboard?${params.toString()}`, {
-        headers: {
-          "Authorization": `Bearer ${session.access_token}`
-        }
-      });
-      
-      if (!res.ok) {
-        const errData = await res.json().catch(() => null);
-        if (errData?.code === "NO_PERMISSION") {
-          // Empty state handled naturally
-          return;
-        }
-        if (res.status === 401 || res.status === 403) {
-          router.replace("/backoffice/login");
-        }
-        throw new Error("Failed to fetch data");
-      }
-
-      const result = await res.json();
-      setReports(result.reports || []);
-      setFilterOptions(result.filterOptions || null);
-    } catch (error) {
-      console.error("Error fetching reports:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [user, router]);
-
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.replace("/backoffice/login");
-    } else if (user) {
-      fetchReports();
-    }
-  }, [user, authLoading, fetchReports, router]);
-
-  if (authLoading || loading) {
+  if (authLoading || isLoading) {
     return (
       <div className="flex-1 p-6 md:px-[50px] md:py-8 space-y-8 animate-pulse w-full">
         <div className="h-10 w-64 bg-slate-200 dark:bg-slate-800 rounded-lg" />
@@ -74,7 +30,7 @@ export default function BackofficeReportsPage() {
 
   return (
     <div className="flex-1 p-6 md:px-[50px] md:py-8 space-y-8 animate-fade-in w-full pb-12">
-      <ReportsView reports={reports} filterOptions={filterOptions} />
+      <ReportsView reports={data?.reports || []} filterOptions={data?.filterOptions || null} />
     </div>
   );
 }

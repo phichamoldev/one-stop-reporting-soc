@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+
 import { CheckCircle2, AlertTriangle, XCircle, Info, X } from 'lucide-react';
 import { useNotification, AppNotification } from '@/contexts/NotificationContext';
 import Link from 'next/link';
@@ -49,12 +49,8 @@ const NotificationItem: React.FC<{ notification: AppNotification; onClose: () =>
   );
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 50, scale: 0.9 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-      layout
-      className={`relative p-4 rounded-xl shadow-lg border border-slate-100 dark:border-slate-700 pointer-events-auto flex gap-3 items-start justify-between ${bgColors[notification.type]} transition-colors duration-200 overflow-hidden w-full max-w-sm`}
+    <div
+      className={`relative p-4 rounded-xl shadow-lg border border-slate-100 dark:border-slate-700 pointer-events-auto flex gap-3 items-start justify-between ${bgColors[notification.type]} transition-colors duration-200 overflow-hidden w-full max-w-sm animate-toast-in`}
     >
       {notification.link ? (
         <Link href={notification.link} className="flex-1 block hover:bg-slate-50 dark:hover:bg-slate-800/50 -m-4 p-4 transition-colors">
@@ -75,17 +71,14 @@ const NotificationItem: React.FC<{ notification: AppNotification; onClose: () =>
       </button>
       
       {/* Progress Bar (Visual representation of 5s timeout) */}
-      <motion.div 
-        className={`absolute bottom-0 left-0 h-1 ${
+      <div 
+        className={`absolute bottom-0 left-0 h-1 animate-toast-progress ${
           notification.type === 'success' ? 'bg-emerald-500' :
           notification.type === 'warning' ? 'bg-amber-500' :
           notification.type === 'error' ? 'bg-rose-500' : 'bg-blue-500'
         }`}
-        initial={{ width: '100%' }}
-        animate={{ width: 0 }}
-        transition={{ duration: 5, ease: 'linear' }}
       />
-    </motion.div>
+    </div>
   );
 };
 
@@ -97,7 +90,6 @@ export const NotificationToastContainer: React.FC = () => {
 
   return (
     <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none w-full max-w-sm sm:max-w-md px-4 sm:px-0">
-      <AnimatePresence mode="popLayout">
         {visibleToasts.map((notification) => (
           <NotificationItem 
             key={notification.id} 
@@ -105,7 +97,6 @@ export const NotificationToastContainer: React.FC = () => {
             onClose={() => removeNotification(notification.id)} 
           />
         ))}
-      </AnimatePresence>
     </div>
   );
 };

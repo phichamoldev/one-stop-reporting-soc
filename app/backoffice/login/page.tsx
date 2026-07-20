@@ -38,14 +38,14 @@ export default function BackofficeLogin() {
 
   if (loading || user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <main className="min-h-screen flex items-center justify-center bg-slate-50">
         <Loader2 className="w-8 h-8 animate-spin text-[#D1350F]" />
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+    <main className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
       <div className="w-full max-w-[400px] bg-white rounded-[16px] shadow-sm border border-slate-100 overflow-hidden">
         
         {/* Header */}
@@ -128,6 +128,6 @@ export default function BackofficeLogin() {
         </form>
 
       </div>
-    </div>
+    </main>
   );
 }

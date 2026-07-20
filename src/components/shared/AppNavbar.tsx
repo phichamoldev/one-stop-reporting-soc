@@ -20,7 +20,7 @@ export const AppNavbar: React.FC = () => {
         </div>
         <div>
           <span className="text-[12px] leading-none font-extrabold block text-black/80">คณะสังคมศาสตร์</span>
-          <span className="text-[10px] leading-none text-black/40 block uppercase tracking-wider font-semibold mt-0.5">Faculty of Social Sciences</span>
+          <span className="text-[10px] leading-none text-slate-500 block uppercase tracking-wider font-semibold mt-0.5">Faculty of Social Sciences</span>
         </div>
       </Link>
 

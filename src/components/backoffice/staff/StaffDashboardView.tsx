@@ -248,7 +248,7 @@ export default function StaffDashboardView() {
               <p className="text-slate-400 font-medium text-sm">ไม่พบเจ้าหน้าที่</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5">
               {filteredStaff.map((s) => (
                 <StaffCard key={s.id} staff={s} onClick={setSelectedStaff} />
               ))}

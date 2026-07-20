@@ -266,12 +266,12 @@ export default function ReportDetailPage({ params }: ReportDetailPageProps) {
   const sortedLogs = [...(report.report_logs || [])].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   return (
-    <AppContainer>
-      <div className="flex-1 flex flex-col overflow-y-auto bg-[#F4F6F8]">
+    <AppContainer maxWidthClass="lg:max-w-6xl">
+      <div className="flex-1 flex flex-col overflow-y-auto bg-[#F4F6F8] min-h-screen">
 
         {/* 1. Header Section (นอก Card ตาม Reference Image) */}
         <div className="bg-white border-b border-slate-200">
-          <div className="max-w-3xl mx-auto w-full p-6 md:p-6">
+          <div className="w-full p-6 md:p-8">
             <div className="flex items-center justify-between mb-2">
               <div>
                 <span className="text-[13px] text-slate-400 font-medium block mb-0.5">เลขอ้างอิง</span>
@@ -293,10 +293,14 @@ export default function ReportDetailPage({ params }: ReportDetailPageProps) {
           </div>
         </div>
 
-        <div className="p-6 md:p-6 pb-12 space-y-6 max-w-3xl mx-auto w-full">
+        <div className="p-6 md:p-8 pb-12 w-full">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+            
+            {/* LEFT COLUMN */}
+            <div className="lg:col-span-8 space-y-6">
 
-          {/* 2. รายละเอียดการแจ้ง (Main Card with top border accent) */}
-          <AppCard className="!p-0 border-[#EDF0F4] shadow-sm overflow-hidden border-t-[4px] border-t-primary rounded-[8px]">
+              {/* 2. รายละเอียดการแจ้ง (Main Card with top border accent) */}
+              <AppCard className="!p-0 border-[#EDF0F4] shadow-sm overflow-hidden border-t-[4px] border-t-primary rounded-[8px]">
 
             <div className="p-4 border-b border-slate-100 flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center text-primary shrink-0">
@@ -405,10 +409,14 @@ export default function ReportDetailPage({ params }: ReportDetailPageProps) {
               </div>
             </div>
           </AppCard>
+            </div>
 
-          {/* 5. การดำเนินการของเจ้าหน้าที่ (STAFF SECTION) */}
-          <div className="mt-8">
-            <h3 className="text-[16px] font-bold text-slate-800 mb-4 px-1">
+            {/* RIGHT COLUMN */}
+            <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-6 lg:self-start">
+
+              {/* 5. การดำเนินการของเจ้าหน้าที่ (STAFF SECTION) */}
+              <div>
+                <h3 className="text-[16px] font-bold text-slate-800 mb-4 px-1">
               {isCompleted && !isEditMode ? "ผลการดำเนินงาน" : "การดำเนินการของเจ้าหน้าที่"}
             </h3>
 
@@ -609,9 +617,8 @@ export default function ReportDetailPage({ params }: ReportDetailPageProps) {
             )}
           </div>
 
-          {/* 6. TIMELINE SECTION */}
-          <div className="mt-8">
-            <AppCard className="!p-5 md:!p-6 border-[#EDF0F4] shadow-sm bg-white rounded-[16px]">
+              {/* 6. TIMELINE SECTION */}
+              <AppCard className="!p-5 md:!p-6 border-[#EDF0F4] shadow-sm bg-white rounded-[16px]">
               <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 shrink-0">
@@ -695,7 +702,10 @@ export default function ReportDetailPage({ params }: ReportDetailPageProps) {
                 </div>
               </div>
             </AppCard>
+            </div>
+            {/* End Right Column */}
           </div>
+          {/* End Grid */}
 
           <div className="pt-6">
             <GlobalFooter />

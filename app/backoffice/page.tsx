@@ -82,12 +82,12 @@ export default function BackofficeDashboard() {
           <DashboardKPIs />
         </Suspense>
 
-        <Suspense fallback={<ReportsSkeleton />}>
-          <DashboardRecentReports />
-        </Suspense>
-
         <Suspense fallback={<ChartsSkeleton />}>
           <DashboardCharts />
+        </Suspense>
+
+        <Suspense fallback={<ReportsSkeleton />}>
+          <DashboardRecentReports />
         </Suspense>
       </DashboardProvider>
     </div>

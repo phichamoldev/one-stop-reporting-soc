@@ -11,6 +11,8 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { Report, STATUS_DETAILS } from "@/types/report";
 import { GlobalFooter } from "@/components/shared/GlobalFooter";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import { 
   Calendar, 
   RefreshCcw, 
@@ -36,43 +38,16 @@ export default function TrackPage({ params }: TrackPageProps) {
   const { publicId } = use(params);
 
   const router = useRouter();
-  const [report, setReport] = useState<Report | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  
+  const { data, error, isLoading } = useSWR(
+    publicId ? `/api/reports/${publicId}` : null,
+    fetcher
+  );
+  
+  const report = data?.report as Report | undefined;
   
   // สถานะการคัดลอกลิงก์
   const [copied, setCopied] = useState<boolean>(false);
-
-  useEffect(() => {
-    async function fetchReport() {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const res = await fetch(`/api/reports/${publicId}`);
-        const result = await res.json();
-
-        if (!res.ok) {
-          throw new Error(result.error || "เกิดข้อผิดพลาดในการโหลดข้อมูล");
-        }
-
-        if (!result.report) {
-          setError("ไม่พบข้อมูลรายงาน");
-          return;
-        }
-
-        setReport(result.report as Report);
-      } catch (err: any) {
-        setError(err.message || "เกิดข้อผิดพลาดในการโหลดข้อมูล");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    if (publicId) {
-      fetchReport();
-    }
-  }, [publicId]);
 
   // ฟังก์ชันสำหรับการคัดลอกลิงก์
   const handleCopyLink = () => {
@@ -85,7 +60,7 @@ export default function TrackPage({ params }: TrackPageProps) {
     });
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <AppContainer>
         <AppNavbar />
@@ -192,21 +167,21 @@ export default function TrackPage({ params }: TrackPageProps) {
   const sortedLogs = displayLogs.reverse();
 
   return (
-    <AppContainer>
+    <AppContainer maxWidthClass="lg:max-w-6xl">
       <div className="flex-1 flex flex-col overflow-y-auto bg-[#F4F6F8] min-h-screen">
         
         {/* 1. Header Section (นอก Card ตาม Reference Image) */}
         <div className="bg-white border-b border-slate-200">
-          <div className="max-w-3xl mx-auto w-full p-6 md:p-6">
+          <div className="w-full p-6 md:p-8">
             <div className="flex items-center gap-4 mb-4">
-               <button onClick={handleBack} className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 hover:bg-slate-100 transition-colors border border-slate-100">
+               <button onClick={handleBack} className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 hover:bg-slate-100 transition-colors border border-slate-100 shrink-0">
                   <ArrowLeft className="w-5 h-5" />
                </button>
                <div>
                  <span className="text-[13px] text-slate-400 font-medium block mb-0.5">รายงาน</span>
-                 <h1 className="text-[20px] font-bold text-slate-800 tracking-tight leading-none">{report.public_id}</h1>
+                 <h1 className="text-[20px] font-bold text-slate-800 tracking-tight leading-none break-all">{report.public_id}</h1>
                </div>
-               <div className="ml-auto">
+               <div className="ml-auto shrink-0">
                  <StatusBadge status={report.status} label={currentStatusInfo.label} />
                </div>
             </div>
@@ -224,10 +199,13 @@ export default function TrackPage({ params }: TrackPageProps) {
           </div>
         </div>
 
-        <div className="p-6 md:p-6 pb-12 space-y-6 max-w-3xl mx-auto w-full">
-          
-          {/* 2. รายละเอียดการแจ้ง (Main Card with top border accent) */}
-          <AppCard className="!p-0 border-[#EDF0F4] shadow-sm overflow-hidden border-t-[4px] border-t-primary rounded-[8px]">
+        <div className="p-6 md:p-8 pb-12 w-full">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+            
+            {/* LEFT COLUMN */}
+            <div className="lg:col-span-8 space-y-6">
+              {/* 2. รายละเอียดการแจ้ง (Main Card with top border accent) */}
+              <AppCard className="!p-0 border-[#EDF0F4] shadow-sm overflow-hidden border-t-[4px] border-t-primary rounded-[8px]">
              
              <div className="p-4 border-b border-slate-100 flex items-center gap-3">
                <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center text-primary shrink-0">
@@ -332,12 +310,13 @@ export default function TrackPage({ params }: TrackPageProps) {
                 </div>
              </div>
           </AppCard>
+        </div>
 
-          
-
-          {/* 6. TIMELINE SECTION */}
-          <div className="mt-8">
-            <AppCard className="!p-5 md:!p-6 border-[#EDF0F4] shadow-sm bg-white rounded-[16px]">
+            {/* RIGHT COLUMN */}
+            <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-6 lg:self-start">
+              
+              {/* 6. TIMELINE SECTION */}
+              <AppCard className="!p-5 md:!p-6 border-[#EDF0F4] shadow-sm bg-white rounded-[16px]">
               <div className="flex justify-between items-center mb-6">
                  <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 shrink-0">
@@ -420,38 +399,42 @@ export default function TrackPage({ params }: TrackPageProps) {
                 </div>
               </div>
             </AppCard>
-          </div>
 
-          {/* 7. BOTTOM ACTIONS */}
-          <div className="flex flex-col gap-3 pt-6 pb-6">
-            <Link href="/" className="block">
+            {/* 7. BOTTOM ACTIONS */}
+            <div className="flex flex-col gap-3">
+              <Link href="/" className="block">
+                <button 
+                  type="button" 
+                  className="w-full h-[52px] rounded-[18px] bg-[#D1350F] text-white font-bold text-[15px] flex items-center justify-center gap-2 shadow-lg shadow-[#D1350F]/20 active:scale-[0.98] transition-transform"
+                >
+                  <Plus className="w-5 h-5" />
+                  แจ้งปัญหาใหม่
+                </button>
+              </Link>
+              
               <button 
                 type="button" 
-                className="w-full h-[52px] rounded-[18px] bg-[#D1350F] text-white font-bold text-[15px] flex items-center justify-center gap-2 shadow-lg shadow-[#D1350F]/20 active:scale-[0.98] transition-transform"
+                onClick={handleCopyLink}
+                className="w-full h-[52px] rounded-[18px] bg-[#F3F4F6] border border-[#E5E7EB] text-slate-700 font-bold text-[15px] flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:bg-[#E5E7EB]"
               >
-                <Plus className="w-5 h-5" />
-                แจ้งปัญหาใหม่
+                {copied ? (
+                  <>
+                    <CheckCircle2 className="w-5 h-5 text-[#10B981]" />
+                    <span className="text-[#10B981]">คัดลอกลิงก์สำเร็จแล้ว</span>
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-5 h-5 text-slate-500" />
+                    คัดลอกลิงก์
+                  </>
+                )}
               </button>
-            </Link>
-            
-            <button 
-              type="button" 
-              onClick={handleCopyLink}
-              className="w-full h-[52px] rounded-[18px] bg-[#F3F4F6] border border-[#E5E7EB] text-slate-700 font-bold text-[15px] flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:bg-[#E5E7EB]"
-            >
-              {copied ? (
-                <>
-                  <CheckCircle2 className="w-5 h-5 text-[#10B981]" />
-                  <span className="text-[#10B981]">คัดลอกลิงก์สำเร็จแล้ว</span>
-                </>
-              ) : (
-                <>
-                  <FileText className="w-5 h-5 text-slate-500" />
-                  คัดลอกลิงก์
-                </>
-              )}
-            </button>
+            </div>
           </div>
+          {/* End of Right Column */}
+          
+          </div>
+          {/* End of Grid */}
           
           <div className="pt-6">
             <GlobalFooter />

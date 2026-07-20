@@ -12,6 +12,8 @@ import { Report, DBCategory, DBSubcategory } from "@/types/report";
 import { generatePublicId, generateTrackingToken } from "@/lib/utils";
 import Image from "next/image";
 import { GlobalFooter } from "@/components/shared/GlobalFooter";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import { BookOpenText, Users, GraduationCap, Building2, Wrench, MonitorSmartphone, ShieldCheck, MessageSquareWarning, Monitor, MessageSquare, Briefcase } from 'lucide-react';
 
 export function getCategoryIcon(categoryCode: string) {
@@ -34,8 +36,15 @@ export default function Home() {
   const [categoryId, setCategoryId] = useState<number | "">("");
   const [subcategoryId, setSubcategoryId] = useState<number | "">("");
   
-  const [categories, setCategories] = useState<DBCategory[]>([]);
-  const [subcategories, setSubcategories] = useState<DBSubcategory[]>([]);
+  const { data: categoriesData } = useSWR("/api/categories", fetcher, { dedupingInterval: 3600000 });
+  const categories: DBCategory[] = categoriesData?.categories || [];
+
+  const { data: subcategoriesData } = useSWR(
+    categoryId ? `/api/subcategories?categoryId=${categoryId}` : null,
+    fetcher,
+    { dedupingInterval: 3600000 }
+  );
+  const subcategories: DBSubcategory[] = subcategoriesData?.subcategories || [];
 
   const [location, setLocation] = useState<string>("");
   const [description, setDescription] = useState<string>("");
@@ -57,42 +66,6 @@ export default function Home() {
   // หลังส่งข้อมูลเสร็จสิ้น
   const [submittedReport, setSubmittedReport] = useState<Report | null>(null);
   const [copied, setCopied] = useState<boolean>(false);
-
-  // โหลด categories
-  useEffect(() => {
-    async function loadCategories() {
-      try {
-        const res = await fetch("/api/categories");
-        if (res.ok) {
-          const { categories } = await res.json();
-          setCategories(categories || []);
-        }
-      } catch (err) {
-        console.error("ไม่สามารถโหลดหมวดหมู่ได้:", err);
-      }
-    }
-    loadCategories();
-  }, []);
-
-  // โหลด subcategories เมื่อ categoryId เปลี่ยน
-  useEffect(() => {
-    async function loadSubcategories() {
-      if (!categoryId) {
-        setSubcategories([]);
-        return;
-      }
-      try {
-        const res = await fetch(`/api/subcategories?categoryId=${categoryId}`);
-        if (res.ok) {
-          const { subcategories } = await res.json();
-          setSubcategories(subcategories || []);
-        }
-      } catch (err) {
-        console.error("ไม่สามารถโหลดหมวดหมู่ย่อยได้:", err);
-      }
-    }
-    loadSubcategories();
-  }, [categoryId]);
 
   // (Removed loadStats as it was unused and violates RLS)
   // (Removed loadStats as it was unused and violates RLS)
@@ -303,63 +276,34 @@ export default function Home() {
     setGlobalError(null);
   };
 
-  return (
-    <AppContainer>
-      {/* ตรวจสอบข้อผิดพลาดสากล */}
-      {globalError && (
-        <div className="mx-6 mt-4 p-4 rounded-xl bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/50 text-rose-700 dark:text-rose-400 text-xs flex items-start gap-2 animate-fade-in shrink-0 z-10">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4.5 h-4.5 shrink-0 mt-0.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
-          </svg>
-          <div>
-            <span className="font-bold block">บันทึกล้มเหลว</span>
-            {globalError}
-          </div>
-        </div>
-      )}
-
-      {/* 1. สถานะประมวลผลการส่งข้อมูล */}
-      {isSubmitting ? (
-        <div className="flex-1 flex flex-col items-center justify-center p-8 space-y-6 animate-scale-up">
-          <div className="relative w-14 h-14">
-            <div className="w-14 h-14 rounded-full border-4 border-primary/20 border-t-primary animate-spin"></div>
-          </div>
-          <div className="text-center space-y-1.5">
-            <h3 className="text-sm font-bold text-gray-900 dark:text-white">กำลังดำเนินการ</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 animate-pulse">{submitStep}</p>
-          </div>
-        </div>
-      ) : submittedReport ? (
-
-        /* 2. หน้าแจ้งเรื่องสำเร็จ (Success Details State) */
-        /* 2. หน้าแจ้งเรื่องสำเร็จ (Success Details State) */
-        <div className="flex-1 flex flex-col p-6 animate-scale-up justify-between bg-[#F8FAFC] dark:bg-slate-900 overflow-y-auto">
-          <div className="space-y-6">
-
-            {/* 1. Header (Success Icon & Text) */}
-            <div className="text-center space-y-5 pt-4">
-              {/* Concentric Glow Icon */}
-              <div className="w-28 h-28 rounded-full bg-[#EBF7F2] flex items-center justify-center mx-auto shadow-sm">
-                <div className="w-20 h-20 rounded-full bg-[#D1F0E0] flex items-center justify-center">
-                  <div className="w-14 h-14 rounded-full bg-[#24C270] text-white flex items-center justify-center shadow-md">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3.5} stroke="currentColor" className="w-6 h-6">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                    </svg>
-                  </div>
+  if (submittedReport) {
+    return (
+      <main className="min-h-screen w-full bg-[#F4F6F8] dark:bg-slate-950 flex flex-col items-center justify-center p-4 md:p-8">
+        <div className="w-full max-w-[600px] flex flex-col items-center space-y-8 my-auto animate-scale-up relative z-10">
+          {/* 1. Header (Success Icon & Text) */}
+          <div className="text-center space-y-5 w-full">
+            {/* Concentric Glow Icon */}
+            <div className="w-24 h-24 md:w-28 md:h-28 rounded-full bg-[#EBF7F2] flex items-center justify-center mx-auto shadow-sm">
+              <div className="w-20 h-20 rounded-full bg-[#D1F0E0] flex items-center justify-center">
+                <div className="w-14 h-14 rounded-full bg-[#24C270] text-white flex items-center justify-center shadow-md">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3.5} stroke="currentColor" className="w-6 h-6">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                  </svg>
                 </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <h2 className="text-[22px] font-extrabold text-slate-800 dark:text-white">ส่งข้อมูลเรียบร้อยแล้ว!</h2>
-                <p className="text-[13px] text-slate-500 font-medium leading-relaxed max-w-[260px] mx-auto">
-                  ระบบได้รับข้อมูลของท่านแล้ว เจ้าหน้าที่จะดำเนินการโดยเร็วที่สุด
-                </p>
               </div>
             </div>
 
+            <div className="space-y-2">
+              <h2 className="text-[22px] md:text-[26px] font-extrabold text-slate-800 dark:text-white">ส่งข้อมูลเรียบร้อยแล้ว!</h2>
+              <p className="text-[13px] md:text-[14px] text-slate-500 font-medium leading-relaxed max-w-[420px] mx-auto">
+                ระบบได้รับข้อมูลของท่านแล้ว เจ้าหน้าที่จะดำเนินการโดยเร็วที่สุด
+              </p>
+            </div>
+          </div>
+
+          <div className="w-full space-y-6">
             {/* 2. Reference Card */}
             <AppCard className="!p-5 border-[#EDF0F4] shadow-sm">
-              {/* Top row */}
               <div className="flex justify-between items-center mb-4">
                 <div className="flex items-center gap-2.5">
                   <div className="w-1 h-4 rounded-full bg-[#D1350F] shrink-0"></div>
@@ -368,7 +312,6 @@ export default function Home() {
                 <StatusBadge status="pending" label="รับเรื่องแล้ว" />
               </div>
 
-              {/* Box */}
               <div className="bg-[#FFF6F3] border-[1.5px] border-dashed border-[#FCA5A5] rounded-[16px] p-5 text-center">
                 <span className="text-[26px] font-black text-[#A93311] tracking-[0.12em] font-mono block leading-none pt-1 pb-2">
                   {submittedReport.public_id}
@@ -378,7 +321,6 @@ export default function Home() {
                 </span>
               </div>
 
-              {/* Notice */}
               <div className="bg-[#EDF9F1] border border-[#BCE6CA] rounded-xl p-2.5 mt-3.5 flex items-center justify-center gap-1.5">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5 text-[#24C270]">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
@@ -426,23 +368,54 @@ export default function Home() {
               </Link>
             </AppCard>
 
+            {/* 4. Bottom CTA */}
+            <div className="pt-2 w-full">
+              <button
+                type="button"
+                onClick={resetForm}
+                className="w-full py-4 rounded-[18px] bg-[#A83210] hover:bg-[#8D280B] text-white font-bold transition-all text-[15px] flex items-center justify-center gap-2 shadow-lg shadow-[#A83210]/20 cursor-pointer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                แจ้งปัญหาใหม่
+              </button>
+            </div>
           </div>
-
-          {/* 4. Bottom CTA */}
-          <div className="pt-8 pb-4 shrink-0 mt-auto">
-            <button
-              type="button"
-              onClick={resetForm}
-              className="w-full py-4 rounded-[18px] bg-[#A83210] hover:bg-[#8D280B] text-white font-bold transition-all text-[15px] flex items-center justify-center gap-1.5 shadow-lg shadow-[#A83210]/20 cursor-pointer"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-              </svg>
-              แจ้งปัญหาใหม่
-            </button>
-          </div>
-          
+        </div>
+        
+        <div className="mt-8 mb-4">
           <GlobalFooter />
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <AppContainer maxWidthClass="lg:max-w-[1400px]">
+      {/* ตรวจสอบข้อผิดพลาดสากล */}
+      {globalError && (
+        <div className="mx-6 mt-4 p-4 rounded-xl bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/50 text-rose-700 dark:text-rose-400 text-xs flex items-start gap-2 animate-fade-in shrink-0 z-10">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4.5 h-4.5 shrink-0 mt-0.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+          </svg>
+          <div>
+            <span className="font-bold block">บันทึกล้มเหลว</span>
+            {globalError}
+          </div>
+        </div>
+      )}
+
+      {/* 1. สถานะประมวลผลการส่งข้อมูล */}
+      {isSubmitting ? (
+        <div className="flex-1 flex flex-col items-center justify-center p-8 space-y-6 animate-scale-up">
+          <div className="relative w-14 h-14">
+            <div className="w-14 h-14 rounded-full border-4 border-primary/20 border-t-primary animate-spin"></div>
+          </div>
+          <div className="text-center space-y-1.5">
+            <h3 className="text-sm font-bold text-gray-900 dark:text-white">กำลังดำเนินการ</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 animate-pulse">{submitStep}</p>
+          </div>
         </div>
       ) : (
 
@@ -450,7 +423,7 @@ export default function Home() {
         <>
           {/* ส่วนหัวคณะและตราสัญลักษณ์คณะสังคมศาสตร์ (Hero Section) */}
           <div
-            className="relative pt-8 pb-10 px-6 rounded-b-[40px] text-white shrink-0 shadow-lg z-10 overflow-hidden"
+            className="relative pt-8 pb-10 lg:py-8 px-6 lg:px-12 rounded-b-[40px] lg:rounded-[32px] lg:m-2 text-white shrink-0 shadow-lg z-10 overflow-hidden flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6"
             style={{
               backgroundImage: "url('/images/hero-bg2.png')",
               backgroundSize: "cover",
@@ -458,126 +431,132 @@ export default function Home() {
               backgroundRepeat: "no-repeat",
             }}
           >
-            {/* Logo and Pill Button "One Stop Service" */}
-            <div className="flex items-center justify-between">
-
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-md bg-white p-1 shadow-md flex items-center justify-center">
-                  <Image
-                    src="/images/ku-logo.png"
-                    alt="Kasetsart University"
-                    width={20}
-                    height={20}
-                    className="object-contain w-auto h-auto"
-                    priority
-                  />
+            {/* Logo and Titles Wrapper */}
+            <div className="flex flex-col gap-6 lg:gap-8">
+              {/* Logo and Pill Button "One Stop Service" */}
+              <div className="flex items-center justify-between lg:justify-start lg:gap-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-md bg-white p-1 shadow-md flex items-center justify-center">
+                    <Image
+                      src="/images/ku-logo.png"
+                      alt="Kasetsart University"
+                      width={20}
+                      height={20}
+                      className="object-contain w-auto h-auto"
+                      priority
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[12px] lg:text-[14px] leading-none font-extrabold block text-white/90">คณะสังคมศาสตร์</span>
+                    <span className="text-[10px] lg:text-[11px] leading-none text-white/70 block uppercase tracking-wider font-semibold mt-0.5">Faculty of Social Sciences</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-[12px] leading-none font-extrabold block text-white/90">คณะสังคมศาสตร์</span>
-                  <span className="text-[10px] leading-none text-white/70 block uppercase tracking-wider font-semibold mt-0.5">Faculty of Social Sciences</span>
-                </div>
+                <span className="px-3 py-1 rounded-full border border-white/30 text-[10px] font-bold text-white uppercase tracking-wider bg-white/10 backdrop-blur-sm lg:hidden">
+                  One Stop Service
+                </span>
               </div>
 
-
-              <span className="px-3 py-1 rounded-full border border-white/30 text-[10px] font-bold text-white uppercase tracking-wider bg-white/10 backdrop-blur-sm">
-                One Stop Service
-              </span>
+              {/* Titles */}
+              <div className="space-y-1">
+                <h1 className="text-xl lg:text-3xl font-extrabold tracking-tight">ระบบรับแจ้งปัญหา</h1>
+                <h2 className="text-2xl lg:text-4xl font-black tracking-tight leading-none text-white/95 flex items-center gap-3">
+                  One Stop Service
+                </h2>
+                <p className="text-[11px] lg:text-[14px] text-white/80 font-medium leading-relaxed max-w-[300px] lg:max-w-[450px] pt-1">
+                  ศูนย์กลางการแจ้งปัญหาและติดตามสถานะ<br className="lg:hidden" />การดำเนินงานของคณะสังคมศาสตร์
+                </p>
+              </div>
             </div>
 
-            {/* Titles */}
-            <div className="mt-6 space-y-1">
-              <h1 className="text-xl font-extrabold tracking-tight">ระบบรับแจ้งปัญหา</h1>
-              <h2 className="text-2xl font-black tracking-tight leading-none text-white/95">One Stop Service</h2>
-              <p className="text-[11px] text-white/80 font-medium leading-relaxed max-w-[300px] pt-1">
-                ศูนย์กลางการแจ้งปัญหาและติดตามสถานะ
-                <br />
-                การดำเนินงานของคณะสังคมศาสตร์
-              </p>
-            </div>
+            {/* Right side Actions (Desktop) */}
+            <div className="flex flex-col gap-5 lg:items-end lg:self-end">
+              {/* Floating Badges */}
+              <div className="flex flex-wrap gap-1.5 lg:justify-end">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] lg:text-[12px] font-extrabold bg-black/15 text-white/95 border border-white/10 backdrop-blur-sm">
+                  ⚡ แจ้งปัญหาภายใน 1 นาที
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] lg:text-[12px] font-extrabold bg-black/15 text-white/95 border border-white/10 backdrop-blur-sm">
+                  📍 ติดตามแบบ Real-time
+                </span>
+              </div>
 
-            {/* Floating Badges */}
-            <div className="mt-5 flex flex-wrap gap-1.5">
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-extrabold bg-black/15 text-white/95 border border-white/10 backdrop-blur-sm">
-                ⚡ แจ้งปัญหาภายใน 1 นาที
-              </span>
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-extrabold bg-black/15 text-white/95 border border-white/10 backdrop-blur-sm">
-                📍 ติดตามแบบ Real-time
-              </span>
-            </div>
-
-            {/* Lookup Link */}
-            <div className="mt-5">
-              <Link
-                href="/track/lookup"
-                className="inline-flex items-center gap-1 text-[11px] font-bold text-white hover:text-white/80 transition-colors bg-white/10 backdrop-blur-sm px-3.5 py-1.5 rounded-full border border-white/10"
-              >
-                <span> ติดตามปัญหาที่แจ้งไว้แล้ว</span>
-              </Link>
+              {/* Lookup Link */}
+              <div>
+                <Link
+                  href="/track/lookup"
+                  className="inline-flex items-center gap-1 text-[11px] lg:text-[14px] font-bold text-white hover:text-white/80 transition-colors bg-white/10 backdrop-blur-sm px-4 py-2 lg:px-6 lg:py-3 rounded-full border border-white/10"
+                >
+                  <span>ติดตามปัญหาที่แจ้งไว้แล้ว &rarr;</span>
+                </Link>
+              </div>
             </div>
           </div>
 
           {/* แบบฟอร์มกรอกข้อมูล */}
-          <form onSubmit={handleSubmit} className="flex-1 px-4 md:px-5 py-6 space-y-6 overflow-y-auto bg-slate-50 dark:bg-slate-900">
-
-            {/* รายละเอียดปัญหา Section */}
-            <AppCard>
-              <div className="flex items-start gap-2.5 mb-5">
-                <div className="w-1 h-4 rounded-full bg-[#D1350F] shrink-0 mt-1"></div>
+          <form onSubmit={handleSubmit} className="flex-1 px-4 md:px-8 py-6 lg:py-8 overflow-y-auto bg-slate-50 dark:bg-slate-900">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+              {/* Left Column */}
+              <AppCard className="md:h-full lg:col-span-8 lg:p-8">
+              <div className="flex items-start gap-2.5 mb-5 lg:mb-8">
+                <div className="w-1 h-4 lg:h-5 rounded-full bg-[#D1350F] shrink-0 mt-1"></div>
                 <div>
-                  <h3 className="text-[16px] font-bold text-slate-800 dark:text-white leading-none mb-1.5">รายละเอียดปัญหา</h3>
-                  <p className="text-[11px] text-slate-500 leading-none">กรุณากรอกข้อมูลให้ครบถ้วน</p>
+                  <h3 className="text-[16px] lg:text-lg font-bold text-slate-800 dark:text-white leading-none mb-1.5">รายละเอียดปัญหา</h3>
+                  <p className="text-[11px] lg:text-sm text-slate-500 leading-none">กรุณากรอกข้อมูลปัญหาและสถานที่ให้ครบถ้วน</p>
                 </div>
               </div>
 
-              <div className="space-y-3">
-                {/* Category */}
-                <div className="relative">
-                  <label className="block text-[12px] font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    หมวดหมู่หลัก <span className="text-primary">*</span>
-                  </label>
-                  <AppSelect 
-                    options={categories.map(c => ({ label: c.name_th, value: c.id }))}
-                    value={categoryId}
-                    onChange={(val) => {
-                      setCategoryId(Number(val));
-                      setSubcategoryId("");
-                      setFormErrors(prev => {
-                        const copy = { ...prev };
-                        delete copy.categoryId;
-                        return copy;
-                      });
-                    }}
-                    placeholder="เลือกหมวดหมู่หลัก"
-                    error={!!formErrors.categoryId}
-                  />
-                  {formErrors.categoryId && (
-                    <p className="text-xs text-rose-500 font-medium mt-2">{formErrors.categoryId}</p>
-                  )}
-                </div>
+              <div className="space-y-4 lg:space-y-6">
+                {/* Category & Subcategory Grid on Desktop */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+                  {/* Category */}
+                  <div className="relative">
+                    <label className="block text-[12px] lg:text-[13px] font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      หมวดหมู่หลัก <span className="text-primary">*</span>
+                    </label>
+                    <AppSelect 
+                      options={categories.map(c => ({ label: c.name_th, value: c.id }))}
+                      value={categoryId}
+                      onChange={(val) => {
+                        setCategoryId(Number(val));
+                        setSubcategoryId("");
+                        setFormErrors(prev => {
+                          const copy = { ...prev };
+                          delete copy.categoryId;
+                          return copy;
+                        });
+                      }}
+                      placeholder="เลือกหมวดหมู่หลัก"
+                      error={!!formErrors.categoryId}
+                    />
+                    {formErrors.categoryId && (
+                      <p className="text-xs text-rose-500 font-medium mt-2">{formErrors.categoryId}</p>
+                    )}
+                  </div>
 
-                {/* Subcategory */}
-                <div className="relative mt-4">
-                  <label className="block text-[12px] font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    หมวดหมู่ย่อย <span className="text-primary">*</span>
-                  </label>
-                  <AppSelect 
-                    options={subcategories.map(s => ({ label: s.name_th, value: s.id }))}
-                    value={subcategoryId}
-                    onChange={(val) => {
-                      setSubcategoryId(Number(val));
-                      setFormErrors(prev => {
-                        const copy = { ...prev };
-                        delete copy.subcategoryId;
-                        return copy;
-                      });
-                    }}
-                    placeholder="เลือกหมวดหมู่ย่อย"
-                    disabled={!categoryId || subcategories.length === 0}
-                    error={!!formErrors.subcategoryId}
-                  />
-                  {formErrors.subcategoryId && (
-                    <p className="text-xs text-rose-500 font-medium mt-2">{formErrors.subcategoryId}</p>
-                  )}
+                  {/* Subcategory */}
+                  <div className="relative">
+                    <label className="block text-[12px] lg:text-[13px] font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      หมวดหมู่ย่อย <span className="text-primary">*</span>
+                    </label>
+                    <AppSelect 
+                      options={subcategories.map(s => ({ label: s.name_th, value: s.id }))}
+                      value={subcategoryId}
+                      onChange={(val) => {
+                        setSubcategoryId(Number(val));
+                        setFormErrors(prev => {
+                          const copy = { ...prev };
+                          delete copy.subcategoryId;
+                          return copy;
+                        });
+                      }}
+                      placeholder="เลือกหมวดหมู่ย่อย"
+                      disabled={!categoryId || subcategories.length === 0}
+                      error={!!formErrors.subcategoryId}
+                    />
+                    {formErrors.subcategoryId && (
+                      <p className="text-xs text-rose-500 font-medium mt-2">{formErrors.subcategoryId}</p>
+                    )}
+                  </div>
                 </div>
 
                 {/* Location */}
@@ -703,17 +682,19 @@ export default function Home() {
               </div>
             </AppCard>
 
-            {/* ข้อมูลผู้แจ้ง Section */}
-            <AppCard>
-              <div className="flex items-start gap-2.5 mb-5">
-                <div className="w-1 h-4 rounded-full bg-[#D1350F] shrink-0 mt-1"></div>
+            {/* Right Column */}
+            <div className="lg:col-span-4 lg:sticky lg:top-0 h-fit z-10">
+              {/* ข้อมูลผู้แจ้ง Section */}
+              <AppCard className="lg:p-8 mb-6">
+              <div className="flex items-start gap-2.5 mb-5 lg:mb-8">
+                <div className="w-1 h-4 lg:h-5 rounded-full bg-[#D1350F] shrink-0 mt-1"></div>
                 <div>
-                  <h3 className="text-[16px] font-bold text-slate-800 dark:text-white leading-none mb-1.5">ข้อมูลผู้แจ้ง</h3>
-                  <p className="text-[11px] text-slate-500 leading-none">เพื่อให้เจ้าหน้าที่ติดต่อกลับ</p>
+                  <h3 className="text-[16px] lg:text-lg font-bold text-slate-800 dark:text-white leading-none mb-1.5">ข้อมูลผู้แจ้ง</h3>
+                  <p className="text-[11px] lg:text-sm text-slate-500 leading-none">เพื่อให้เจ้าหน้าที่ติดต่อกลับ</p>
                 </div>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-4 lg:space-y-6">
                 <div>
                   <label htmlFor="reporterName" className="block text-[12px] font-medium text-slate-700 dark:text-slate-300 mb-2">ชื่อ-นามสกุล <span className="text-primary">*</span></label>
                   <input
@@ -810,6 +791,9 @@ export default function Home() {
                   </>
                 )}
               </AppButton>
+            </div>
+            </div>
+            </div>
 
               {/* ลิงก์ตรวจสอบสถานะด้านล่างสุด */}
               <div className="text-center mt-6">
@@ -820,7 +804,6 @@ export default function Home() {
                   มีปัญหาที่แจ้งไว้แล้ว? <span className="text-primary font-bold">ตรวจสอบสถานะ &rarr;</span>
                 </Link>
               </div>
-            </div>
 
             <GlobalFooter />
           </form>

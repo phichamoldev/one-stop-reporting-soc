@@ -59,24 +59,24 @@ export const StaffCard: React.FC<StaffCardProps> = ({ staff, onClick }) => {
 
         <div className="grid grid-cols-3 gap-2">
           <div className="bg-slate-50/70 dark:bg-slate-800/50 p-2 rounded-xl border border-slate-100 dark:border-slate-700/50 flex flex-col justify-between">
-            <div className="flex items-center gap-1 mb-1 text-slate-500">
-              <AlertTriangle className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+            <div className="flex items-start gap-1 mb-1.5 text-slate-500">
+              <AlertTriangle className="w-3.5 h-3.5 text-orange-500 shrink-0 mt-[1px]" />
               <span className="text-[9px] sm:text-[10px] font-medium leading-tight">กำลังดำเนินการ</span>
             </div>
             <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{stats.inProgress}</p>
           </div>
 
           <div className="bg-slate-50/70 dark:bg-slate-800/50 p-2 rounded-xl border border-slate-100 dark:border-slate-700/50 flex flex-col justify-between">
-            <div className="flex items-center gap-1 mb-1 text-slate-500">
-              <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
+            <div className="flex items-start gap-1 mb-1.5 text-slate-500">
+              <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0 mt-[1px]" />
               <span className="text-[9px] sm:text-[10px] font-medium leading-tight">เสร็จสิ้น</span>
             </div>
             <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{stats.completed}</p>
           </div>
 
           <div className="bg-slate-50/70 dark:bg-slate-800/50 p-2 rounded-xl border border-slate-100 dark:border-slate-700/50 flex flex-col justify-between">
-            <div className="flex items-center gap-1 mb-1 text-slate-500">
-              <Ban className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <div className="flex items-start gap-1 mb-1.5 text-slate-500">
+              <Ban className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-[1px]" />
               <span className="text-[9px] sm:text-[10px] font-medium leading-tight">ทำไม่ได้/ยกเลิก</span>
             </div>
             <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{stats.cancelled + stats.rejected}</p>

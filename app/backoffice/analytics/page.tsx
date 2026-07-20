@@ -1,24 +1,25 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { useRouter } from "next/navigation";
+
 import { useStaffAuth } from "@/hooks/useStaffAuth";
-import { AnalyticsDashboardView } from "@/components/backoffice/analytics/AnalyticsDashboardView";
 import { hasAccess } from "@/lib/auth-helpers";
+import dynamic from 'next/dynamic';
+
+const AnalyticsDashboardView = dynamic(
+  () => import('@/components/backoffice/analytics/AnalyticsDashboardView').then(mod => mod.AnalyticsDashboardView),
+  { 
+    ssr: false, 
+    loading: () => (
+      <div className="flex-1 flex items-center justify-center min-h-[50vh]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#D1350F]"></div>
+      </div>
+    )
+  }
+);
 
 export default function BackofficeAnalyticsPage() {
-  const router = useRouter();
   const { profile, loading } = useStaffAuth();
-
-  useEffect(() => {
-    if (!loading) {
-      if (!profile) {
-        router.replace("/backoffice/login");
-      } else if (!hasAccess(profile.role, "/backoffice/analytics")) {
-        router.replace("/backoffice/reports");
-      }
-    }
-  }, [profile, loading, router]);
 
   if (loading || !profile || !hasAccess(profile.role, "/backoffice/analytics")) {
     return (

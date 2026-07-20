@@ -6,7 +6,7 @@ import Image from "next/image";
 import { useStaffAuth } from "@/hooks/useStaffAuth";
 import { LogOut, Bell, CheckCircle2, AlertTriangle, XCircle, Info } from "lucide-react";
 import { useNotification, AppNotification } from "@/contexts/NotificationContext";
-import { motion, AnimatePresence } from "framer-motion";
+
 
 const NotificationIcon = ({ type }: { type: AppNotification['type'] }) => {
   switch (type) {
@@ -56,57 +56,51 @@ export const BackofficeNavbar: React.FC = () => {
           </div>
 
           {/* Dropdown Menu */}
-          <AnimatePresence>
-            {isDropdownOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                transition={{ duration: 0.2 }}
-                className="absolute top-full right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-slate-100 overflow-hidden z-50"
-              >
-                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/50">
-                  <h3 className="font-bold text-sm text-slate-800">การแจ้งเตือน</h3>
-                  {notifications.length > 0 && (
-                    <span className="text-[10px] font-semibold bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">
-                      {notifications.length} รายการ
-                    </span>
-                  )}
+          <div
+            className={`absolute top-full right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-slate-100 overflow-hidden z-50 origin-top-right transition-all duration-200 ease-out ${
+              isDropdownOpen ? 'opacity-100 scale-100 visible' : 'opacity-0 scale-95 invisible'
+            }`}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/50">
+              <h3 className="font-bold text-sm text-slate-800">การแจ้งเตือน</h3>
+              {notifications.length > 0 && (
+                <span className="text-[10px] font-semibold bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">
+                  {notifications.length} รายการ
+                </span>
+              )}
+            </div>
+            
+            <div className="max-h-[360px] overflow-y-auto">
+              {notifications.length === 0 ? (
+                <div className="py-8 text-center flex flex-col items-center justify-center text-slate-400">
+                  <Bell className="w-8 h-8 mb-2 opacity-20" />
+                  <p className="text-sm font-medium">ไม่มีการแจ้งเตือนใหม่</p>
                 </div>
-                
-                <div className="max-h-[360px] overflow-y-auto">
-                  {notifications.length === 0 ? (
-                    <div className="py-8 text-center flex flex-col items-center justify-center text-slate-400">
-                      <Bell className="w-8 h-8 mb-2 opacity-20" />
-                      <p className="text-sm font-medium">ไม่มีการแจ้งเตือนใหม่</p>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col">
-                      {notifications.map((notif) => (
-                        <Link 
-                          key={notif.id} 
-                          href={notif.link || "#"}
-                          onClick={() => setIsDropdownOpen(false)}
-                          className={`flex gap-3 p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors ${!notif.isRead ? 'bg-blue-50/30' : ''}`}
-                        >
-                          <div className="mt-0.5">
-                            <NotificationIcon type={notif.type} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-slate-800 line-clamp-1">{notif.title}</p>
-                            <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">{notif.message}</p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">
-                              {new Date(notif.createdAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.
-                            </p>
-                          </div>
-                        </Link>
-                      ))}
-                    </div>
-                  )}
+              ) : (
+                <div className="flex flex-col">
+                  {notifications.map((notif) => (
+                    <Link 
+                      key={notif.id} 
+                      href={notif.link || "#"}
+                      onClick={() => setIsDropdownOpen(false)}
+                      className={`flex gap-3 p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors ${!notif.isRead ? 'bg-blue-50/30' : ''}`}
+                    >
+                      <div className="mt-0.5">
+                        <NotificationIcon type={notif.type} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 line-clamp-1">{notif.title}</p>
+                        <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">{notif.message}</p>
+                        <p className="text-[10px] text-slate-400 mt-1.5 font-medium">
+                          {new Date(notif.createdAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.
+                        </p>
+                      </div>
+                    </Link>
+                  ))}
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </nav>

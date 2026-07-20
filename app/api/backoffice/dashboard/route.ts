@@ -71,19 +71,16 @@ export async function GET(req: Request) {
     let filterOptions = { departments: [] as string[], categories: [] as string[] };
 
     if (accessibleDeptIds.length > 0) {
-      // Find departments
-      const { data: deptData } = await supabaseAdmin
-         .from("departments")
-         .select("name_th")
-         .in("id", accessibleDeptIds);
-      filterOptions.departments = deptData ? deptData.map(d => d.name_th).filter(Boolean) : [];
+      // Fetch departments and categories in parallel
+      const [deptRes, catRes] = await Promise.all([
+        supabaseAdmin.from("departments").select("name_th").in("id", accessibleDeptIds),
+        supabaseAdmin.from("categories").select("id, name_th").in("department_id", accessibleDeptIds)
+      ]);
 
-      // Find categories that belong to these departments
-      const { data: catData } = await supabaseAdmin
-        .from("categories")
-        .select("id, name_th")
-        .in("department_id", accessibleDeptIds);
+      const deptData = deptRes.data;
+      filterOptions.departments = deptData ? deptData.map(d => d.name_th).filter(Boolean) : [];
         
+      const catData = catRes.data;
       const catIds = catData ? catData.map(c => c.id) : [];
       filterOptions.categories = catData ? Array.from(new Set(catData.map(c => c.name_th).filter(Boolean))) : [];
       
@@ -94,11 +91,16 @@ export async function GET(req: Request) {
         query = query.in("category_id", [0]); // Force empty
       }
     } else {
-      // Super Admin / Admin
-      const { data: deptData } = await supabaseAdmin.from("departments").select("name_th");
+      // Super Admin / Admin: fetch in parallel
+      const [deptRes, catRes] = await Promise.all([
+        supabaseAdmin.from("departments").select("name_th"),
+        supabaseAdmin.from("categories").select("name_th")
+      ]);
+
+      const deptData = deptRes.data;
       filterOptions.departments = deptData ? deptData.map(d => d.name_th).filter(Boolean) : [];
       
-      const { data: catData } = await supabaseAdmin.from("categories").select("name_th");
+      const catData = catRes.data;
       filterOptions.categories = catData ? Array.from(new Set(catData.map(c => c.name_th).filter(Boolean))) : [];
     }
 

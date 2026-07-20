@@ -11,7 +11,7 @@ function GithubIcon({ size = 14 }: { size?: number }) {
 
 export function GlobalFooter() {
   return (
-    <footer className="w-full border-t border-[#EDF0F4] dark:border-slate-800 pt-4 pb-6 flex flex-col items-center justify-center text-[10px] text-slate-400 shrink-0 bg-transparent">
+    <footer className="w-full border-t border-[#EDF0F4] dark:border-slate-800 pt-4 pb-6 flex flex-col items-center justify-center text-[10px] text-slate-500 dark:text-slate-400 shrink-0 bg-transparent">
       <div className="text-center">
         <p>© 2026 Faculty of Social Sciences, Kasetsart University</p>
         <p className="mt-1 flex items-center justify-center gap-1">

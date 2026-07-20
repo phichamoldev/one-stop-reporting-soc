@@ -1,23 +1,12 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { useRouter } from "next/navigation";
+
 import { useStaffAuth } from "@/hooks/useStaffAuth";
 import { SettingsLayout } from "@/components/backoffice/settings/SettingsLayout";
 
 export default function BackofficeSettingsPage() {
-  const router = useRouter();
   const { profile, loading } = useStaffAuth();
-
-  useEffect(() => {
-    if (!loading) {
-      if (!profile) {
-        router.replace("/backoffice/login");
-      } else if (profile.role !== "super_admin") {
-        router.replace("/backoffice/unauthorized");
-      }
-    }
-  }, [profile, loading, router]);
 
   if (loading || !profile || profile.role !== "super_admin") {
     return (

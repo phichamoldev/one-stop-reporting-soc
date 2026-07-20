@@ -34,7 +34,7 @@ export default function TrackLookupPage() {
     <AppContainer>
       <AppNavbar />
 
-      <div className="flex-1 flex flex-col p-6 space-y-6 overflow-y-auto bg-slate-50 dark:bg-slate-950">
+      <main className="flex-1 flex flex-col p-6 space-y-6 overflow-y-auto bg-slate-50 dark:bg-slate-950">
 
         {/* Header Section */}
         <div className="text-center space-y-3 pt-6 pb-2">
@@ -101,7 +101,7 @@ export default function TrackLookupPage() {
         </AppCard>
 
         {/* Footer */}
-        <div className="text-center p-6 text-xs text-slate-400 font-medium leading-relaxed mt-auto">
+        <div className="text-center p-6 text-xs text-slate-500 font-medium leading-relaxed mt-auto">
           <p>
             หากไม่ทราบเลขที่แจ้งปัญหา
             <br />
@@ -110,7 +110,7 @@ export default function TrackLookupPage() {
         </div>
 
         <GlobalFooter />
-      </div>
+      </main>
     </AppContainer>
   );
 }

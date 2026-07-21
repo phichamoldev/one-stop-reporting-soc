@@ -14,24 +14,19 @@ export const BackofficeLayoutWrapper: React.FC<{ children: React.ReactNode }> = 
   const pathname = usePathname();
   const isLoginPage = pathname === "/backoffice/login";
 
-  if (isLoginPage) {
-    return (
-      <StaffAuthProvider>
-        <div className="min-h-screen bg-slate-50 font-sans">{children}</div>
-      </StaffAuthProvider>
-    );
-  }
-
   return (
     <StaffAuthProvider>
-      <NotificationProvider>
-        <RealtimeListener />
-        <NotificationToastContainer />
-        <div className="min-h-screen bg-[#F8FAFC] font-sans flex">
-          {/* Sidebar for Desktop */}
-          <div className="hidden lg:block w-[260px] shrink-0">
-            <BackofficeSidebar />
-          </div>
+      {isLoginPage ? (
+        <div className="min-h-screen bg-slate-50 font-sans">{children}</div>
+      ) : (
+        <NotificationProvider>
+          <RealtimeListener />
+          <NotificationToastContainer />
+          <div className="min-h-screen bg-[#F8FAFC] font-sans flex">
+            {/* Sidebar for Desktop */}
+            <div className="hidden lg:block w-[260px] shrink-0">
+              <BackofficeSidebar />
+            </div>
           
           {/* Main Content Area */}
           <div className="flex-1 flex flex-col min-w-0">
@@ -40,8 +35,9 @@ export const BackofficeLayoutWrapper: React.FC<{ children: React.ReactNode }> = 
               {children}
             </AuthGuard>
           </div>
-        </div>
-      </NotificationProvider>
+          </div>
+        </NotificationProvider>
+      )}
     </StaffAuthProvider>
   );
 };

@@ -25,7 +25,7 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
   const [loading, setLoading] = useState<boolean>(true);
 
   const { data: profileData, isLoading: profileLoading } = useSWR(
-    user ? "/api/staff/profile" : null,
+    user ? "/api/staff/profile?v=2" : null,
     async (url) => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("No session");

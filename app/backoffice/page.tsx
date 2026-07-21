@@ -43,6 +43,11 @@ const ReportsSkeleton = () => (
 
 export default function BackofficeDashboard() {
   const [dateRange, setDateRange] = useState("7days");
+  const [mounted, setMounted] = useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <div className="flex-1 p-6 md:px-[50px] md:py-8 space-y-8 animate-fade-in w-full pb-12">
@@ -71,7 +76,7 @@ export default function BackofficeDashboard() {
           </div>
           <div className="flex items-center gap-2 text-xs font-semibold bg-white dark:bg-slate-900 px-4 py-2.5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm text-slate-500 dark:text-slate-400">
             <Calendar className="w-4 h-4 text-primary shrink-0" />
-            <span>อัปเดตล่าสุด: {new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} น.</span>
+            <span>อัปเดตล่าสุด: {mounted ? new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'กำลังโหลด...'} น.</span>
           </div>
         </div>
       </div>

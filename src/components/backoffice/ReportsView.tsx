@@ -31,7 +31,6 @@ interface ReportsViewProps {
 
 export const ReportsView: React.FC<ReportsViewProps> = ({ reports, filterOptions }) => {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
   
   // Advanced Filter States
   const [searchTerm, setSearchTerm] = useState('');
@@ -44,13 +43,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ reports, filterOptions
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Simulated Loading Skeleton
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 500); 
-    return () => clearTimeout(timer);
-  }, []);
+  // Computed states
 
   // Compute distinct options from filterOptions or dynamically from data
   const categories = filterOptions?.categories
@@ -169,15 +162,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ reports, filterOptions
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="space-y-8 animate-pulse p-4">
-        <div className="h-10 w-64 bg-slate-200 dark:bg-slate-800 rounded-lg" />
-        <div className="h-20 bg-white dark:bg-slate-900 rounded-[20px]" />
-        <div className="h-[450px] bg-white dark:bg-slate-900 rounded-[20px]" />
-      </div>
-    );
-  }
+  // Loading handled by parent
 
   return (
     <div className="space-y-6">

@@ -11,9 +11,8 @@ async function test() {
   const { data: users, error: err } = await supabaseAdmin.from('staff_users').select('*');
   console.log("Staff users:", users);
   
-  // Also check auth.users to see if admin@ku.th exists
-  const { data: authUsers, error: authErr } = await supabaseAdmin.auth.admin.listUsers();
-  console.log("Auth users matching admin@ku.th:", authUsers?.users?.filter(u => u.email === 'admin@ku.th'));
+  const { data: profile } = await supabaseAdmin.from('staff_users').select('*').eq('id', '062cab22-9dcf-4e0d-adbc-f6e9cd823b52').maybeSingle();
+  console.log("Profile query result:", profile);
 }
 
 test();

@@ -31,7 +31,8 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("No session");
       const res = await fetch(url, {
-        headers: { "Authorization": `Bearer ${session.access_token}` }
+        headers: { "Authorization": `Bearer ${session.access_token}` },
+        cache: 'no-store'
       });
       if (!res.ok) {
         const errText = await res.text();

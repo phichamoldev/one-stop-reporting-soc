@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { StaffProfile } from "@/types/report";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import useSWR, { useSWRConfig } from "swr";
 
 interface StaffAuthContextType {
@@ -19,6 +19,7 @@ const StaffAuthContext = createContext<StaffAuthContextType | undefined>(undefin
 
 export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
+  const pathname = usePathname();
   const { mutate } = useSWRConfig();
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<StaffProfile | null>(null);
@@ -32,7 +33,11 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
       const res = await fetch(url, {
         headers: { "Authorization": `Bearer ${session.access_token}` }
       });
-      if (!res.ok) throw new Error("Failed to fetch profile");
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error('FETCH ERROR:', res.status, errText);
+        throw new Error("Failed to fetch profile: " + errText);
+      }
       return res.json();
     },
     { dedupingInterval: 300000 } // Cache profile for 5 minutes
@@ -113,7 +118,11 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
 
       // 4. Primary navigation
       try {
-        router.replace("/backoffice/login");
+        if (pathname?.startsWith("/backoffice")) {
+          router.replace("/backoffice/login");
+        } else {
+          window.location.reload();
+        }
         router.refresh();
       } catch (navError) {
         // 5. Fallback navigation if Next.js router fails

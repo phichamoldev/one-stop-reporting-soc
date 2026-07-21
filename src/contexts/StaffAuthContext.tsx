@@ -50,26 +50,12 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
     { dedupingInterval: 300000 } // Cache profile for 5 minutes
   );
 
-<<<<<<< HEAD
-  useEffect(() => {
-    if (profileData?.profile) {
-      setProfile(profileData.profile as unknown as StaffProfile);
-    } else if (profileData?.profile === null) {
-      setProfile(null);
-    } else if (profileData === undefined && !profileLoading && !user) {
-      setProfile(null);
-    }
-  }, [profileData, profileLoading, user]);
-=======
   // Derive profile synchronously
   const profile = React.useMemo(() => {
     if (!user) return null;
     return profileData?.profile ? (profileData.profile as unknown as StaffProfile) : null;
   }, [user, profileData]);
   
-  const isContextLoading = loading || (!!user && profileLoading);
->>>>>>> fix/auth-sync-gap
-
   const isContextLoading = loading || (!!user && profileLoading);
 
   useEffect(() => {

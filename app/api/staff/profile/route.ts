@@ -1,20 +1,32 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   try {
     const authHeader = req.headers.get("authorization");
-    if (!authHeader) {
-      return NextResponse.json({ error: "Missing authorization header" }, { status: 401 });
-    }
-
-    const token = authHeader.replace("Bearer ", "");
+    const url = new URL(req.url);
+    const queryToken = url.searchParams.get("token");
     
-    // Validate token with Supabase Auth
-    // We create a temporary client just to get the user from the JWT
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    const token = queryToken || (authHeader ? authHeader.replace("Bearer ", "").trim() : "");
+
+    if (!token || token === "undefined" || token === "null") {
+      return NextResponse.json({ error: "Missing or invalid authorization token", authHeader }, { status: 401 });
+    }
+    
+    // Verify token using a fresh client to avoid any session caching issues
+    const supabaseClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: { persistSession: false },
+        global: { headers: { Authorization: `Bearer ${token}` } }
+      }
+    );
+
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
     
     if (authError || !user) {
       console.error("Auth error in profile route:", authError);
@@ -22,7 +34,7 @@ export async function GET(req: Request) {
     }
 
     // Fetch profile using Admin key to bypass RLS
-    const { data: profile, error: profileError } = await supabaseAdmin
+    const { data: profile, error: profileError } = await supabaseClient
       .from("staff_users")
       .select(`
         id,

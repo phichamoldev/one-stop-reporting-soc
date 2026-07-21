@@ -30,7 +30,14 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
     async (url) => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("No session");
-      const res = await fetch(url, {
+      if (!session.access_token || session.access_token.trim() === "") {
+         // Corrupted session, force logout to clear it
+         await supabase.auth.signOut();
+         throw new Error("Corrupted session, forcing logout");
+      }
+      // Send token in BOTH header and query string to bypass proxies/antivirus stripping headers
+      const fetchUrl = url.includes("?") ? `${url}&token=${session.access_token}` : `${url}?token=${session.access_token}`;
+      const res = await fetch(fetchUrl, {
         headers: { "Authorization": `Bearer ${session.access_token}` },
         cache: 'no-store'
       });

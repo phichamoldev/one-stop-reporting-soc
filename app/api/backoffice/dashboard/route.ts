@@ -8,11 +8,14 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   try {
     const authHeader = req.headers.get("authorization");
-    if (!authHeader) {
-      return NextResponse.json({ error: "Missing authorization header" }, { status: 401 });
-    }
+    const url = new URL(req.url);
+    const queryToken = url.searchParams.get("token");
+    
+    const token = queryToken || (authHeader ? authHeader.replace("Bearer ", "").trim() : "");
 
-    const token = authHeader.replace("Bearer ", "");
+    if (!token || token === "undefined" || token === "null") {
+      return NextResponse.json({ error: "Missing or invalid authorization token" }, { status: 401 });
+    }
     
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
     

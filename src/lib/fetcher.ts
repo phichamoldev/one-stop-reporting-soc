@@ -3,12 +3,15 @@ import { supabase } from "@/lib/supabase";
 export const fetcherWithAuth = async (url: string) => {
   const { data: { session } } = await supabase.auth.getSession();
   const headers: Record<string, string> = {};
+  let finalUrl = url;
   
   if (session) {
     headers['Authorization'] = `Bearer ${session.access_token}`;
+    // Append token to URL to bypass proxies/antivirus stripping headers
+    finalUrl = url.includes("?") ? `${url}&token=${session.access_token}` : `${url}?token=${session.access_token}`;
   }
 
-  const res = await fetch(url, { headers });
+  const res = await fetch(finalUrl, { headers });
   
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));

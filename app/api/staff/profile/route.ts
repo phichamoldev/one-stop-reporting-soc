@@ -33,8 +33,8 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Unauthorized", details: authError }, { status: 401 });
     }
 
-    // Fetch profile using Admin key to bypass RLS
-    const { data: profile, error: profileError } = await supabaseClient
+    // Fetch profile using global supabaseAdmin to bypass RLS
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from("staff_users")
       .select(`
         id,

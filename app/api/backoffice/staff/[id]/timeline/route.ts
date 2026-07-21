@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { createClient } from "@supabase/supabase-js";
 import { getAccessibleDepartmentIds } from "@/lib/auth-helpers";
 
 export const dynamic = "force-dynamic";
@@ -19,12 +18,7 @@ export async function GET(
     const token = authHeader.replace("Bearer ", "");
     
     // Verify token
-    const supabaseClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-    
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
     
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
@@ -15,15 +14,11 @@ export async function GET(req: Request) {
     
     // Validate token with Supabase Auth
     // We create a temporary client just to get the user from the JWT
-    const supabaseClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-    
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
     
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      console.error("Auth error in profile route:", authError);
+      return NextResponse.json({ error: "Unauthorized", details: authError }, { status: 401 });
     }
 
     // Fetch profile using Admin key to bypass RLS

@@ -16,11 +16,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ publicId
     const authHeader = req.headers.get("authorization");
     if (authHeader) {
       const token = authHeader.replace("Bearer ", "");
-      const supabaseClient = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
-      const { data: { user } } = await supabaseClient.auth.getUser(token);
+      const { data: { user } } = await supabaseAdmin.auth.getUser(token);
       if (user) isAuthenticated = true;
     }
 

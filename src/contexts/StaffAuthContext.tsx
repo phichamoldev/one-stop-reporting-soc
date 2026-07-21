@@ -22,7 +22,6 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
   const pathname = usePathname();
   const { mutate } = useSWRConfig();
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<StaffProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
   const { data: profileData, isLoading: profileLoading } = useSWR(
@@ -51,6 +50,7 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
     { dedupingInterval: 300000 } // Cache profile for 5 minutes
   );
 
+<<<<<<< HEAD
   useEffect(() => {
     if (profileData?.profile) {
       setProfile(profileData.profile as unknown as StaffProfile);
@@ -60,6 +60,15 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
       setProfile(null);
     }
   }, [profileData, profileLoading, user]);
+=======
+  // Derive profile synchronously
+  const profile = React.useMemo(() => {
+    if (!user) return null;
+    return profileData?.profile ? (profileData.profile as unknown as StaffProfile) : null;
+  }, [user, profileData]);
+  
+  const isContextLoading = loading || (!!user && profileLoading);
+>>>>>>> fix/auth-sync-gap
 
   const isContextLoading = loading || (!!user && profileLoading);
 
@@ -72,7 +81,6 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
         setUser(session.user);
       } else {
         setUser(null);
-        setProfile(null);
       }
       setLoading(false);
     });
@@ -119,19 +127,13 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
     } finally {
       // 2. Clear state
       setUser(null);
-      setProfile(null);
       
-      // 3. Clear all SWR caches globally
-      await mutate(() => true, undefined, { revalidate: false });
+      // 3. Clear all SWR caches globally without waiting
+      mutate(() => true, undefined, { revalidate: false }).catch(console.error);
 
       // 4. Primary navigation
       try {
-        if (pathname?.startsWith("/backoffice")) {
-          router.replace("/backoffice/login");
-        } else {
-          window.location.reload();
-        }
-        router.refresh();
+        router.replace("/backoffice/login");
       } catch (navError) {
         // 5. Fallback navigation if Next.js router fails
         console.error("Router navigation failed, falling back to window.location", navError);

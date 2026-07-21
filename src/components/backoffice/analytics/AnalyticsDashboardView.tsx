@@ -101,7 +101,6 @@ export const AnalyticsDashboardView: React.FC<AnalyticsDashboardViewProps> = ({ 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-3">
-            <BarChart3 className="w-8 h-8 text-[#D1350F]" />
             รายงานสถิติและวิเคราะห์ข้อมูลเชิงลึก
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mt-1">

@@ -26,7 +26,8 @@ export const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children })
     }
 
     if (!user || !profile) {
-      router.replace("/backoffice/login");
+      const returnUrl = encodeURIComponent(pathname);
+      router.replace(`/backoffice/login?next=${returnUrl}`);
       router.refresh();
       return;
     }

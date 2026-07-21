@@ -18,7 +18,9 @@ export default function BackofficeLogin() {
   useEffect(() => {
     if (!loading && user) {
       if (profile) {
-        router.replace("/backoffice");
+        const urlParams = new URLSearchParams(window.location.search);
+        const nextUrl = urlParams.get("next") || "/backoffice";
+        router.replace(nextUrl);
       } else {
         setErrorMsg("บัญชีนี้ไม่มีสิทธิ์เข้าถึงระบบ (ไม่พบข้อมูลเจ้าหน้าที่)");
         signOut();

@@ -33,7 +33,7 @@ export const StaffView: React.FC<StaffViewProps> = ({ staff }) => {
       {/* Page Header */}
       <div>
         <h2 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-3">
-          👥 ข้อมูลเจ้าหน้าที่และทีมช่างซ่อมบำรุง
+          ข้อมูลเจ้าหน้าที่และทีมช่างซ่อมบำรุง
         </h2>
         <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mt-1">
           รายชื่อและขีดความสามารถของเจ้าหน้าที่ปฏิบัติงานซ่อม

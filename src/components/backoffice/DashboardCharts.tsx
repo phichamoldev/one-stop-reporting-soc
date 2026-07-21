@@ -11,15 +11,8 @@ import { useDashboardContext } from "@/contexts/DashboardContext";
 export const DashboardCharts: React.FC = React.memo(() => {
   const { data, isLoading } = useDashboardContext();
 
-  if (isLoading || !data) return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      <div className="h-[360px] bg-slate-50 dark:bg-slate-900 rounded-[20px] animate-pulse"></div>
-      <div className="h-[360px] bg-slate-50 dark:bg-slate-900 rounded-[20px] animate-pulse"></div>
-    </div>
-  );
-
   const { lineChartData, peakDay, maxCount, categoryStats } = React.useMemo(() => {
-    const analytics = data.analytics || { trend: [], category: [] };
+    const analytics = data?.analytics || { trend: [], category: [] };
 
     // Transform trend data to match UI
     const lineData = analytics.trend.map((t: any) => ({
@@ -46,7 +39,14 @@ export const DashboardCharts: React.FC = React.memo(() => {
       maxCount: mCount,
       categoryStats: catStats
     };
-  }, [data.analytics]);
+  }, [data?.analytics]);
+
+  if (isLoading || !data) return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="h-[360px] bg-slate-50 dark:bg-slate-900 rounded-[20px] animate-pulse"></div>
+      <div className="h-[360px] bg-slate-50 dark:bg-slate-900 rounded-[20px] animate-pulse"></div>
+    </div>
+  );
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
       {/* Left Chart: Line Chart */}

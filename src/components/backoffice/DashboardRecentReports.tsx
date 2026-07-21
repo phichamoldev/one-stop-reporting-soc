@@ -9,11 +9,11 @@ export const DashboardRecentReports: React.FC = React.memo(() => {
   const router = useRouter();
   const { data, isLoading } = useDashboardContext();
 
+  const reports = React.useMemo(() => data?.reports || [], [data?.reports]);
+
   if (isLoading || !data) return (
     <div className="h-[400px] bg-slate-50 dark:bg-slate-900 rounded-[20px] animate-pulse"></div>
   );
-
-  const reports = React.useMemo(() => data.reports || [], [data.reports]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {

@@ -7,16 +7,8 @@ import { useDashboardContext } from "@/contexts/DashboardContext";
 export const DashboardKPIs: React.FC = React.memo(() => {
   const { data, isLoading } = useDashboardContext();
 
-  if (isLoading || !data) return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-      {[...Array(5)].map((_, i) => (
-        <div key={i} className="h-32 bg-slate-50 dark:bg-slate-900 rounded-[20px] animate-pulse"></div>
-      ))}
-    </div>
-  );
-
   const { totalCount, newCount, inProgressCount, completedCount, failedCount, todayNewCount } = React.useMemo(() => {
-    const kpis = data.kpis || {};
+    const kpis = data?.kpis || {};
     return {
       totalCount: kpis.total || 0,
       newCount: kpis.pending || 0,
@@ -25,7 +17,15 @@ export const DashboardKPIs: React.FC = React.memo(() => {
       failedCount: kpis.cancelled || 0,
       todayNewCount: kpis.todayNew || 0
     };
-  }, [data.kpis]);
+  }, [data?.kpis]);
+
+  if (isLoading || !data) return (
+    <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+      {[...Array(5)].map((_, i) => (
+        <div key={i} className="h-32 bg-slate-50 dark:bg-slate-900 rounded-[20px] animate-pulse"></div>
+      ))}
+    </div>
+  );
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">

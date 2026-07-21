@@ -1,32 +1,12 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { createClient } from "@supabase/supabase-js";
+import { verifyAuthToken } from "@/lib/auth-helpers";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   try {
-    const authHeader = req.headers.get("authorization");
-    const url = new URL(req.url);
-    const queryToken = url.searchParams.get("token");
-    
-    const token = queryToken || (authHeader ? authHeader.replace("Bearer ", "").trim() : "");
-
-    if (!token || token === "undefined" || token === "null") {
-      return NextResponse.json({ error: "Missing or invalid authorization token", authHeader }, { status: 401 });
-    }
-    
-    // Verify token using a fresh client to avoid any session caching issues
-    const supabaseClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: { persistSession: false },
-        global: { headers: { Authorization: `Bearer ${token}` } }
-      }
-    );
-
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    const { user, error: authError } = await verifyAuthToken(req);
     
     if (authError || !user) {
       console.error("Auth error in profile route:", authError);

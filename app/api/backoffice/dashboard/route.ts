@@ -1,26 +1,17 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
-import { getAccessibleDepartmentIds } from "@/lib/auth-helpers";
+import { getAccessibleDepartmentIds, verifyAuthToken } from "@/lib/auth-helpers";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   try {
-    const authHeader = req.headers.get("authorization");
-    const url = new URL(req.url);
-    const queryToken = url.searchParams.get("token");
-    
-    const token = queryToken || (authHeader ? authHeader.replace("Bearer ", "").trim() : "");
-
-    if (!token || token === "undefined" || token === "null") {
-      return NextResponse.json({ error: "Missing or invalid authorization token" }, { status: 401 });
-    }
-    
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    const { user, error: authError } = await verifyAuthToken(req);
     
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      console.error("Auth error in dashboard route:", authError);
+      return NextResponse.json({ error: "Unauthorized", details: authError }, { status: 401 });
     }
 
     // Get Staff Profile to determine role & department

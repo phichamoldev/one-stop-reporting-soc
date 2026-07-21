@@ -1,4 +1,32 @@
-import { SupabaseClient } from "@supabase/supabase-js";
+import { SupabaseClient, createClient } from "@supabase/supabase-js";
+
+/**
+ * Verifies a token from either Authorization header or query string (?token=...)
+ * This prevents proxy/antivirus stripping headers from breaking auth.
+ */
+export async function verifyAuthToken(req: Request) {
+  const authHeader = req.headers.get("authorization");
+  const url = new URL(req.url);
+  const queryToken = url.searchParams.get("token");
+  
+  const token = queryToken || (authHeader ? authHeader.replace("Bearer ", "").trim() : "");
+
+  if (!token || token === "undefined" || token === "null") {
+    return { user: null, error: "Missing token", token: null };
+  }
+  
+  const supabaseClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: { persistSession: false },
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    }
+  );
+
+  const { data: { user }, error } = await supabaseClient.auth.getUser();
+  return { user, error, token };
+}
 
 /**
  * Returns an array of accessible department IDs for a given staff user.

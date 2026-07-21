@@ -105,26 +105,26 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
   };
 
   const signOut = async () => {
+    // 1. Optimistic UI update: Clear state immediately
+    setUser(null);
+    
+    // 2. Clear all SWR caches globally without waiting
+    mutate(() => true, undefined, { revalidate: false }).catch(console.error);
+
+    // 3. Primary navigation
     try {
-      // 1. Await actual sign out to guarantee localStorage is cleared before navigation
+      router.replace("/backoffice/login");
+    } catch (navError) {
+      // 4. Fallback navigation if Next.js router fails
+      console.error("Router navigation failed, falling back to window.location", navError);
+      window.location.replace("/backoffice/login");
+    }
+
+    // 5. Background cleanup: Perform actual sign out
+    try {
       await supabase.auth.signOut();
     } catch (error) {
       console.error("Logout error:", error);
-    } finally {
-      // 2. Clear state
-      setUser(null);
-      
-      // 3. Clear all SWR caches globally without waiting
-      mutate(() => true, undefined, { revalidate: false }).catch(console.error);
-
-      // 4. Primary navigation
-      try {
-        router.replace("/backoffice/login");
-      } catch (navError) {
-        // 5. Fallback navigation if Next.js router fails
-        console.error("Router navigation failed, falling back to window.location", navError);
-        window.location.replace("/backoffice/login");
-      }
     }
   };
 

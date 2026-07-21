@@ -41,10 +41,14 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
   useEffect(() => {
     if (profileData?.profile) {
       setProfile(profileData.profile as unknown as StaffProfile);
+    } else if (profileData?.profile === null) {
+      setProfile(null);
     } else if (profileData === undefined && !profileLoading && !user) {
       setProfile(null);
     }
   }, [profileData, profileLoading, user]);
+
+  const isContextLoading = loading || (!!user && profileLoading);
 
   useEffect(() => {
     let mounted = true;
@@ -120,7 +124,7 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
   };
 
   return (
-    <StaffAuthContext.Provider value={{ user, profile, loading, signIn, signOut }}>
+    <StaffAuthContext.Provider value={{ user, profile, loading: isContextLoading, signIn, signOut }}>
       {children}
     </StaffAuthContext.Provider>
   );

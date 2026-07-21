@@ -87,7 +87,7 @@ export default function TrackPage({ params }: TrackPageProps) {
             </div>
             <h2 className="text-xl font-bold text-slate-800 mb-2">ไม่พบข้อมูล</h2>
             <p className="text-slate-500 mb-6 px-4">
-              {error || "หมายเลขอ้างอิงที่คุณระบุไม่ถูกต้อง หรือถูกลบออกจากระบบแล้ว"}
+              {error?.message || "หมายเลขอ้างอิงที่คุณระบุไม่ถูกต้อง หรือถูกลบออกจากระบบแล้ว"}
             </p>
             <Link href="/">
               <AppButton variant="primary">กลับสู่หน้าหลัก</AppButton>

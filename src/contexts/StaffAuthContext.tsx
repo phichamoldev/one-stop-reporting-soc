@@ -21,7 +21,6 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
   const router = useRouter();
   const { mutate } = useSWRConfig();
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<StaffProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
   const { data: profileData, isLoading: profileLoading } = useSWR(
@@ -38,13 +37,13 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
     { dedupingInterval: 300000 } // Cache profile for 5 minutes
   );
 
-  useEffect(() => {
-    if (profileData?.profile) {
-      setProfile(profileData.profile as unknown as StaffProfile);
-    } else if (profileData === undefined && !profileLoading && !user) {
-      setProfile(null);
-    }
-  }, [profileData, profileLoading, user]);
+  // Derive profile synchronously
+  const profile = React.useMemo(() => {
+    if (!user) return null;
+    return profileData?.profile ? (profileData.profile as unknown as StaffProfile) : null;
+  }, [user, profileData]);
+  
+  const isContextLoading = loading || (!!user && profileLoading);
 
   useEffect(() => {
     let mounted = true;
@@ -55,7 +54,6 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
         setUser(session.user);
       } else {
         setUser(null);
-        setProfile(null);
       }
       setLoading(false);
     });
@@ -102,15 +100,13 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
     } finally {
       // 2. Clear state
       setUser(null);
-      setProfile(null);
       
-      // 3. Clear all SWR caches globally
-      await mutate(() => true, undefined, { revalidate: false });
+      // 3. Clear all SWR caches globally without waiting
+      mutate(() => true, undefined, { revalidate: false }).catch(console.error);
 
       // 4. Primary navigation
       try {
         router.replace("/backoffice/login");
-        router.refresh();
       } catch (navError) {
         // 5. Fallback navigation if Next.js router fails
         console.error("Router navigation failed, falling back to window.location", navError);
@@ -120,7 +116,7 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
   };
 
   return (
-    <StaffAuthContext.Provider value={{ user, profile, loading, signIn, signOut }}>
+    <StaffAuthContext.Provider value={{ user, profile, loading: isContextLoading, signIn, signOut }}>
       {children}
     </StaffAuthContext.Provider>
   );

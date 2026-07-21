@@ -170,7 +170,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ reports, filterOptions
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-3">
-            📋 จัดการรายการคำร้องทั้งหมด
+            จัดการรายการคำร้องทั้งหมด
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
             สืบค้น ตรวจสอบรายละเอียด คัดกรอง

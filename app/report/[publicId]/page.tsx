@@ -10,7 +10,7 @@ import { AppButton } from "@/components/design-system/AppButton";
 import { supabase } from "@/lib/supabase";
 import { Report, STATUS_DETAILS } from "@/types/report";
 import { GlobalFooter } from "@/components/shared/GlobalFooter";
-import { useStaffAuth } from "@/hooks/useStaffAuth";
+import { usePublicStaffAuth } from "@/hooks/usePublicStaffAuth";
 import { AppSelect } from "@/components/ui/AppSelect";
 import {
   Calendar,
@@ -30,7 +30,6 @@ import {
   ArrowRightLeft
 } from "lucide-react";
 
-import { StaffAuthProvider } from "@/contexts/StaffAuthContext";
 
 interface ReportDetailPageProps {
   params: Promise<{
@@ -45,7 +44,7 @@ function ReportDetailPageContent({ params }: ReportDetailPageProps) {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const { user, profile, loading: authLoading, signIn, signOut } = useStaffAuth();
+  const { user, profile, loading: authLoading, signOut } = usePublicStaffAuth();
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -773,8 +772,6 @@ function ReportDetailPageContent({ params }: ReportDetailPageProps) {
 
 export default function ReportDetailPage(props: ReportDetailPageProps) {
   return (
-    <StaffAuthProvider>
-      <ReportDetailPageContent {...props} />
-    </StaffAuthProvider>
+    <ReportDetailPageContent {...props} />
   );
 }

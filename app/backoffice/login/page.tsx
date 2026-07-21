@@ -8,7 +8,7 @@ import { Lock, Mail, ArrowRight, Loader2 } from "lucide-react";
 
 export default function BackofficeLogin() {
   const router = useRouter();
-  const { user, loading, signIn } = useStaffAuth();
+  const { user, profile, loading, signIn, signOut } = useStaffAuth();
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -17,9 +17,16 @@ export default function BackofficeLogin() {
 
   useEffect(() => {
     if (!loading && user) {
-      router.replace("/backoffice");
+      if (profile) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const nextUrl = urlParams.get("next") || "/backoffice";
+        router.replace(nextUrl);
+      } else {
+        setErrorMsg("บัญชีนี้ไม่มีสิทธิ์เข้าถึงระบบ (ไม่พบข้อมูลเจ้าหน้าที่)");
+        signOut();
+      }
     }
-  }, [user, loading, router]);
+  }, [user, profile, loading, router, signOut]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

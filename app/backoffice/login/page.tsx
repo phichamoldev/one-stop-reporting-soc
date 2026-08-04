@@ -16,16 +16,27 @@ export default function BackofficeLogin() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+
     if (!loading && user) {
       if (profile) {
         const urlParams = new URLSearchParams(window.location.search);
         const nextUrl = urlParams.get("next") || "/backoffice";
         router.replace(nextUrl);
       } else {
-        setErrorMsg("บัญชีนี้ไม่มีสิทธิ์เข้าถึงระบบ (ไม่พบข้อมูลเจ้าหน้าที่)");
-        signOut();
+        // SWR may return isLoading: false if an old error is cached, while fetching in the background.
+        // We wait 3 seconds for the profile to resolve before treating the absence of a profile as fatal.
+        timeoutId = setTimeout(() => {
+          setErrorMsg("บัญชีนี้ไม่มีสิทธิ์เข้าถึงระบบ (ไม่พบข้อมูลเจ้าหน้าที่)");
+          signOut();
+          setIsSubmitting(false);
+        }, 3000);
       }
     }
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [user, profile, loading, router, signOut]);
 
   const handleSubmit = async (e: React.FormEvent) => {

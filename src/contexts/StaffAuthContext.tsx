@@ -11,6 +11,9 @@ interface StaffAuthContextType {
   user: User | null;
   profile: StaffProfile | null;
   loading: boolean;
+  authLoading: boolean;
+  profileLoading: boolean;
+  profileResolved: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
@@ -26,7 +29,7 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
-  const { data: profileData, isLoading: profileLoading } = useSWR(
+  const { data: profileData, isLoading: swrIsLoading, isValidating, error: profileError } = useSWR(
     user ? "/api/staff/profile?v=2" : null,
     async (url) => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -56,8 +59,8 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
     return profileData?.profile ? (profileData.profile as unknown as StaffProfile) : null;
   }, [user, profileData]);
   
-  const isContextLoading = loading || (!!user && profileLoading);
-
+  const isContextLoading = loading || (!!user && swrIsLoading);
+  const profileResolved = !!user && (profileData !== undefined || profileError !== undefined) && !isValidating;
   useEffect(() => {
     let mounted = true;
 
@@ -131,7 +134,16 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
   };
 
   return (
-    <StaffAuthContext.Provider value={{ user, profile, loading: isContextLoading, signIn, signOut }}>
+    <StaffAuthContext.Provider value={{ 
+      user, 
+      profile, 
+      loading: isContextLoading, 
+      authLoading: loading,
+      profileLoading: swrIsLoading || isValidating,
+      profileResolved,
+      signIn, 
+      signOut 
+    }}>
       {children}
     </StaffAuthContext.Provider>
   );

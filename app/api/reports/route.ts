@@ -2,20 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { notifyLine } from "@/lib/line";
 
-console.log(
-  "SERVICE ROLE EXISTS:",
-  !!process.env.SUPABASE_SERVICE_ROLE_KEY
-);
 
-console.log(
-  "SUPABASE URL EXISTS:",
-  !!process.env.NEXT_PUBLIC_SUPABASE_URL
-);
-
-console.log(
-  "SERVICE ROLE PREFIX:",
-  process.env.SUPABASE_SERVICE_ROLE_KEY?.slice(0, 20)
-);
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -50,7 +37,7 @@ export async function POST(req: Request) {
 
     if (error) {
       return NextResponse.json(
-        { error: error.message },
+        { success: false, message: "Internal Server Error" },
         { status: 400 }
       );
     }
@@ -130,14 +117,9 @@ export async function POST(req: Request) {
     console.error("SERVER ERROR =", err);
 
     return NextResponse.json(
-      {
-        error: err instanceof Error ? err.message : "Server error"
-      },
+      { success: false, message: "Internal Server Error" },
       { status: 500 }
     );
   }
 }
-console.log(
-  "SERVICE ROLE:",
-  process.env.SUPABASE_SERVICE_ROLE_KEY?.slice(0, 20)
-);
+

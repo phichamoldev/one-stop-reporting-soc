@@ -8,7 +8,7 @@ import { Lock, Mail, ArrowRight, Loader2 } from "lucide-react";
 
 export default function BackofficeLogin() {
   const router = useRouter();
-  const { user, profile, loading, signIn, signOut } = useStaffAuth();
+  const { user, profile, authLoading, profileResolved, signIn } = useStaffAuth();
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -16,17 +16,19 @@ export default function BackofficeLogin() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!loading && user) {
+    if (authLoading || (user && !profileResolved)) return;
+
+    if (user) {
       if (profile) {
         const urlParams = new URLSearchParams(window.location.search);
         const nextUrl = urlParams.get("next") || "/backoffice";
         router.replace(nextUrl);
       } else {
         setErrorMsg("บัญชีนี้ไม่มีสิทธิ์เข้าถึงระบบ (ไม่พบข้อมูลเจ้าหน้าที่)");
-        signOut();
+        setIsSubmitting(false);
       }
     }
-  }, [user, profile, loading, router, signOut]);
+  }, [user, profile, authLoading, profileResolved, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,7 +45,9 @@ export default function BackofficeLogin() {
     }
   };
 
-  if (loading || user) {
+  const isScreenLoading = authLoading || (user && !profileResolved);
+
+  if (isScreenLoading) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-slate-50">
         <Loader2 className="w-8 h-8 animate-spin text-[#D1350F]" />

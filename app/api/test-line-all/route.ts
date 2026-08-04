@@ -15,7 +15,7 @@ export async function GET() {
       return NextResponse.json(
         {
           success: false,
-          error: error.message,
+          message: "Internal Server Error",
         },
         { status: 500 }
       );
@@ -62,10 +62,7 @@ export async function GET() {
           departmentName: dept.name_th,
           groupId: dept.line_group_id,
           success: false,
-          error:
-            err instanceof Error
-              ? err.message
-              : String(err),
+          error: "Internal Server Error"
         });
       }
     }
@@ -80,10 +77,7 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unknown Error",
+        message: "Internal Server Error",
       },
       { status: 500 }
     );

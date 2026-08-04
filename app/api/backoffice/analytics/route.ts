@@ -127,7 +127,7 @@ export async function GET(req: Request) {
     const { data: reports, error: reportsError } = await query;
 
     if (reportsError) {
-      return NextResponse.json({ error: reportsError.message }, { status: 500 });
+      return NextResponse.json({ success: false, message: "Internal Server Error" }, { status: 500 });
     }
 
     const now = new Date();

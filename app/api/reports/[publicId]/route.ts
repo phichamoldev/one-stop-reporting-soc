@@ -48,7 +48,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ publicId
       .maybeSingle();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ success: false, message: "Internal Server Error" }, { status: 500 });
     }
 
     if (!data) {

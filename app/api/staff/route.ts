@@ -31,7 +31,7 @@ export async function GET(req: Request) {
       .order("created_at", { ascending: false });
 
     if (staffError) {
-      return NextResponse.json({ error: staffError.message }, { status: 500 });
+      return NextResponse.json({ success: false, message: "Internal Server Error" }, { status: 500 });
     }
 
     // Fetch report logs to calculate stats

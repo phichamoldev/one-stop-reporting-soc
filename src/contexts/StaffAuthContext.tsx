@@ -1,83 +1,119 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { User } from "@supabase/supabase-js";
+import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { StaffProfile } from "@/types/report";
-import { useRouter, usePathname } from "next/navigation";
-import useSWR, { useSWRConfig } from "swr";
+import { useRouter } from "next/navigation";
+
+export type AuthStatus = 'loading' | 'unauthenticated' | 'authenticating' | 'authenticated' | 'forbidden';
 
 interface StaffAuthContextType {
+  // Legacy fields
   user: User | null;
   profile: StaffProfile | null;
+  authLoading: boolean;
+  profileLoading: boolean;
+  profileResolved: boolean;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
+  
+  // V2 fields
+  status: AuthStatus;
 }
 
 const StaffAuthContext = createContext<StaffAuthContextType | undefined>(undefined);
 
+export let isLoggingOut = false;
+
 export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
-  const pathname = usePathname();
-  const { mutate } = useSWRConfig();
+  const instanceId = React.useRef(Math.random().toString(36).slice(2)).current;
+  
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [profile, setProfile] = useState<StaffProfile | null>(null);
+  const [status, setStatus] = useState<AuthStatus>('loading');
+  
+  const [isAuthenticating, setIsAuthenticating] = useState<boolean>(false);
+  const [profileLoading, setProfileLoading] = useState<boolean>(false);
+  const [sessionLoading, setSessionLoading] = useState<boolean>(true);
 
-  const { data: profileData, isLoading: profileLoading } = useSWR(
-    user ? "/api/staff/profile?v=2" : null,
-    async (url) => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("No session");
-      if (!session.access_token || session.access_token.trim() === "") {
-         // Corrupted session, force logout to clear it
-         await supabase.auth.signOut();
-         throw new Error("Corrupted session, forcing logout");
-      }
-      // Send token in BOTH header and query string to bypass proxies/antivirus stripping headers
-      const fetchUrl = url.includes("?") ? `${url}&token=${session.access_token}` : `${url}?token=${session.access_token}`;
-      const res = await fetch(fetchUrl, {
+  const fetchProfile = async (session: Session) => {
+    setProfileLoading(true);
+    setStatus('loading');
+    
+    try {
+      const res = await fetch("/api/staff/profile?v=2", {
         headers: { "Authorization": `Bearer ${session.access_token}` },
         cache: 'no-store'
       });
+      
       if (!res.ok) {
-        const errText = await res.text();
-        console.error('FETCH ERROR:', res.status, errText);
-        throw new Error("Failed to fetch profile: " + errText);
+        // 401, 403, 404 must become forbidden without logging out
+        setProfile(null);
+        setStatus('forbidden');
+        return;
       }
-      return res.json();
-    },
-    { dedupingInterval: 300000 } // Cache profile for 5 minutes
-  );
-
-  // Derive profile synchronously
-  const profile = React.useMemo(() => {
-    if (!user) return null;
-    return profileData?.profile ? (profileData.profile as unknown as StaffProfile) : null;
-  }, [user, profileData]);
-  
-  const isContextLoading = loading || (!!user && profileLoading);
+      
+      const data = await res.json();
+      if (data?.profile) {
+        setProfile(data.profile as unknown as StaffProfile);
+        setStatus('authenticated');
+      } else {
+        setProfile(null);
+        setStatus('forbidden');
+      }
+    } catch (err: any) {
+      console.error('FETCH PROFILE ERROR:', err);
+      setProfile(null);
+      setStatus('forbidden');
+    } finally {
+      setProfileLoading(false);
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
+    let initialSessionHandled = false;
+
+    const handleSession = async (session: Session | null) => {
+      if (!mounted) return;
+      if (session?.user) {
+        setUser(session.user);
+        setSessionLoading(false);
+        await fetchProfile(session);
+      } else {
+        setUser(null);
+        setProfile(null);
+        setStatus('unauthenticated');
+        setSessionLoading(false);
+      }
+    };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
-      if (session?.user) {
-        setUser(session.user);
-      } else {
+      
+      if (event === 'INITIAL_SESSION') {
+        initialSessionHandled = true;
+        await handleSession(session);
+      } else if (event === 'SIGNED_IN') {
+        isLoggingOut = false;
+        await handleSession(session);
+      } else if (event === 'SIGNED_OUT') {
         setUser(null);
+        setProfile(null);
+        setStatus('unauthenticated');
+        setSessionLoading(false);
       }
-      setLoading(false);
     });
 
-    // Initial session load to prevent waiting for event
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!mounted) return;
-      if (session?.user) {
-        setUser(session.user);
+      // Fallback in case INITIAL_SESSION event doesn't fire (Supabase JS v2 quirk)
+      if (!initialSessionHandled) {
+        await handleSession(session);
       }
-      setLoading(false);
     });
 
     return () => {
@@ -87,12 +123,12 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
   }, []);
 
   const signIn = async (email: string, password: string): Promise<{ error: string | null }> => {
+    setIsAuthenticating(true);
+    setStatus('authenticating');
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
+        setStatus('unauthenticated');
         if (error.message.includes("Invalid login credentials")) {
            return { error: "อีเมลหรือรหัสผ่านไม่ถูกต้อง" };
         }
@@ -100,36 +136,52 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
       }
       return { error: null };
     } catch (err: any) {
+      setStatus('unauthenticated');
       return { error: err.message || "เกิดข้อผิดพลาดในการเข้าสู่ระบบ" };
+    } finally {
+      setIsAuthenticating(false);
     }
   };
 
   const signOut = async () => {
-    // 1. Optimistic UI update: Clear state immediately
-    setUser(null);
+    isLoggingOut = true;
     
-    // 2. Clear all SWR caches globally without waiting
-    mutate(() => true, undefined, { revalidate: false }).catch(console.error);
-
-    // 3. Primary navigation
-    try {
-      router.replace("/backoffice/login");
-    } catch (navError) {
-      // 4. Fallback navigation if Next.js router fails
-      console.error("Router navigation failed, falling back to window.location", navError);
-      window.location.replace("/backoffice/login");
-    }
-
-    // 5. Background cleanup: Perform actual sign out
     try {
       await supabase.auth.signOut();
     } catch (error) {
       console.error("Logout error:", error);
     }
+    
+    // Completely deterministic local state cleanup without mutating any caches
+    setUser(null);
+    setProfile(null);
+    setStatus('unauthenticated');
+
+    try {
+      router.replace("/backoffice/login");
+    } catch (navError) {
+      window.location.replace("/backoffice/login");
+    }
   };
 
+  // V1 Compatibility Mapping
+  const isContextLoading = status === 'loading' || status === 'authenticating';
+  const profileResolved = status === 'authenticated' || status === 'forbidden';
+
+  console.log(`[StaffAuthContext] | ${Date.now()} | ${instanceId} | role=${profile?.role} | status=${status}`);
+
   return (
-    <StaffAuthContext.Provider value={{ user, profile, loading: isContextLoading, signIn, signOut }}>
+    <StaffAuthContext.Provider value={{ 
+      user, 
+      profile, 
+      authLoading: sessionLoading, 
+      profileLoading, 
+      profileResolved, 
+      loading: isContextLoading, 
+      signIn, 
+      signOut,
+      status 
+    }}>
       {children}
     </StaffAuthContext.Provider>
   );

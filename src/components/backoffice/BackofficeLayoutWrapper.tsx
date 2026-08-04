@@ -10,34 +10,48 @@ import { BackofficeNavbar } from "@/components/backoffice/BackofficeNavbar";
 import { StaffAuthProvider } from "@/contexts/StaffAuthContext";
 import { AuthGuard } from "@/components/backoffice/AuthGuard";
 
+import { useStaffAuth } from "@/hooks/useStaffAuth";
+
+const InnerLayout = ({ children, isLoginPage }: { children: React.ReactNode, isLoginPage: boolean }) => {
+  const { user } = useStaffAuth();
+  
+  if (isLoginPage) {
+    return <div className="min-h-screen bg-slate-50 font-sans">{children}</div>;
+  }
+  
+  const authKey = user?.id ?? "guest";
+
+  return (
+    <NotificationProvider>
+      <RealtimeListener />
+      <NotificationToastContainer />
+      <div className="min-h-screen bg-[#F8FAFC] font-sans flex">
+        {/* Sidebar for Desktop */}
+        <div className="hidden lg:block w-[260px] shrink-0">
+          <BackofficeSidebar key={`sidebar-${authKey}`} />
+        </div>
+      
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <BackofficeNavbar key={`navbar-${authKey}`} />
+        <AuthGuard>
+          {children}
+        </AuthGuard>
+      </div>
+      </div>
+    </NotificationProvider>
+  );
+};
+
 export const BackofficeLayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const pathname = usePathname();
   const isLoginPage = pathname === "/backoffice/login";
 
   return (
     <StaffAuthProvider>
-      {isLoginPage ? (
-        <div className="min-h-screen bg-slate-50 font-sans">{children}</div>
-      ) : (
-        <NotificationProvider>
-          <RealtimeListener />
-          <NotificationToastContainer />
-          <div className="min-h-screen bg-[#F8FAFC] font-sans flex">
-            {/* Sidebar for Desktop */}
-            <div className="hidden lg:block w-[260px] shrink-0">
-              <BackofficeSidebar />
-            </div>
-          
-          {/* Main Content Area */}
-          <div className="flex-1 flex flex-col min-w-0">
-            <BackofficeNavbar />
-            <AuthGuard>
-              {children}
-            </AuthGuard>
-          </div>
-          </div>
-        </NotificationProvider>
-      )}
+      <InnerLayout isLoginPage={isLoginPage}>
+        {children}
+      </InnerLayout>
     </StaffAuthProvider>
   );
 };

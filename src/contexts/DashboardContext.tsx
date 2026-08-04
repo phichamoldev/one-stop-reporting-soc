@@ -27,9 +27,9 @@ export const DashboardProvider = ({
   
   const { data, isLoading, error, mutate } = useSWR(
     user && profile && hasAccess(profile.role, "/backoffice") 
-      ? `/api/backoffice/dashboard?${params.toString()}` 
+      ? ["/api/backoffice/dashboard", user.id, params.toString()] 
       : null,
-    fetcherWithAuth,
+    ([url, id, queryString]: [string, string, string]) => fetcherWithAuth(`${url}?${queryString}`),
     { dedupingInterval: 60000 }
   );
 

@@ -13,8 +13,8 @@ export default function BackofficeReportsPage() {
   const params = new URLSearchParams({ dateRange: "all" });
   
   const { data, error, isLoading } = useSWR(
-    user ? `/api/backoffice/dashboard?${params.toString()}` : null,
-    fetcherWithAuth,
+    user ? ["/api/backoffice/dashboard", user.id, params.toString()] : null,
+    ([url, id, queryString]: [string, string, string]) => fetcherWithAuth(`${url}?${queryString}`),
     { dedupingInterval: 60000 }
   );
 

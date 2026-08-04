@@ -41,7 +41,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       .single();
 
     if (updateErr) {
-      return NextResponse.json({ error: updateErr.message }, { status: 400 });
+      return NextResponse.json({ success: false, message: "Internal Server Error" }, { status: 400 });
     }
 
     // Log action

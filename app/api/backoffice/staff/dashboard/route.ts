@@ -234,6 +234,6 @@ export async function GET(req: Request) {
 
   } catch (error: any) {
     console.error("Dashboard Staff Error:", error);
-    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
+    return NextResponse.json({ success: false, message: "Internal Server Error" }, { status: 500 });
   }
 }

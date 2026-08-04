@@ -7,8 +7,6 @@ export const fetcherWithAuth = async (url: string) => {
   
   if (session) {
     headers['Authorization'] = `Bearer ${session.access_token}`;
-    // Append token to URL to bypass proxies/antivirus stripping headers
-    finalUrl = url.includes("?") ? `${url}&token=${session.access_token}` : `${url}?token=${session.access_token}`;
   }
 
   const res = await fetch(finalUrl, { headers });

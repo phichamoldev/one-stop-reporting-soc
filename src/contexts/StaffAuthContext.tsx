@@ -1,13 +1,16 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useMemo } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { StaffProfile } from "@/types/report";
 import { useRouter, usePathname } from "next/navigation";
 import useSWR, { useSWRConfig } from "swr";
 
+export type AuthStatus = 'loading' | 'unauthenticated' | 'authenticating' | 'authenticated' | 'forbidden';
+
 interface StaffAuthContextType {
+  // Legacy fields
   user: User | null;
   profile: StaffProfile | null;
   authLoading: boolean;
@@ -16,6 +19,9 @@ interface StaffAuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
+  
+  // V2 fields
+  status: AuthStatus;
 }
 
 const StaffAuthContext = createContext<StaffAuthContextType | undefined>(undefined);
@@ -24,10 +30,11 @@ export let isLoggingOut = false;
 
 export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
-  const pathname = usePathname();
   const { mutate } = useSWRConfig();
+  
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [sessionLoading, setSessionLoading] = useState<boolean>(true);
+  const [isAuthenticating, setIsAuthenticating] = useState<boolean>(false);
 
   const { data: profileData, error: profileError, isLoading: profileLoading } = useSWR(
     user ? "/api/staff/profile?v=2" : null,
@@ -35,7 +42,6 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("No session");
       if (!session.access_token || session.access_token.trim() === "") {
-         // Corrupted session, force logout to clear it
          await supabase.auth.signOut();
          throw new Error("Corrupted session, forcing logout");
       }
@@ -50,18 +56,30 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
       }
       return res.json();
     },
-    { dedupingInterval: 300000 } // Cache profile for 5 minutes
+    { dedupingInterval: 300000 }
   );
 
-  // Derive profile synchronously
-  const profile = React.useMemo(() => {
+  const profile = useMemo(() => {
     if (!user) return null;
     return profileData?.profile ? (profileData.profile as unknown as StaffProfile) : null;
   }, [user, profileData]);
   
-  const profileResolved = !!user && (!profileLoading && (profileData !== undefined || profileError !== undefined));
+  // V2 Unified State Machine
+  const status: AuthStatus = useMemo(() => {
+    if (sessionLoading) return 'loading';
+    if (!user) return 'unauthenticated';
+    if (isAuthenticating) return 'authenticating';
+    
+    if (profileLoading) return 'loading';
+    if (profileError) return 'forbidden';
+    if (!profile) return 'forbidden';
+    
+    return 'authenticated';
+  }, [sessionLoading, user, isAuthenticating, profileLoading, profileError, profile]);
 
-  const isContextLoading = loading || (!!user && !profileResolved);
+  // V1 Compatibility Mapping
+  const isContextLoading = status === 'loading' || status === 'authenticating';
+  const profileResolved = status === 'authenticated' || status === 'forbidden';
 
   useEffect(() => {
     let mounted = true;
@@ -74,16 +92,15 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
       } else {
         setUser(null);
       }
-      setLoading(false);
+      setSessionLoading(false);
     });
 
-    // Initial session load to prevent waiting for event
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!mounted) return;
       if (session?.user) {
         setUser(session.user);
       }
-      setLoading(false);
+      setSessionLoading(false);
     });
 
     return () => {
@@ -93,11 +110,9 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
   }, []);
 
   const signIn = async (email: string, password: string): Promise<{ error: string | null }> => {
+    setIsAuthenticating(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         if (error.message.includes("Invalid login credentials")) {
            return { error: "อีเมลหรือรหัสผ่านไม่ถูกต้อง" };
@@ -107,25 +122,22 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
       return { error: null };
     } catch (err: any) {
       return { error: err.message || "เกิดข้อผิดพลาดในการเข้าสู่ระบบ" };
+    } finally {
+      setIsAuthenticating(false);
     }
   };
 
   const signOut = async () => {
     isLoggingOut = true;
-    // 1. Optimistic UI update: Clear state immediately
     setUser(null);
-    
-    // 2. Clear profile cache specifically, avoid wiping global cache for next login
     mutate("/api/staff/profile?v=2", undefined, { revalidate: false }).catch(console.error);
 
-    // 3. Perform actual sign out and wait for it to finish so cookies are cleared
     try {
       await supabase.auth.signOut();
     } catch (error) {
       console.error("Logout error:", error);
     }
 
-    // 4. Primary navigation after session is confirmed cleared
     try {
       router.replace("/backoffice/login");
     } catch (navError) {
@@ -135,7 +147,19 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
   };
 
   return (
-    <StaffAuthContext.Provider value={{ user, profile, authLoading: loading, profileLoading, profileResolved, loading: isContextLoading, signIn, signOut }}>
+    <StaffAuthContext.Provider value={{ 
+      // V1 Legacy properties
+      user, 
+      profile, 
+      authLoading: sessionLoading, 
+      profileLoading, 
+      profileResolved, 
+      loading: isContextLoading, 
+      signIn, 
+      signOut,
+      // V2 property
+      status 
+    }}>
       {children}
     </StaffAuthContext.Provider>
   );

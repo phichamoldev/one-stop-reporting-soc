@@ -8,7 +8,7 @@ import { Lock, Mail, ArrowRight, Loader2 } from "lucide-react";
 
 export default function BackofficeLogin() {
   const router = useRouter();
-  const { user, profile, authLoading, profileLoading, signIn } = useStaffAuth();
+  const { user, profile, authLoading, profileResolved, signIn } = useStaffAuth();
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -16,7 +16,7 @@ export default function BackofficeLogin() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    if (authLoading || profileLoading) return;
+    if (authLoading || (user && !profileResolved)) return;
 
     if (user) {
       if (profile) {
@@ -29,7 +29,7 @@ export default function BackofficeLogin() {
         setIsSubmitting(false);
       }
     }
-  }, [user, profile, authLoading, profileLoading, router]);
+  }, [user, profile, authLoading, profileResolved, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +46,7 @@ export default function BackofficeLogin() {
     }
   };
 
-  const isScreenLoading = authLoading || (user && profileLoading);
+  const isScreenLoading = authLoading || (user && !profileResolved);
 
   if (isScreenLoading) {
     return (

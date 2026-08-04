@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useStaffAuth } from "@/hooks/useStaffAuth";
 import { hasAccess } from "@/lib/auth-helpers";
+import { isLoggingOut } from "@/contexts/StaffAuthContext";
 import { Loader2 } from "lucide-react";
 
 export const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -27,9 +28,11 @@ export const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children })
 
     if (!user || !profile) {
       setAuthorized(false);
+      
+      if (isLoggingOut) return;
+
       const returnUrl = encodeURIComponent(pathname);
       router.replace(`/backoffice/login?next=${returnUrl}`);
-      router.refresh();
       return;
     }
 

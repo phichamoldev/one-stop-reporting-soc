@@ -17,6 +17,8 @@ interface StaffAuthContextType {
 
 const StaffAuthContext = createContext<StaffAuthContextType | undefined>(undefined);
 
+export let isLoggingOut = false;
+
 export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
   const pathname = usePathname();
@@ -62,6 +64,7 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
       if (session?.user) {
+        isLoggingOut = false;
         setUser(session.user);
       } else {
         setUser(null);
@@ -103,6 +106,7 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
   };
 
   const signOut = async () => {
+    isLoggingOut = true;
     // 1. Optimistic UI update: Clear state immediately
     setUser(null);
     

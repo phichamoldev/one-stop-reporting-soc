@@ -37,7 +37,7 @@ export async function POST(req: Request) {
 
     if (error) {
       return NextResponse.json(
-        { error: error.message },
+        { success: false, message: "Internal Server Error" },
         { status: 400 }
       );
     }
@@ -117,9 +117,7 @@ export async function POST(req: Request) {
     console.error("SERVER ERROR =", err);
 
     return NextResponse.json(
-      {
-        error: err instanceof Error ? err.message : "Server error"
-      },
+      { success: false, message: "Internal Server Error" },
       { status: 500 }
     );
   }

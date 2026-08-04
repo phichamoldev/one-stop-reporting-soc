@@ -49,7 +49,7 @@ export async function PATCH(req: Request) {
       .upsert({ key, value, updated_at: new Date().toISOString() });
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json({ success: false, message: "Internal Server Error" }, { status: 400 });
     }
 
     await logAuditAction(authResult.user!.id, "Update System Settings", key, { value });

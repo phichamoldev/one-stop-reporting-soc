@@ -152,7 +152,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ public
       .single();
 
     if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
+      return NextResponse.json({ success: false, message: "Internal Server Error" }, { status: 500 });
     }
 
     // Create the log

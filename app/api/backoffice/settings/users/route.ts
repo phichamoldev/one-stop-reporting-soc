@@ -100,7 +100,7 @@ export async function POST(req: Request) {
     });
 
     if (createAuthErr) {
-      return NextResponse.json({ error: createAuthErr.message }, { status: 400 });
+      return NextResponse.json({ success: false, message: "Internal Server Error" }, { status: 400 });
     }
 
     const userId = newAuthUser.user.id;

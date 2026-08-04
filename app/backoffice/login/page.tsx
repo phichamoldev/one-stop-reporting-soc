@@ -8,7 +8,7 @@ import { Lock, Mail, ArrowRight, Loader2 } from "lucide-react";
 
 export default function BackofficeLogin() {
   const router = useRouter();
-  const { user, profile, authLoading, profileResolved, signIn, signOut } = useStaffAuth();
+  const { user, profile, authLoading, profileLoading, signIn, signOut } = useStaffAuth();
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -16,18 +16,19 @@ export default function BackofficeLogin() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authLoading && user && profileResolved) {
-      if (profile) {
-        const urlParams = new URLSearchParams(window.location.search);
-        const nextUrl = urlParams.get("next") || "/backoffice";
-        router.replace(nextUrl);
-      } else {
-        setErrorMsg("บัญชีนี้ไม่มีสิทธิ์เข้าถึงระบบ (ไม่พบข้อมูลเจ้าหน้าที่)");
-        signOut();
-        setIsSubmitting(false);
+    if (!authLoading && user) {
+      if (!profileLoading) {
+        if (profile) {
+          const urlParams = new URLSearchParams(window.location.search);
+          const nextUrl = urlParams.get("next") || "/backoffice";
+          router.replace(nextUrl);
+        } else {
+          setErrorMsg("บัญชีนี้ไม่มีสิทธิ์เข้าถึงระบบ (ไม่พบข้อมูลเจ้าหน้าที่)");
+          signOut();
+        }
       }
     }
-  }, [user, profile, authLoading, profileResolved, router, signOut]);
+  }, [user, profile, authLoading, profileLoading, router, signOut]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

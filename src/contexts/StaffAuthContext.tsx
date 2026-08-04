@@ -10,10 +10,9 @@ import useSWR, { useSWRConfig } from "swr";
 interface StaffAuthContextType {
   user: User | null;
   profile: StaffProfile | null;
-  loading: boolean;
   authLoading: boolean;
   profileLoading: boolean;
-  profileResolved: boolean;
+  loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
@@ -29,7 +28,7 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
-  const { data: profileData, isLoading: swrIsLoading, isValidating, error: profileError } = useSWR(
+  const { data: profileData, isLoading: profileLoading } = useSWR(
     user ? "/api/staff/profile?v=2" : null,
     async (url) => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -59,8 +58,8 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
     return profileData?.profile ? (profileData.profile as unknown as StaffProfile) : null;
   }, [user, profileData]);
   
-  const isContextLoading = loading || (!!user && swrIsLoading);
-  const profileResolved = !!user && (profileData !== undefined || profileError !== undefined) && !isValidating;
+  const isContextLoading = loading || (!!user && profileLoading);
+
   useEffect(() => {
     let mounted = true;
 
@@ -113,37 +112,27 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
     // 1. Optimistic UI update: Clear state immediately
     setUser(null);
     
-    // 2. Clear all SWR caches globally without waiting
-    mutate(() => true, undefined, { revalidate: false }).catch(console.error);
+    // 2. Clear profile cache specifically, avoid wiping global cache for next login
+    mutate("/api/staff/profile?v=2", undefined, { revalidate: false }).catch(console.error);
 
-    // 3. Primary navigation
-    try {
-      router.replace("/backoffice/login");
-    } catch (navError) {
-      // 4. Fallback navigation if Next.js router fails
-      console.error("Router navigation failed, falling back to window.location", navError);
-      window.location.replace("/backoffice/login");
-    }
-
-    // 5. Background cleanup: Perform actual sign out
+    // 3. Perform actual sign out and wait for it to finish so cookies are cleared
     try {
       await supabase.auth.signOut();
     } catch (error) {
       console.error("Logout error:", error);
     }
+
+    // 4. Primary navigation after session is confirmed cleared
+    try {
+      router.replace("/backoffice/login");
+    } catch (navError) {
+      console.error("Router navigation failed, falling back to window.location", navError);
+      window.location.replace("/backoffice/login");
+    }
   };
 
   return (
-    <StaffAuthContext.Provider value={{ 
-      user, 
-      profile, 
-      loading: isContextLoading, 
-      authLoading: loading,
-      profileLoading: swrIsLoading || isValidating,
-      profileResolved,
-      signIn, 
-      signOut 
-    }}>
+    <StaffAuthContext.Provider value={{ user, profile, authLoading: loading, profileLoading, loading: isContextLoading, signIn, signOut }}>
       {children}
     </StaffAuthContext.Provider>
   );

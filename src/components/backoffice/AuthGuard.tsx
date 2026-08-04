@@ -10,6 +10,12 @@ export const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children })
   const { status, profile } = useStaffAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const instanceId = React.useRef(Math.random().toString(36).slice(2)).current;
+
+  if (typeof window !== 'undefined') {
+    (window as any).__authGuardProfile = profile;
+  }
+  console.log(`[AuthGuard] | ${Date.now()} | ${instanceId} | role=${profile?.role} | status=${status}`);
 
   useEffect(() => {
     if (status === 'loading') return;

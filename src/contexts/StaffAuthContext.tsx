@@ -29,6 +29,7 @@ export let isLoggingOut = false;
 
 export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
+  const instanceId = React.useRef(Math.random().toString(36).slice(2)).current;
   
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<StaffProfile | null>(null);
@@ -166,6 +167,8 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
   // V1 Compatibility Mapping
   const isContextLoading = status === 'loading' || status === 'authenticating';
   const profileResolved = status === 'authenticated' || status === 'forbidden';
+
+  console.log(`[StaffAuthContext] | ${Date.now()} | ${instanceId} | role=${profile?.role} | status=${status}`);
 
   return (
     <StaffAuthContext.Provider value={{ 

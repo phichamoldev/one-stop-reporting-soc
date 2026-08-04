@@ -25,6 +25,12 @@ export const BackofficeSidebar: React.FC = () => {
   const [isSimulating, setIsSimulating] = useState(true);
   const { cache } = useSWRConfig();
   const prefetchTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const instanceId = React.useRef(Math.random().toString(36).slice(2)).current;
+
+  console.log(`[Sidebar] | ${Date.now()} | ${instanceId} | role=${profile?.role}`);
+  if (typeof window !== 'undefined') {
+    console.log(`[Sidebar] Object.is(profile, authGuardProfile) = ${Object.is(profile, (window as any).__authGuardProfile)}`);
+  }
 
   // Sync Dark Mode class from storage
   useEffect(() => {

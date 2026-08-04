@@ -1,0 +1,7 @@
+[2026-08-04T07:17:27.656Z] [AuthContext] state updated: user=null profile=null authLoading=true profileLoading=false
+[2026-08-04T07:17:27.659Z] [AuthContext] onAuthStateChange event=INITIAL_SESSION
+[2026-08-04T07:17:27.664Z] [Login] effect: user=null profile=null authLoading=true profileLoading=false
+[2026-08-04T07:17:27.677Z] [Login] effect: user=null profile=null authLoading=false profileLoading=false
+[2026-08-04T07:17:27.677Z] [AuthContext] state updated: user=null profile=null authLoading=false profileLoading=false
+[2026-08-04T07:17:27.742Z] [Login] Login button clicked
+[2026-08-04T07:17:27.742Z] [AuthContext] signIn called

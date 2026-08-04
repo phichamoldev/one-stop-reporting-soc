@@ -20,7 +20,6 @@ export default function BackofficeLogin() {
 
     if (user) {
       if (profile) {
-        setIsSubmitting(false);
         const urlParams = new URLSearchParams(window.location.search);
         const nextUrl = urlParams.get("next") || "/backoffice";
         router.replace(nextUrl);

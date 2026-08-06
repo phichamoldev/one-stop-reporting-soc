@@ -41,7 +41,7 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
 
   const fetchProfile = async (session: Session) => {
     setProfileLoading(true);
-    setStatus('loading');
+    setStatus((prev) => (prev === 'authenticated' ? 'authenticated' : 'loading'));
     
     try {
       const res = await fetch("/api/staff/profile?v=2", {
@@ -58,7 +58,12 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
       
       const data = await res.json();
       if (data?.profile) {
-        setProfile(data.profile as unknown as StaffProfile);
+        setProfile((prevProfile) => {
+          if (prevProfile && JSON.stringify(prevProfile) === JSON.stringify(data.profile)) {
+            return prevProfile;
+          }
+          return data.profile as unknown as StaffProfile;
+        });
         setStatus('authenticated');
       } else {
         setProfile(null);
@@ -97,7 +102,7 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
       if (event === 'INITIAL_SESSION') {
         initialSessionHandled = true;
         await handleSession(session);
-      } else if (event === 'SIGNED_IN') {
+      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
         isLoggingOut = false;
         await handleSession(session);
       } else if (event === 'SIGNED_OUT') {
@@ -167,8 +172,6 @@ export const StaffAuthProvider = ({ children }: { children: React.ReactNode }) =
   // V1 Compatibility Mapping
   const isContextLoading = status === 'loading' || status === 'authenticating';
   const profileResolved = status === 'authenticated' || status === 'forbidden';
-
-  console.log(`[StaffAuthContext] | ${Date.now()} | ${instanceId} | role=${profile?.role} | status=${status}`);
 
   return (
     <StaffAuthContext.Provider value={{ 

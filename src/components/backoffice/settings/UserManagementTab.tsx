@@ -21,10 +21,10 @@ interface User {
 }
 
 const roleBadge: Record<string, { bg: string; text: string; label: string }> = {
-  super_admin: { bg: "bg-violet-100", text: "text-violet-700", label: "Super Admin" },
-  admin: { bg: "bg-sky-100", text: "text-sky-700", label: "Admin" },
-  manager: { bg: "bg-amber-100", text: "text-amber-700", label: "Manager" },
-  staff: { bg: "bg-slate-100", text: "text-slate-600", label: "Staff" },
+  super_admin: { bg: "bg-purple-100", text: "text-purple-700", label: "Super Admin" },
+  admin: { bg: "bg-blue-100", text: "text-blue-700", label: "Admin" },
+  manager: { bg: "bg-amber-100", text: "text-amber-700", label: "ผู้ดูแลหน่วยงาน" },
+  staff: { bg: "bg-slate-100", text: "text-slate-700", label: "Staff" },
 };
 
 export default function UserManagementTab() {
@@ -166,7 +166,7 @@ export default function UserManagementTab() {
                   { label: "ทุกตำแหน่ง (All Roles)", value: "all" },
                   { label: "Super Admin", value: "super_admin" },
                   { label: "Admin", value: "admin" },
-                  { label: "Manager", value: "manager" },
+                  { label: "ผู้ดูแลหน่วยงาน", value: "manager" },
                   { label: "Staff", value: "staff" },
                 ]}
               />

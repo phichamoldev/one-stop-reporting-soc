@@ -15,7 +15,7 @@ const roleColors: Record<string, string> = {
 
 const roleLabels: Record<string, string> = {
   staff: "เจ้าหน้าที่ปฏิบัติงาน",
-  manager: "หัวหน้าฝ่าย",
+  manager: "ผู้ดูแลหน่วยงาน",
   admin: "ผู้ดูแลระบบ",
   super_admin: "ผู้ดูแลระบบสูงสุด"
 };

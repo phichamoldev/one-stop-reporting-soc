@@ -17,10 +17,24 @@ export async function GET(req: Request, { params }: { params: Promise<{ publicId
     if (authHeader) {
       const token = authHeader.replace("Bearer ", "");
       const { data: { user } } = await supabaseAdmin.auth.getUser(token);
-      if (user) isAuthenticated = true;
+      if (user) {
+        // Verify the user is a staff member
+        const { data: staffProfile } = await supabaseAdmin
+          .from("staff_users")
+          .select("id")
+          .eq("id", user.id)
+          .maybeSingle();
+        
+        if (staffProfile) {
+          isAuthenticated = true;
+        }
+      }
     }
 
-    const { data, error } = await supabaseAdmin
+    const normalizedPublicId = publicId.trim().toUpperCase();
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalizedPublicId);
+
+    let query = supabaseAdmin
       .from("reports")
       .select(`
         *,
@@ -43,9 +57,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ publicId
             full_name
           )
         )
-      `)
-      .eq("public_id", publicId)
-      .maybeSingle();
+      `);
+
+    if (isUUID) {
+      query = query.eq("tracking_token", normalizedPublicId.toLowerCase());
+    } else {
+      query = query.eq("public_id", normalizedPublicId);
+    }
+
+    const { data, error } = await query.maybeSingle();
 
     if (error) {
       return NextResponse.json({ success: false, message: "Internal Server Error" }, { status: 500 });

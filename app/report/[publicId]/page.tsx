@@ -1,6 +1,7 @@
 "use client";
 
 import React, { use, useEffect, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { AppNavbar } from "@/components/shared/AppNavbar";
 import { AppContainer } from "@/components/design-system/AppContainer";
@@ -79,6 +80,10 @@ function ReportDetailPageContent({ params }: ReportDetailPageProps) {
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const [isEditMode, setIsEditMode] = useState(false);
   const [completedByProfile, setCompletedByProfile] = useState<{ full_name?: string, departments?: { name_th: string } } | null>(null);
 
@@ -87,7 +92,13 @@ function ReportDetailPageContent({ params }: ReportDetailPageProps) {
       if (!isSilent) setLoading(true);
       setError(null);
 
-      const res = await fetch(`/api/reports/${publicId}`);
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: HeadersInit = {};
+      if (session) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
+      const res = await fetch(`/api/reports/${publicId}`, { headers });
       const result = await res.json();
 
       if (!res.ok) {
@@ -181,7 +192,7 @@ function ReportDetailPageContent({ params }: ReportDetailPageProps) {
         body: JSON.stringify({
           reportId: report.id,
           status: isStatusChanged || (updateStatus as string) === 'transfer' ? updateStatus : undefined,
-          remark: isRemarkChanged || (updateStatus as string) === 'transfer' ? updateRemark : undefined,
+          remark: updateRemark,
           oldStatus: report.status,
           departmentId: (updateStatus as string) === 'transfer' ? updateDepartmentId : undefined
         })
@@ -682,14 +693,14 @@ function ReportDetailPageContent({ params }: ReportDetailPageProps) {
                             {statusInfo.label}
                           </h4>
 
-                          <div className="flex items-center gap-3 text-[11px] text-slate-400 font-medium mb-3">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 text-[11px] text-slate-400 font-medium mb-3">
                             <span className="flex items-center gap-1.5">
-                              <Clock className="w-3.5 h-3.5" />
-                              {formatDate(log.created_at)}
+                              <Clock className="w-3.5 h-3.5 shrink-0" />
+                              <span className="truncate">{formatDate(log.created_at)}</span>
                             </span>
-                            <span className="flex items-center gap-1.5">
-                              <User className="w-3.5 h-3.5" />
-                              {staffName}
+                            <span className="flex items-start sm:items-center gap-1.5">
+                              <User className="w-3.5 h-3.5 shrink-0 mt-0.5 sm:mt-0" />
+                              <span className="break-words line-clamp-2">{staffName}</span>
                             </span>
                           </div>
 
@@ -715,10 +726,10 @@ function ReportDetailPageContent({ params }: ReportDetailPageProps) {
       </div>
 
       {/* Login Modal for Completed State */}
-      {showLoginModal && (
-        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-[20px] w-full max-w-sm shadow-xl overflow-hidden animate-slide-up">
-            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+      {mounted && showLoginModal && createPortal(
+        <div className="fixed inset-0 bg-slate-900/50 flex items-end md:items-center justify-center p-0 md:p-4 z-[9999] backdrop-blur-sm animate-fade-in">
+          <div className="bg-white w-full md:max-w-sm rounded-t-[24px] rounded-b-none md:rounded-[20px] shadow-2xl flex flex-col max-h-[90dvh] animate-slide-up overflow-hidden">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
               <h3 className="font-bold text-slate-800">เข้าสู่ระบบเจ้าหน้าที่</h3>
               <button
                 type="button"
@@ -726,13 +737,13 @@ function ReportDetailPageContent({ params }: ReportDetailPageProps) {
                   setShowLoginModal(false);
                   setLoginError("");
                 }}
-                className="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors shrink-0"
                 aria-label="ปิด"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="p-6 text-center">
+            <div className="p-6 text-center overflow-y-auto custom-scrollbar pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
 
               {loginError && (
                 <div className="mb-4 p-3 bg-red-50 text-red-600 text-[12px] font-medium rounded-xl border border-red-100 text-left">
@@ -763,7 +774,8 @@ function ReportDetailPageContent({ params }: ReportDetailPageProps) {
               </AppButton>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </AppContainer>

@@ -15,7 +15,6 @@ export const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children })
   if (typeof window !== 'undefined') {
     (window as any).__authGuardProfile = profile;
   }
-  console.log(`[AuthGuard] | ${Date.now()} | ${instanceId} | role=${profile?.role} | status=${status}`);
 
   useEffect(() => {
     if (status === 'loading') return;

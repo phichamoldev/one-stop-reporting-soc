@@ -230,11 +230,14 @@ export function UserFormModal({ isOpen, onClose, user, departments, onSuccess }:
                   onChange={(val) => setFormData({ ...formData, role: val as string })}
                   options={[
                     { label: "Staff", value: "staff" },
-                    { label: "Manager", value: "manager" },
+                    { label: "ผู้ดูแลหน่วยงาน", value: "manager" },
                     { label: "Admin", value: "admin" },
                     { label: "Super Admin", value: "super_admin" },
                   ]}
                 />
+                <p className="mt-2 text-[11px] text-slate-500">
+                  * Role ในระบบใช้สำหรับกำหนดสิทธิ์การใช้งาน ไม่ใช่ตำแหน่งงานตามโครงสร้างองค์กร
+                </p>
               </div>
               <div>
                 <label className={labelCls}>หน่วยงาน (ถ้ามี)</label>

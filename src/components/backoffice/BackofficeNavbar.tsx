@@ -18,7 +18,8 @@ const NotificationIcon = ({ type }: { type: AppNotification['type'] }) => {
 };
 
 export const BackofficeNavbar: React.FC = () => {
-  const { profile, signOut } = useStaffAuth();
+  const { user, profile, signOut } = useStaffAuth();
+  
   const { notifications, unreadCount, markAllAsRead } = useNotification();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);

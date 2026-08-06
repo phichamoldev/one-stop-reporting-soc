@@ -20,7 +20,8 @@ import {
 } from 'lucide-react';
 
 export const BackofficeSidebar: React.FC = () => {
-  const { profile, signOut } = useStaffAuth();
+  const { user, profile, signOut } = useStaffAuth();
+  
   const pathname = usePathname();
   const [isSimulating, setIsSimulating] = useState(true);
   const { cache } = useSWRConfig();

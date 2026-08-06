@@ -177,7 +177,7 @@ export default function StaffDashboardView() {
               <Star className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs font-bold text-slate-500 mb-1">หัวหน้าฝ่าย</p>
+              <p className="text-xs font-bold text-slate-500 mb-1">ผู้ดูแลหน่วยงาน</p>
               <h3 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">{kpis.manager}</h3>
             </div>
           </div>
@@ -200,7 +200,7 @@ export default function StaffDashboardView() {
             {[
               { id: "all", label: "ทั้งหมด" },
               { id: "staff", label: "เจ้าหน้าที่ปฏิบัติงาน" },
-              { id: "manager", label: "หัวหน้าฝ่าย" },
+              { id: "manager", label: "ผู้ดูแลหน่วยงาน" },
               { id: "admin", label: "ผู้ดูแลระบบ" },
               { id: "super_admin", label: "ผู้ดูแลระบบสูงสุด" }
             ].map((tab) => (

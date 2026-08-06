@@ -8,11 +8,8 @@ async function test() {
     { auth: { autoRefreshToken: false, persistSession: false } }
   );
 
-  const { data: users, error: err } = await supabaseAdmin.from('staff_users').select('*');
-  console.log("Staff users:", users);
-  
-  const { data: profile } = await supabaseAdmin.from('staff_users').select('*').eq('id', '062cab22-9dcf-4e0d-adbc-f6e9cd823b52').maybeSingle();
-  console.log("Profile query result:", profile);
+  const { data: reports, error: err } = await supabaseAdmin.from('reports').select('id, public_id, tracking_token').limit(5);
+  console.log("Reports:", reports);
 }
 
 test();

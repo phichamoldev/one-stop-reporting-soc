@@ -378,14 +378,14 @@ export default function TrackPage({ params }: TrackPageProps) {
                               {statusInfo.label}
                             </h4>
                             
-                            <div className="flex items-center gap-3 text-[11px] text-slate-400 font-medium mb-3">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 text-[11px] text-slate-400 font-medium mb-3">
                                <span className="flex items-center gap-1.5">
-                                 <Clock className="w-3.5 h-3.5" />
-                                 {formatDate(log.created_at)}
+                                 <Clock className="w-3.5 h-3.5 shrink-0" />
+                                 <span className="truncate">{formatDate(log.created_at)}</span>
                                </span>
-                               <span className="flex items-center gap-1.5">
-                                 <User className="w-3.5 h-3.5" />
-                                 {staffName}
+                               <span className="flex items-start sm:items-center gap-1.5">
+                                 <User className="w-3.5 h-3.5 shrink-0 mt-0.5 sm:mt-0" />
+                                 <span className="break-words line-clamp-2">{staffName}</span>
                                </span>
                             </div>
                             

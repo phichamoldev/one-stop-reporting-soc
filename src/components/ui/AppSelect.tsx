@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown } from "lucide-react";
 
 export interface AppSelectOption {
@@ -29,28 +30,75 @@ export const AppSelect: React.FC<AppSelectProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
 
   const selectedOption = options.find((opt) => opt.value === value);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const updatePosition = React.useCallback(() => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setCoords({
+        top: rect.bottom,
+        left: rect.left,
+        width: rect.width
+      });
+    }
+  }, []);
+
+  const handleToggle = () => {
+    if (!isOpen) {
+      updatePosition();
+    }
+    setIsOpen(!isOpen);
+  };
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsOpen(false);
+    };
+
+    if (isOpen) {
+      window.addEventListener("scroll", handleScroll, true);
+      window.addEventListener("resize", updatePosition);
+    }
+    return () => {
+      window.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [isOpen, updatePosition]);
+
+  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(target) &&
+        (!popupRef.current || !popupRef.current.contains(target))
+      ) {
         setIsOpen(false);
       }
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, []);
+  }, [isOpen]);
 
   return (
-    <div className={`relative ${className}`} ref={containerRef}>
+    <div className={`relative ${className} ${isOpen ? 'z-[9999]' : ''}`} ref={containerRef}>
       <button
         type="button"
         disabled={disabled}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleToggle}
         className={`w-full h-[44px] px-4 bg-white dark:bg-slate-900 border ${error ? 'border-rose-500' : 'border-[#E5E7EB] dark:border-slate-700/80'} rounded-[12px] flex items-center justify-between transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#D1350F] focus:border-transparent ${
           disabled 
             ? "opacity-50 cursor-not-allowed bg-slate-50 dark:bg-slate-800/50" 
@@ -63,9 +111,13 @@ export const AppSelect: React.FC<AppSelectProps> = ({
         <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
       </button>
 
-      {isOpen && (
-        <div className="absolute z-[99] mt-2 w-full min-w-max bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-100 dark:border-slate-800 p-2 animate-in fade-in zoom-in-95 duration-100">
-          <div className="max-h-60 overflow-y-auto custom-scrollbar pr-1 flex flex-col gap-1">
+      {mounted && isOpen && createPortal(
+        <div
+          ref={popupRef}
+          className="fixed z-[99999] mt-2 bg-white dark:bg-slate-900 rounded-[16px] shadow-[0_16px_40px_-12px_rgba(0,0,0,0.15)] ring-1 ring-black/5 dark:ring-white/10 p-2.5 animate-in fade-in zoom-in-95 duration-150"
+          style={{ top: coords.top, left: coords.left, width: coords.width }}
+        >
+          <div className="flex flex-col gap-1.5 p-1">
             {options.map((option) => {
               const isSelected = option.value === value;
               return (
@@ -76,10 +128,10 @@ export const AppSelect: React.FC<AppSelectProps> = ({
                     onChange(option.value);
                     setIsOpen(false);
                   }}
-                  className={`w-full text-left min-h-[40px] px-[14px] flex items-center rounded-lg text-[14px] transition-colors ${
+                  className={`w-full text-left min-h-[44px] px-3.5 flex items-center rounded-xl text-[14px] transition-all duration-200 ${
                     isSelected 
-                      ? "bg-[#D1350F] text-white font-semibold" 
-                      : "text-slate-700 dark:text-slate-300 hover:bg-[#F8FAFC] dark:hover:bg-slate-800"
+                      ? "bg-[#D1350F] text-white font-bold shadow-md shadow-[#D1350F]/20" 
+                      : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"
                   }`}
                 >
                   <span className="truncate">{option.label}</span>
@@ -87,7 +139,8 @@ export const AppSelect: React.FC<AppSelectProps> = ({
               );
             })}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -7,6 +7,7 @@ import { PasswordResetModal } from "./PasswordResetModal";
 import { fetchWithAuth } from "@/lib/api-client";
 import { AppButton } from "@/components/design-system/AppButton";
 import { AppSelect } from "@/components/ui/AppSelect";
+import { getRoleDisplayName } from "@/lib/role-config";
 
 interface User {
   id: string;
@@ -16,15 +17,16 @@ interface User {
   status: string;
   department_id: number | null;
   departments?: { name_th: string };
+  manager_departments?: { department_id: number }[];
   last_login: string | null;
   created_at: string;
 }
 
-const roleBadge: Record<string, { bg: string; text: string; label: string }> = {
-  super_admin: { bg: "bg-purple-100", text: "text-purple-700", label: "Super Admin" },
-  admin: { bg: "bg-blue-100", text: "text-blue-700", label: "Admin" },
-  manager: { bg: "bg-amber-100", text: "text-amber-700", label: "ผู้ดูแลหน่วยงาน" },
-  staff: { bg: "bg-slate-100", text: "text-slate-700", label: "Staff" },
+const roleBadge: Record<string, { bg: string; text: string }> = {
+  super_admin: { bg: "bg-purple-100", text: "text-purple-700" },
+  admin: { bg: "bg-blue-100", text: "text-blue-700" },
+  manager: { bg: "bg-amber-100", text: "text-amber-700" },
+  staff: { bg: "bg-slate-100", text: "text-slate-700" },
 };
 
 export default function UserManagementTab() {
@@ -164,10 +166,10 @@ export default function UserManagementTab() {
                 onChange={(val) => setRoleFilter(val as string)}
                 options={[
                   { label: "ทุกตำแหน่ง (All Roles)", value: "all" },
-                  { label: "Super Admin", value: "super_admin" },
-                  { label: "Admin", value: "admin" },
-                  { label: "ผู้ดูแลหน่วยงาน", value: "manager" },
-                  { label: "Staff", value: "staff" },
+                  { label: getRoleDisplayName("super_admin"), value: "super_admin" },
+                  { label: getRoleDisplayName("admin"), value: "admin" },
+                  { label: getRoleDisplayName("manager"), value: "manager" },
+                  { label: getRoleDisplayName("staff"), value: "staff" },
                 ]}
               />
             </div>
@@ -224,11 +226,24 @@ export default function UserManagementTab() {
                         <div className="text-xs text-slate-400 mt-0.5">{user.email}</div>
                       </td>
                       <td className="px-5 py-4 text-sm text-slate-600 dark:text-slate-300">
-                        {user.departments?.name_th || <span className="text-slate-300">—</span>}
+                        {user.role === 'manager' && user.manager_departments && user.manager_departments.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {user.manager_departments.map((md, idx) => {
+                               const dName = departments.find(d => d.id === md.department_id)?.name_th || `หน่วยงาน ${md.department_id}`;
+                               return (
+                                 <span key={idx} className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 text-[11px] font-medium">
+                                   {dName}
+                                 </span>
+                               );
+                            })}
+                          </div>
+                        ) : (
+                          user.departments?.name_th || <span className="text-slate-300">—</span>
+                        )}
                       </td>
                       <td className="px-5 py-4">
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold ${rb.bg} ${rb.text}`}>
-                          {rb.label}
+                          {getRoleDisplayName(user.role)}
                         </span>
                       </td>
                       <td className="px-5 py-4">

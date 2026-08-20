@@ -17,6 +17,8 @@ export interface LineNotificationPayload {
   transferRemark?: string;
 }
 
+import { STATUS_DETAILS, ReportStatus } from "@/types/report";
+
 /**
  * Sends a message using the LINE Messaging API.
  * Uses the push endpoint to send a notification to a specific group.
@@ -50,23 +52,21 @@ export async function notifyLine(message: string | LineNotificationPayload, cust
       }
     ];
   } else {
-    let mappedStatus = "🟡 รอรับเรื่อง";
-    const statusText = message.statusText || "pending";
-
-    if (statusText === "pending" || statusText.includes("รอรับเรื่อง")) {
-      mappedStatus = "🟡 รอรับเรื่อง";
-    }
-    else if (statusText === "in_progress" || statusText.includes("กำลังดำเนินการ")) {
-      mappedStatus = "🔵 กำลังดำเนินการ";
-    }
-    else if (statusText === "completed" || statusText.includes("เสร็จสิ้น")) {
-      mappedStatus = "🟢 ดำเนินการเสร็จสิ้น";
-    }
-    else if (statusText === "rejected" || statusText.includes("ปฏิเสธ")) {
-      mappedStatus = "🔴 ปฏิเสธคำร้อง";
-    }
-    else if (statusText === "cancelled" || statusText.includes("ยกเลิก")) {
-      mappedStatus = "⚫ ยกเลิกคำร้อง";
+    const statusText = (message.statusText || "pending") as ReportStatus;
+    
+    // Default mapped status
+    let mappedStatus = `🟡 ${STATUS_DETAILS.pending.label}`;
+    
+    if (statusText === "pending") {
+      mappedStatus = `🟡 ${STATUS_DETAILS.pending.label}`;
+    } else if (statusText === "in_progress") {
+      mappedStatus = `🔵 ${STATUS_DETAILS.in_progress.label}`;
+    } else if (statusText === "completed") {
+      mappedStatus = `🟢 ${STATUS_DETAILS.completed.label}`;
+    } else if (statusText === "rejected") {
+      mappedStatus = `🔴 ${STATUS_DETAILS.rejected.label}`;
+    } else if (statusText === "cancelled") {
+      mappedStatus = `⚫ ${STATUS_DETAILS.cancelled.label}`;
     }
     const isTransfer = message.isTransfer;
     const headerColor = isTransfer ? "#9333EA" : "#D1350F"; // Purple for transfer, Orange for normal

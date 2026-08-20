@@ -1,6 +1,7 @@
 "use client";
 
 import React, { use, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { AppNavbar } from "@/components/shared/AppNavbar";
 import { AppContainer } from "@/components/design-system/AppContainer";
@@ -22,6 +23,8 @@ import {
   Mail, 
   Phone,
   CheckCircle2,
+  Maximize2,
+  X,
   Clock,
   ArrowLeft,
   ArrowRightLeft,
@@ -48,6 +51,11 @@ export default function TrackPage({ params }: TrackPageProps) {
   
   // สถานะการคัดลอกลิงก์
   const [copied, setCopied] = useState<boolean>(false);
+  const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // ฟังก์ชันสำหรับการคัดลอกลิงก์
   const handleCopyLink = () => {
@@ -165,6 +173,8 @@ export default function TrackPage({ params }: TrackPageProps) {
 
   displayLogs.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   const sortedLogs = displayLogs.reverse();
+  const completionLog = sortedLogs.find(log => log.new_status === 'completed');
+  const isCompleted = report.status === 'completed';
 
   return (
     <AppContainer maxWidthClass="lg:max-w-6xl">
@@ -314,7 +324,50 @@ export default function TrackPage({ params }: TrackPageProps) {
 
             {/* RIGHT COLUMN */}
             <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-6 lg:self-start">
-              
+
+              {isCompleted && completionLog && (
+                <div className="space-y-4">
+                  <AppCard className="!p-0 border-emerald-200 shadow-sm bg-white rounded-[16px] overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-emerald-50/50 rounded-t-[16px]">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+                          <CheckCircle2 className="w-4 h-4" />
+                        </div>
+                        <h3 className="text-[16px] font-bold text-emerald-800 tracking-wide">การตอบกลับของเจ้าหน้าที่</h3>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-4 p-5">
+                      {completionLog.remark && (
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-400 block mb-1 uppercase tracking-wider">หมายเหตุสรุปผล</span>
+                          <p className="text-[13px] text-slate-700 whitespace-pre-wrap">{completionLog.remark}</p>
+                        </div>
+                      )}
+                      {completionLog.image_url && (
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-400 block mb-2 uppercase tracking-wider">ภาพประกอบการทำงาน</span>
+                          <div onClick={() => setFullscreenImage(completionLog.image_url || null)} className="relative w-full h-[180px] sm:h-[200px] bg-slate-50 rounded-xl overflow-hidden border border-slate-200 hover:opacity-90 transition-opacity cursor-pointer group flex items-center justify-center">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={completionLog.image_url} alt="ภาพผลการดำเนินงาน" className="max-w-full max-h-full object-contain" />
+                            <div className="absolute inset-0 bg-slate-900/10 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity duration-200">
+                              <div className="flex items-center gap-1.5 bg-black/60 px-3 py-1.5 rounded-full backdrop-blur-sm">
+                                <Maximize2 className="w-4 h-4" />
+                                <span className="text-xs font-bold">ขยายภาพขนาดเต็ม</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      <div className="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-slate-500">
+                        <span>ดำเนินการโดย: <span className="font-semibold text-slate-600">{completionLog.staff_users?.full_name || 'เจ้าหน้าที่'}</span></span>
+                        <span>เวลา: <span className="font-semibold text-slate-600">{new Date(completionLog.created_at).toLocaleString('th-TH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} น.</span></span>
+                      </div>
+                    </div>
+                  </AppCard>
+                </div>
+              )}
+
               {/* 6. TIMELINE SECTION */}
               <AppCard className="!p-5 md:!p-6 border-[#EDF0F4] shadow-sm bg-white rounded-[16px]">
               <div className="flex justify-between items-center mb-6">
@@ -336,9 +389,7 @@ export default function TrackPage({ params }: TrackPageProps) {
                    ) : sortedLogs.map((log, idx) => {
                      const isActive = idx === 0;
                      const statusInfo = log.custom_label ? { label: log.custom_label } : (STATUS_DETAILS[log.new_status as keyof typeof STATUS_DETAILS] || { label: log.action || "อัปเดต" });
-                     const staffName = log.action === "created" 
-                       ? "ระบบ" 
-                       : (log.staff_users?.full_name || "เจ้าหน้าที่");
+                     const staffName = log.staff_users?.full_name || "ระบบ";
                      
                      let Icon = Clock;
                      if (log.new_status === 'in_progress') Icon = RefreshCcw;
@@ -441,6 +492,30 @@ export default function TrackPage({ params }: TrackPageProps) {
           </div>
         </div>
       </div>
+          {fullscreenImage && createPortal(
+        <div className="fixed inset-0 z-[1200] flex flex-col items-center justify-center p-4 lg:p-8">
+          <div 
+            className="absolute inset-0 bg-black/95 backdrop-blur-sm"
+            onClick={() => setFullscreenImage(null)}
+          />
+          <button
+            onClick={() => setFullscreenImage(null)}
+            className="absolute top-4 right-4 z-10 p-3 bg-white/10 hover:bg-white/25 text-white rounded-full transition-colors"
+            title="ปิดรูปภาพ (Esc)"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <div className="relative w-full h-full max-w-5xl flex items-center justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img 
+              src={fullscreenImage} 
+              alt="Report image" 
+              className="max-w-full max-h-[85vh] md:max-h-[90vh] object-contain rounded-lg shadow-2xl"
+            />
+          </div>
+        </div>,
+        document.body
+      )}
     </AppContainer>
   );
 }

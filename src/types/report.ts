@@ -2,6 +2,7 @@
 
 export type ReportStatus = 
   | 'pending' 
+  | 'received'
   | 'in_progress' 
   | 'completed' 
   | 'rejected'
@@ -71,6 +72,7 @@ export interface ReportLog {
   old_status: ReportStatus | null;
   new_status: ReportStatus;
   remark: string | null;
+  image_url?: string | null;
   created_at: string;
   staff_users?: {
     full_name: string;
@@ -87,19 +89,34 @@ export interface StatusConfig {
   colorClass: string;
   bgClass: string;
   borderClass: string;
+  borderLeftClass: string;
   dotClass: string;
+  icon: string;
   stepIndex: number;
 }
 
 export const STATUS_DETAILS: Record<ReportStatus, StatusConfig> = {
   pending: {
-    label: 'รับเรื่องแล้ว',
+    label: 'รอรับเรื่อง',
     description: 'อยู่ระหว่างการรอคัดกรอง',
     colorClass: 'text-amber-700 dark:text-amber-400',
     bgClass: 'bg-amber-50 dark:bg-amber-950/20',
     borderClass: 'border-amber-200 dark:border-amber-900/50',
+    borderLeftClass: 'border-l-amber-500',
     dotClass: 'bg-amber-500',
+    icon: 'Clock',
     stepIndex: 0
+  },
+  received: {
+    label: 'รับเรื่องแล้ว',
+    description: 'รับเรื่องเข้าระบบแล้ว',
+    colorClass: 'text-blue-700 dark:text-blue-400',
+    bgClass: 'bg-blue-50 dark:bg-blue-950/20',
+    borderClass: 'border-blue-200 dark:border-blue-900/50',
+    borderLeftClass: 'border-l-blue-500',
+    dotClass: 'bg-blue-500',
+    icon: 'Inbox',
+    stepIndex: 1
   },
   in_progress: {
     label: 'กำลังดำเนินการ',
@@ -107,26 +124,32 @@ export const STATUS_DETAILS: Record<ReportStatus, StatusConfig> = {
     colorClass: 'text-orange-700 dark:text-orange-400',
     bgClass: 'bg-orange-50 dark:bg-orange-950/20',
     borderClass: 'border-orange-200 dark:border-orange-900/50',
+    borderLeftClass: 'border-l-orange-500',
     dotClass: 'bg-orange-500',
-    stepIndex: 1
+    icon: 'Play',
+    stepIndex: 2
   },
   completed: {
     label: 'เสร็จสิ้น',
     description: 'ขอบคุณที่ช่วยกันพัฒนาคณะของเรา',
-    colorClass: 'text-green-700 dark:text-green-400',
-    bgClass: 'bg-green-50 dark:bg-green-950/20',
-    borderClass: 'border-green-200 dark:border-green-900/50',
-    dotClass: 'bg-green-500',
-    stepIndex: 2
+    colorClass: 'text-emerald-700 dark:text-emerald-400',
+    bgClass: 'bg-emerald-50 dark:bg-emerald-950/20',
+    borderClass: 'border-emerald-200 dark:border-emerald-900/50',
+    borderLeftClass: 'border-l-emerald-500',
+    dotClass: 'bg-emerald-500',
+    icon: 'CheckCircle2',
+    stepIndex: 3
   },
   rejected: {
-    label: 'ไม่สามารถดำเนินการได้',
+    label: 'ไม่สามารถดำเนินการ',
     description: 'เรื่องนี้ไม่อยู่ในขอบเขตการดำเนินงานของคณะ',
     colorClass: 'text-red-700 dark:text-red-400',
     bgClass: 'bg-red-50 dark:bg-red-950/20',
     borderClass: 'border-red-200 dark:border-red-900/50',
+    borderLeftClass: 'border-l-red-500',
     dotClass: 'bg-red-500',
-    stepIndex: 3
+    icon: 'XCircle',
+    stepIndex: 4
   },
   cancelled: {
     label: 'ยกเลิกรายการ',
@@ -134,8 +157,10 @@ export const STATUS_DETAILS: Record<ReportStatus, StatusConfig> = {
     colorClass: 'text-gray-700 dark:text-gray-400',
     bgClass: 'bg-gray-50 dark:bg-gray-950/20',
     borderClass: 'border-gray-200 dark:border-gray-900/50',
+    borderLeftClass: 'border-l-gray-500',
     dotClass: 'bg-gray-500',
-    stepIndex: 4
+    icon: 'AlertTriangle',
+    stepIndex: 5
   }
 };
 

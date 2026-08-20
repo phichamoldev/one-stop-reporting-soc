@@ -11,8 +11,8 @@ export function usePublicStaffAuth() {
   const [loading, setLoading] = useState<boolean>(true);
 
   const { data: profileData, isLoading: profileLoading } = useSWR(
-    user ? "/api/staff/profile" : null,
-    async (url) => {
+    user ? ["/api/staff/profile", user.id] : null,
+    async ([url, uid]) => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("No session");
       const res = await fetch(url, {

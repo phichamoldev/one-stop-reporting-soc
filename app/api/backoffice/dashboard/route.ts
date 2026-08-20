@@ -57,23 +57,34 @@ export async function GET(req: Request) {
     }
 
     let filterOptions = { departments: [] as string[], categories: [] as string[] };
+    const departmentFilter = searchParams.get("department");
 
     if (accessibleDeptIds.length > 0) {
       // Fetch departments and categories in parallel
       const [deptRes, catRes] = await Promise.all([
-        supabaseAdmin.from("departments").select("name_th").in("id", accessibleDeptIds),
-        supabaseAdmin.from("categories").select("id, name_th").in("department_id", accessibleDeptIds)
+        supabaseAdmin.from("departments").select("id, name_th").in("id", accessibleDeptIds),
+        supabaseAdmin.from("categories").select("id, name_th, department_id").in("department_id", accessibleDeptIds)
       ]);
 
       const deptData = deptRes.data;
       filterOptions.departments = deptData ? deptData.map(d => d.name_th).filter(Boolean) : [];
         
       const catData = catRes.data;
-      const catIds = catData ? catData.map(c => c.id) : [];
+      let allowedCatIds = catData ? catData.map(c => c.id) : [];
       filterOptions.categories = catData ? Array.from(new Set(catData.map(c => c.name_th).filter(Boolean))) : [];
       
-      if (catIds.length > 0) {
-        query = query.in("category_id", catIds);
+      // Apply department scope if requested
+      if (departmentFilter && departmentFilter !== "all") {
+        const targetDept = deptData?.find(d => d.name_th === departmentFilter);
+        if (targetDept) {
+          allowedCatIds = catData ? catData.filter(c => c.department_id === targetDept.id).map(c => c.id) : [];
+        } else {
+          return NextResponse.json({ error: "Unauthorized department", code: "NO_PERMISSION" }, { status: 403 });
+        }
+      }
+      
+      if (allowedCatIds.length > 0) {
+        query = query.in("category_id", allowedCatIds);
       } else {
         // If department has no categories, return empty
         query = query.in("category_id", [0]); // Force empty
@@ -81,8 +92,8 @@ export async function GET(req: Request) {
     } else {
       // Super Admin / Admin: fetch in parallel
       const [deptRes, catRes] = await Promise.all([
-        supabaseAdmin.from("departments").select("name_th"),
-        supabaseAdmin.from("categories").select("name_th")
+        supabaseAdmin.from("departments").select("id, name_th"),
+        supabaseAdmin.from("categories").select("id, name_th, department_id")
       ]);
 
       const deptData = deptRes.data;
@@ -90,6 +101,14 @@ export async function GET(req: Request) {
       
       const catData = catRes.data;
       filterOptions.categories = catData ? Array.from(new Set(catData.map(c => c.name_th).filter(Boolean))) : [];
+
+      if (departmentFilter && departmentFilter !== "all") {
+        const targetDept = deptData?.find(d => d.name_th === departmentFilter);
+        if (targetDept) {
+          const allowedCatIds = catData ? catData.filter(c => c.department_id === targetDept.id).map(c => c.id) : [];
+          query = query.in("category_id", allowedCatIds.length > 0 ? allowedCatIds : [0]);
+        }
+      }
     }
 
     // Apply filters

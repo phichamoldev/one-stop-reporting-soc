@@ -9,6 +9,7 @@ import { Calendar, Filter, AlertTriangle, CheckCircle2, Play, Clock, Inbox, Tren
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { AppSelect } from "@/components/ui/AppSelect";
+import { STATUS_DETAILS } from "@/types/report";
 
 interface AnalyticsDashboardViewProps {
   profile: any;
@@ -129,16 +130,31 @@ export const AnalyticsDashboardView: React.FC<AnalyticsDashboardViewProps> = ({ 
               onChange={(val) => setStatusFilter(val as string)}
               options={[
                 { label: "ทุกสถานะ", value: "all" },
-                { label: "รับเรื่องแล้ว", value: "pending" },
-                { label: "กำลังดำเนินการ", value: "in_progress" },
-                { label: "เสร็จสิ้น", value: "completed" },
+                { label: STATUS_DETAILS.pending.label, value: "pending" },
+                { label: STATUS_DETAILS.in_progress.label, value: "in_progress" },
+                { label: STATUS_DETAILS.completed.label, value: "completed" },
+                { label: STATUS_DETAILS.rejected.label, value: "rejected" },
+                { label: STATUS_DETAILS.cancelled.label, value: "cancelled" },
               ]}
             />
           </div>
-          {(profile?.role === "super_admin" || profile?.role === "admin") && (
-            <div className="flex items-center gap-2 text-xs font-semibold bg-white dark:bg-slate-900 px-4 py-2.5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm text-slate-500">
-              <Filter className="w-4 h-4 text-[#D1350F]" />
-              <span>ภาพรวมทุกหน่วยงาน</span>
+          {data?.filterOptions?.departments && data.filterOptions.departments.length > 0 && (
+            <div className="w-[200px]">
+              <AppSelect 
+                value={(data.filterOptions.departments.length === 1 && profile?.role !== 'super_admin' && profile?.role !== 'admin' && deptFilter === 'all') 
+                  ? data.filterOptions.departments[0].id.toString() 
+                  : deptFilter}
+                onChange={(val) => setDeptFilter(val as string)}
+                options={[
+                  ...(data.filterOptions.departments.length > 1 || profile?.role === 'super_admin' || profile?.role === 'admin' 
+                    ? [{ label: "ดูหน่วยงานทั้งหมด", value: "all" }] 
+                    : []),
+                  ...data.filterOptions.departments.map((d: any) => ({
+                    label: d.name_th,
+                    value: d.id.toString()
+                  }))
+                ]}
+              />
             </div>
           )}
         </div>
@@ -375,7 +391,7 @@ export const AnalyticsDashboardView: React.FC<AnalyticsDashboardViewProps> = ({ 
             <thead className="bg-slate-50 dark:bg-slate-800/50">
               <tr>
                 <th className="px-4 py-3 font-bold text-slate-500 dark:text-slate-400 rounded-tl-lg rounded-bl-lg">หน่วยงาน</th>
-                <th className="px-4 py-3 font-bold text-slate-500 dark:text-slate-400 text-right">รับเรื่อง</th>
+                <th className="px-4 py-3 font-bold text-slate-500 dark:text-slate-400 text-right">ทั้งหมด</th>
                 <th className="px-4 py-3 font-bold text-slate-500 dark:text-slate-400 text-right">กำลังดำเนินการ</th>
                 <th className="px-4 py-3 font-bold text-slate-500 dark:text-slate-400 text-right">เสร็จสิ้น</th>
                 <th className="px-4 py-3 font-bold text-slate-500 dark:text-slate-400 text-right rounded-tr-lg rounded-br-lg">เวลาปิดงานเฉลี่ย (วัน)</th>

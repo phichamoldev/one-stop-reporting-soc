@@ -12,6 +12,7 @@ import { supabase } from "@/lib/supabase";
 import { Report, STATUS_DETAILS } from "@/types/report";
 import { GlobalFooter } from "@/components/shared/GlobalFooter";
 import { usePublicStaffAuth } from "@/hooks/usePublicStaffAuth";
+import { getRoleDisplayName } from "@/lib/role-config";
 import { AppSelect } from "@/components/ui/AppSelect";
 import {
   Calendar,
@@ -25,7 +26,10 @@ import {
   Phone,
   Lock,
   CheckCircle2,
+  CheckCircle,
   Clock,
+  ImagePlus,
+  Maximize2,
   X,
   LogOut,
   ArrowRightLeft
@@ -42,6 +46,7 @@ function ReportDetailPageContent({ params }: ReportDetailPageProps) {
   const { publicId } = use(params);
 
   const [report, setReport] = useState<Report | null>(null);
+  const [canManage, setCanManage] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -65,7 +70,8 @@ function ReportDetailPageContent({ params }: ReportDetailPageProps) {
       });
       if (error) throw error;
       setShowLoginModal(false);
-      setIsEditMode(true);
+      // Do NOT auto-enter edit mode — stay in Viewing State
+      // User must explicitly click [แก้ไข] to enter Edit State
     } catch (err: any) {
       setLoginError(err.message);
     }
@@ -80,7 +86,33 @@ function ReportDetailPageContent({ params }: ReportDetailPageProps) {
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  
+  const [completionImage, setCompletionImage] = useState<File | null>(null);
+  const [completionImagePreview, setCompletionImagePreview] = useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.size > 5 * 1024 * 1024) {
+        setSaveMessage({ type: 'error', text: 'รูปภาพมีขนาดใหญ่เกินไป (สูงสุด 5MB)' });
+        return;
+      }
+      setCompletionImage(file);
+      setCompletionImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleEditCompleted = () => {
+    if (completionLog) {
+      if (completionLog.remark) setUpdateRemark(completionLog.remark);
+      if (completionLog.image_url) setCompletionImagePreview(completionLog.image_url);
+    }
+    setUpdateStatus('completed');
+    setIsEditMode(true);
+  };
+const [mounted, setMounted] = useState(false);
+  const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -116,6 +148,7 @@ function ReportDetailPageContent({ params }: ReportDetailPageProps) {
       }
       if (data) {
         setReport(data as Report);
+        setCanManage(result.canManage || false);
         if (data.completed_by) {
           try {
              // For now, we fetch staff via a secure endpoint or if not available, we can skip it.
@@ -144,6 +177,14 @@ function ReportDetailPageContent({ params }: ReportDetailPageProps) {
     }
   }, [publicId, fetchReport]);
 
+  // Re-fetch report when user auth changes to update canManage
+  useEffect(() => {
+    if (user && publicId) {
+      fetchReport(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
   useEffect(() => {
     if (profile && profile.role !== "staff" && departments.length === 0) {
       fetch('/api/departments').then(r => r.json()).then(d => {
@@ -156,11 +197,16 @@ function ReportDetailPageContent({ params }: ReportDetailPageProps) {
     if (report) {
       setUpdateStatus(report.status);
       setUpdateRemark(report.admin_remark || "");
+      setIsEditMode(report.status !== 'completed');
     }
   }, [report]);
 
   const handleSave = async () => {
-    if (!report || !user) return;
+    if (!report) return;
+    if (!user) {
+      setShowLoginModal(true);
+      return;
+    }
 
     const isStatusChanged = report.status !== updateStatus;
     const isRemarkChanged = (report.admin_remark || "") !== (updateRemark || "");
@@ -171,7 +217,10 @@ function ReportDetailPageContent({ params }: ReportDetailPageProps) {
         setIsSaving(false);
         return;
       }
-    } else if (!isStatusChanged && !isRemarkChanged) {
+    } else if (updateStatus === 'completed' && !completionImage && !completionImagePreview) {
+      setSaveMessage({ type: 'error', text: 'กรุณาแนบรูปภาพตอบกลับเมื่อเลือกสถานะเสร็จสิ้น' });
+      return;
+    } else if (!isStatusChanged && !isRemarkChanged && !completionImage && !completionImagePreview) {
       setIsEditMode(false);
       return;
     }
@@ -182,6 +231,28 @@ function ReportDetailPageContent({ params }: ReportDetailPageProps) {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("No active session");
+
+      let publicUrl: string | null = null;
+      if (!completionImage && completionImagePreview && completionImagePreview.startsWith('http')) {
+        publicUrl = completionImagePreview;
+      }
+      
+      if (updateStatus === 'completed' && completionImage) {
+        const fileExt = completionImage.name.split('.').pop();
+        const randomFileToken = Math.random().toString(36).substring(2, 12);
+        const fileName = `${Date.now()}-${randomFileToken}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from('report-images')
+          .upload(fileName, completionImage, { cacheControl: '3600', upsert: false });
+          
+        if (uploadError) throw new Error("อัปโหลดรูปภาพไม่สำเร็จ: " + uploadError.message);
+        
+        const { data: { publicUrl: url } } = supabase.storage
+          .from('report-images')
+          .getPublicUrl(fileName);
+          
+        publicUrl = url;
+      }
 
       const res = await fetch(`/api/reports/${publicId}/status`, {
         method: 'PATCH',
@@ -194,7 +265,8 @@ function ReportDetailPageContent({ params }: ReportDetailPageProps) {
           status: isStatusChanged || (updateStatus as string) === 'transfer' ? updateStatus : undefined,
           remark: updateRemark,
           oldStatus: report.status,
-          departmentId: (updateStatus as string) === 'transfer' ? updateDepartmentId : undefined
+          departmentId: (updateStatus as string) === 'transfer' ? updateDepartmentId : undefined,
+          imageUrl: publicUrl
         })
       });
 
@@ -231,7 +303,31 @@ function ReportDetailPageContent({ params }: ReportDetailPageProps) {
           <div className="w-10 h-10 rounded-full border-4 border-primary/20 border-t-primary animate-spin"></div>
           <p className="text-xs text-slate-500 dark:text-slate-400 animate-pulse">กำลังโหลดข้อมูลคำร้อง...</p>
         </div>
-      </AppContainer>
+            {fullscreenImage && createPortal(
+        <div className="fixed inset-0 z-[1200] flex flex-col items-center justify-center p-4 lg:p-8">
+          <div 
+            className="absolute inset-0 bg-black/95 backdrop-blur-sm"
+            onClick={() => setFullscreenImage(null)}
+          />
+          <button
+            onClick={() => setFullscreenImage(null)}
+            className="absolute top-4 right-4 z-10 p-3 bg-white/10 hover:bg-white/25 text-white rounded-full transition-colors"
+            title="ปิดรูปภาพ (Esc)"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <div className="relative w-full h-full max-w-5xl flex items-center justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img 
+              src={fullscreenImage} 
+              alt="Report image" 
+              className="max-w-full max-h-[85vh] md:max-h-[90vh] object-contain rounded-lg shadow-2xl"
+            />
+          </div>
+        </div>,
+        document.body
+      )}
+    </AppContainer>
     );
   }
 
@@ -276,40 +372,47 @@ function ReportDetailPageContent({ params }: ReportDetailPageProps) {
   const isCompleted = report.status === 'completed';
 
   const sortedLogs = [...(report.report_logs || [])].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const completionLog = sortedLogs.find(log => log.new_status === 'completed');
+  const staffActionImage = sortedLogs[0]?.image_url || completionLog?.image_url || sortedLogs.find(l => l.image_url)?.image_url;
+
+  // VIEW !== EDIT: canManage = department access, canEditCompleted = management right
+  const canEditCompleted = canManage && profile?.role !== 'staff';
 
   return (
-    <AppContainer maxWidthClass="lg:max-w-6xl">
+    <AppContainer maxWidthClass="max-w-full md:max-w-5xl lg:max-w-6xl xl:max-w-[1280px]">
       <div className="flex-1 flex flex-col overflow-y-auto bg-[#F4F6F8] min-h-screen">
 
         {/* 1. Header Section (นอก Card ตาม Reference Image) */}
         <div className="bg-white border-b border-slate-200">
-          <div className="w-full p-6 md:p-8">
-            <div className="flex items-center justify-between mb-2">
+          <div className="w-full p-4 sm:p-6 md:p-8">
+            <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-3 mb-2">
               <div>
-                <span className="text-[13px] text-slate-400 font-medium block mb-0.5">เลขอ้างอิง</span>
-                <h1 className="text-[20px] font-bold text-slate-800 tracking-tight leading-none">{report.public_id}</h1>
+                <span className="text-[12px] sm:text-[13px] text-slate-400 font-medium block mb-0.5">เลขอ้างอิง</span>
+                <h1 className="text-[18px] sm:text-[20px] font-bold text-slate-800 tracking-tight leading-none break-all">{report.public_id}</h1>
               </div>
-              <StatusBadge status={report.status} label={currentStatusInfo.label} />
+              <div className="self-start xs:self-center">
+                <StatusBadge status={report.status} label={currentStatusInfo.label} />
+              </div>
             </div>
 
-            <div className="flex flex-row items-center gap-4 pt-1 text-[11px] text-slate-400 font-normal">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-1 text-[11px] text-slate-400 font-normal">
               <span className="flex items-center gap-1.5">
-                <Calendar className="w-3 h-3" />
+                <Calendar className="w-3 h-3 shrink-0" />
                 สร้าง: {formatDate(report.created_at)}
               </span>
               <span className="flex items-center gap-1.5">
-                <RefreshCcw className="w-3 h-3" />
+                <RefreshCcw className="w-3 h-3 shrink-0" />
                 อัปเดต: {formatDate(report.updated_at)}
               </span>
             </div>
           </div>
         </div>
 
-        <div className="p-6 md:p-8 pb-12 w-full">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+        <div className="p-4 sm:p-6 md:p-8 pb-12 w-full max-w-full overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,7fr)_minmax(300px,3fr)] gap-6 items-start">
             
-            {/* LEFT COLUMN */}
-            <div className="lg:col-span-8 space-y-6">
+            {/* LEFT COLUMN (70%) */}
+            <div className="w-full space-y-6">
 
               {/* 2. รายละเอียดการแจ้ง (Main Card with top border accent) */}
               <AppCard className="!p-0 border-[#EDF0F4] shadow-sm overflow-hidden border-t-[4px] border-t-primary rounded-[8px]">
@@ -423,162 +526,223 @@ function ReportDetailPageContent({ params }: ReportDetailPageProps) {
           </AppCard>
             </div>
 
-            {/* RIGHT COLUMN */}
-            <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-6 lg:self-start">
+            {/* RIGHT COLUMN (30%) */}
+            <div className="w-full space-y-6 lg:sticky lg:top-6 lg:self-start">
 
-              {/* 5. การดำเนินการของเจ้าหน้าที่ (STAFF SECTION) */}
-              <div>
-                <h3 className="text-[16px] font-bold text-slate-800 mb-4 px-1">
-              {isCompleted && !isEditMode ? "ผลการดำเนินงาน" : "การดำเนินการของเจ้าหน้าที่"}
-            </h3>
-
-            {authLoading ? (
-              <AppCard className="!p-4 border-[#EDF0F4] shadow-sm bg-white text-center rounded-[16px]">
-                <div className="animate-pulse space-y-3 pt-2 pb-2">
-                  <div className="w-12 h-12 bg-slate-100 rounded-full mx-auto"></div>
-                  <div className="h-4 bg-slate-100 rounded w-1/3 mx-auto"></div>
-                  <div className="h-3 bg-slate-100 rounded w-1/2 mx-auto mb-4"></div>
-                  <div className="h-10 bg-slate-100 rounded-xl mx-auto max-w-xs mt-4"></div>
-                </div>
-              </AppCard>
-            ) : isCompleted && !isEditMode ? (
-              // COMPLETED SUMMARY CARD
-              <div className="space-y-4">
-                <AppCard className="!p-5 border-emerald-200 shadow-sm bg-white rounded-[16px]">
-                  <div className="flex items-center gap-3 mb-4 border-b border-slate-100 pb-4">
-                    <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
-                      <CheckCircle2 className="w-6 h-6" />
+                            {/* 5. การดำเนินการของเจ้าหน้าที่ (STAFF SECTION) */}
+              <AppCard className="!p-0 border-[#EDF0F4] shadow-sm overflow-hidden rounded-[16px]">
+                {/* Header Container */}
+                <div className="p-4 sm:p-5 flex items-center justify-between border-b border-slate-50 gap-2">
+                  <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 shrink-0">
+                      <User className="w-4 h-4" />
                     </div>
-                    <div className="flex-1">
-                      <span className="text-[14px] font-bold text-emerald-700 block">ดำเนินการเสร็จสิ้นแล้ว</span>
-                      <span className="text-[12px] text-slate-500">
-                        {formatDate(report.completed_at || report.updated_at)}
-                      </span>
-                    </div>
-                    <div className="shrink-0">
-                      {!user || !profile ? (
-                        <button onClick={() => setShowLoginModal(true)} className="text-[12px] text-slate-400 hover:text-slate-600 font-medium flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-slate-50 transition-colors">
-                          <Lock className="w-3.5 h-3.5" /> เข้าสู่ระบบ
-                        </button>
+                    <h3 className="text-[15px] font-bold text-slate-800 leading-tight">
+                      การดำเนินการ
+                    </h3>
+                  </div>
+                  <div className="shrink-0">
+                    {isEditMode ? (
+                      isCompleted ? (
+                        <span className="text-[11px] sm:text-[12px] text-blue-700 bg-blue-100/60 px-2.5 sm:px-3 py-1 rounded-full font-bold flex items-center gap-1.5">
+                          <FileText className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                          กำลังแก้ไข
+                        </span>
                       ) : (
-                        <button onClick={() => setIsEditMode(true)} className="text-[12px] text-slate-500 hover:text-slate-700 font-medium flex items-center justify-center px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
-                          [ แก้ไขข้อมูล ]
-                        </button>
-                      )}
-                    </div>
+                        <span className="text-[11px] sm:text-[12px] text-amber-700 bg-amber-100/60 px-2.5 sm:px-3 py-1 rounded-full font-bold flex items-center gap-1.5">
+                          <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                          รอดำเนินการ
+                        </span>
+                      )
+                    ) : (
+                      <span className="text-[11px] sm:text-[12px] text-emerald-700 bg-emerald-100/60 px-2.5 sm:px-3 py-1 rounded-full font-bold flex items-center gap-1.5">
+                        <CheckCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                        เสร็จสิ้น
+                      </span>
+                    )}
                   </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <span className="text-[11px] text-slate-400 font-medium block mb-1">ผู้ดำเนินการ</span>
-                      <span className="text-[13px] font-bold text-slate-700 block">{completedByProfile?.full_name || "เจ้าหน้าที่"}</span>
-                      <span className="text-[12px] text-slate-500">{completedByProfile?.departments?.name_th || "-"}</span>
-                    </div>
-
-                    <div>
-                      <span className="text-[11px] text-slate-400 font-medium block mb-2">หมายเหตุสรุปผล</span>
-                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-[13px] text-slate-700 whitespace-pre-wrap leading-relaxed">
-                        {report.admin_remark || <span className="italic text-slate-400">ไม่มีการระบุหมายเหตุเพิ่มเติม</span>}
-                      </div>
-                    </div>
-                  </div>
-                </AppCard>
-              </div>
-            ) : !user || !profile ? (
-              // Mode A: Not Authenticated
-              <AppCard className="!p-4 border-[#EDF0F4] shadow-sm bg-white text-center rounded-[16px]">
-                <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3 border border-slate-100 mt-2">
-                  <Lock className="w-5 h-5 text-slate-400" />
                 </div>
-                <h4 className="text-[16px] font-bold text-slate-800 mb-1">เข้าสู่ระบบสำหรับเจ้าหน้าที่</h4>
-                <p className="text-[13px] text-slate-500 mb-5">กรุณายืนยันตัวตนก่อนดำเนินการจัดการคำร้อง</p>
 
-                {loginError && (
-                  <div className="max-w-xs mx-auto mb-4 p-3 bg-red-50 text-red-600 text-[12px] font-medium rounded-xl border border-red-100 text-left">
-                    {loginError}
+                {/* Profile Block (State 3 Only: isCompleted, not edit mode, user logged in) */}
+                {!isEditMode && user && profile && (
+                  <div className="px-4 sm:px-5 py-3.5 sm:py-4 bg-slate-50/70 border-b border-slate-100 flex items-center gap-3">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-[13px] sm:text-[14px] uppercase shrink-0">
+                      {profile.full_name ? profile.full_name.substring(0, 2) : "จน"}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[13px] sm:text-[14px] font-bold text-slate-800 block leading-tight">{profile.full_name}</span>
+                      <span className="text-[11px] sm:text-[12px] text-slate-500 font-medium truncate block">{getRoleDisplayName(profile.role)}</span>
+                    </div>
+                    <div className="ml-auto shrink-0">
+                      <button 
+                        onClick={() => { signOut(); setIsEditMode(report?.status !== 'completed'); }} 
+                        className="text-[11px] sm:text-[12px] text-red-600 hover:text-red-700 underline font-medium px-1.5 decoration-red-600/30 underline-offset-4 cursor-pointer"
+                      >
+                        ออกจากระบบ
+                      </button>
+                    </div>
                   </div>
                 )}
 
-                <div className="max-w-xs mx-auto space-y-3 mb-5 text-left">
-                  <input
-                    type="email"
-                    value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
-                    placeholder="อีเมล"
-                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-[14px] bg-slate-50 outline-none focus:ring-2 focus:ring-primary/20"
-                  />
-                  <input
-                    type="password"
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    placeholder="รหัสผ่าน"
-                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-[14px] bg-slate-50 outline-none focus:ring-2 focus:ring-primary/20"
-                    onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-                  />
-                </div>
-
-                <div className="max-w-xs mx-auto mb-2">
-                  <AppButton fullWidth onClick={handleLogin} variant="primary" disabled={isLoggingIn}>
-                    {isLoggingIn ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
-                  </AppButton>
-                </div>
-              </AppCard>
-            ) : (
-              <AppCard className="!p-0 border-primary/20 shadow-sm overflow-hidden ring-1 ring-primary/10 rounded-[16px]">
-                {/* Mode B Profile Header */}
-                <div className="p-3 bg-primary/5 border-b border-primary/10 flex items-center gap-3">
-                  <div className="w-9 h-9 bg-primary/20 rounded-full flex items-center justify-center text-primary font-bold text-[13px] uppercase">
-                    {profile.full_name ? profile.full_name.substring(0, 2) : "จน"}
-                  </div>
-                  <div>
-                    <span className="text-[13px] font-bold text-slate-800 block leading-tight">{profile.full_name}</span>
-                    <span className="text-[11px] text-primary font-medium">{profile.departments?.name_th } {profile.role}</span>
-                  </div>
-                  <button onClick={() => { signOut(); setIsEditMode(false); }} className="ml-auto text-[11px] text-slate-500 hover:text-slate-700 underline font-medium px-2">
-                    ออกจากระบบ
-                  </button>
-                </div>
-
-                <div className="p-4 space-y-5 bg-white">
-                  {!(["super_admin", "admin", "manager"].includes(profile.role) || profile.department_id === report.categories?.department_id) ? (
-                    <div className="bg-red-50 text-red-800 p-4 rounded-xl border border-red-200 text-[13px] font-medium flex items-center gap-3">
-                      <Lock className="w-5 h-5 text-red-600 shrink-0" />
-                      คุณไม่มีสิทธิ์จัดการคำร้องนี้ เนื่องจากไม่ได้อยู่ในหน่วยงานที่รับผิดชอบ
+                <div className="p-4 sm:p-5">
+                  {authLoading ? (
+                    <div className="animate-pulse space-y-3 pt-2 pb-2">
+                      <div className="w-10 h-10 bg-slate-100 rounded-full mx-auto"></div>
+                      <div className="h-4 bg-slate-100 rounded w-1/3 mx-auto"></div>
+                      <div className="h-3 bg-slate-100 rounded w-1/2 mx-auto mb-4"></div>
                     </div>
-                  ) : (
-                    // Mode B: Authenticated / Editing
-                    <div className="space-y-4 animate-fade-in">
-                      {isCompleted && (
-                        <div className="bg-amber-50 text-amber-800 p-3 rounded-xl border border-amber-200 text-[13px] font-medium flex items-start gap-2.5">
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-amber-600 shrink-0 mt-0.5">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                          </svg>
-                          <div>
-                            <span className="block font-bold mb-0.5">คำร้องนี้เสร็จสิ้นแล้ว</span>
-                            คุณกำลังแก้ไขข้อมูลคำร้องที่ถูกทำเครื่องหมายว่าเสร็จสิ้นไปแล้ว การเปลี่ยนสถานะอาจมีผลกับไทม์ไลน์
+                  ) : !isEditMode ? (
+                    // === VIEW MODE ===
+                    <div className="space-y-4">
+                      {sortedLogs[0] ? (
+                        <>
+                          {/* 1. หมายเหตุสรุปผล */}
+                          {sortedLogs[0].remark && (
+                            <div className="space-y-1">
+                              <span className="text-[11px] sm:text-[12px] font-bold text-slate-400 block uppercase tracking-wider">
+                                หมายเหตุสรุปผล
+                              </span>
+                              <p className="text-[14px] sm:text-[15px] font-medium text-slate-800 break-words whitespace-pre-wrap leading-relaxed">
+                                {sortedLogs[0].remark}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* 2. ภาพประกอบการทำงาน (แสดงเฉพาะเมื่อมีรูปภาพ) */}
+                          {staffActionImage && (
+                            <div className="space-y-2 pt-1">
+                              <span className="text-[11px] sm:text-[12px] font-bold text-slate-400 block uppercase tracking-wider">
+                                ภาพประกอบการทำงาน
+                              </span>
+                              <div 
+                                onClick={() => setFullscreenImage(staffActionImage)} 
+                                className="relative w-full max-h-[240px] sm:max-h-[260px] bg-slate-50 rounded-xl overflow-hidden border border-slate-200 hover:opacity-95 transition-opacity cursor-pointer group flex items-center justify-center"
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img 
+                                  src={staffActionImage} 
+                                  alt="ภาพประกอบการทำงาน" 
+                                  className="w-full h-auto max-h-[240px] sm:max-h-[260px] object-contain rounded-xl transition-transform duration-200 group-hover:scale-[1.01]" 
+                                />
+                                <div className="absolute inset-0 bg-slate-900/20 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity duration-200 backdrop-blur-[1px]">
+                                  <div className="flex items-center gap-1.5 bg-black/70 px-3.5 py-1.5 rounded-full text-xs font-bold shadow-lg">
+                                    <Maximize2 className="w-3.5 h-3.5" />
+                                    <span>ขยายภาพขนาดเต็ม</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="border-t border-slate-100 my-4"></div>
+
+                          {/* 3. ดำเนินการโดย */}
+                          <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-1 text-[13px]">
+                            <span className="text-slate-500 font-medium shrink-0">ดำเนินการโดย</span>
+                            <span className="font-bold text-slate-800 break-words text-left xs:text-right">
+                              {sortedLogs[0].staff_users?.full_name || 'ระบบ'}
+                            </span>
                           </div>
+
+                          <div className="border-t border-slate-100 my-4"></div>
+
+                          {/* 4. เวลา */}
+                          <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-1 text-[13px] mb-4">
+                            <span className="text-slate-500 font-medium shrink-0">เวลา</span>
+                            <span className="font-bold text-slate-800 break-words text-left xs:text-right font-mono text-[12px] sm:text-[13px]">
+                              {new Date(sortedLogs[0].created_at).toLocaleString('th-TH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} น.
+                            </span>
+                          </div>
+                          
+                          {/* 5. ปุ่ม Action */}
+                          {user && profile ? (
+                            canManage && profile.role !== 'staff' && (
+                              <AppButton
+                                fullWidth
+                                variant="primary"
+                                className="text-[14px] sm:text-[15px] py-3 sm:py-3.5 shadow-md shadow-primary/10 flex items-center justify-center gap-2 mt-4 cursor-pointer"
+                                onClick={() => {
+                                  setUpdateStatus(report.status);
+                                  setUpdateRemark("");
+                                  setCompletionImage(null);
+                                  setCompletionImagePreview(null);
+                                  if (report.status === 'completed' && completionLog) {
+                                    setUpdateRemark(completionLog.remark || "");
+                                    setCompletionImagePreview(completionLog.image_url || null);
+                                  }
+                                  setIsEditMode(true);
+                                }}
+                              >
+                                <FileText className="w-4 h-4" /> แก้ไขข้อมูล
+                              </AppButton>
+                            )
+                          ) : (
+                            <AppButton
+                              fullWidth
+                              variant="secondary"
+                              className="text-[14px] sm:text-[15px] py-3 sm:py-3.5 bg-white border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center justify-center gap-2 mt-4 cursor-pointer"
+                              onClick={() => setShowLoginModal(true)}
+                            >
+                              <Lock className="w-4 h-4" /> เข้าสู่ระบบเพื่อแก้ไข
+                            </AppButton>
+                          )}
+                        </>
+                      ) : (
+                        <div className="text-center py-6">
+                          <p className="text-[13px] text-slate-400 italic mb-4">ยังไม่มีประวัติการดำเนินการจากเจ้าหน้าที่</p>
+                          {user && profile ? (
+                            canManage && profile.role !== 'staff' && (
+                              <AppButton
+                                fullWidth
+                                variant="primary"
+                                className="text-[14px] py-3 shadow-md shadow-primary/10 flex items-center justify-center gap-2 cursor-pointer"
+                                onClick={() => {
+                                  setUpdateStatus(report.status);
+                                  setUpdateRemark("");
+                                  setIsEditMode(true);
+                                }}
+                              >
+                                <FileText className="w-4 h-4" /> เริ่มการดำเนินการ
+                              </AppButton>
+                            )
+                          ) : (
+                            <AppButton
+                              fullWidth
+                              variant="secondary"
+                              className="text-[14px] py-3 bg-white border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center justify-center gap-2 cursor-pointer"
+                              onClick={() => setShowLoginModal(true)}
+                            >
+                              <Lock className="w-4 h-4" /> เข้าสู่ระบบเพื่อดำเนินการ
+                            </AppButton>
+                          )}
                         </div>
                       )}
+                    </div>
+                  ) : (
+                    // === EDIT MODE ===
+                    <div className="space-y-4 sm:space-y-5 animate-fade-in">
                       {saveMessage && (
                         <div className={`p-3 rounded-xl text-[13px] font-medium border ${saveMessage.type === 'success'
-                            ? 'bg-green-50 text-green-700 border-green-200'
-                            : 'bg-red-50 text-red-700 border-red-200'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : 'bg-rose-50 text-rose-700 border-rose-200'
                           }`}>
                           {saveMessage.text}
                         </div>
                       )}
+                      
                       <div>
-                        <label className="text-[12px] text-slate-700 font-bold block mb-2">เปลี่ยนสถานะคำร้อง</label>
+                        <label className="text-[12px] sm:text-[13px] text-slate-500 font-medium block mb-1.5">สถานะคำร้อง</label>
                         <AppSelect
                           value={updateStatus}
                           onChange={(val) => setUpdateStatus(val as string)}
                           disabled={isSaving}
                           options={[
-                            { label: "รอรับเรื่อง", value: "pending" },
-                            { label: "กำลังดำเนินการ", value: "in_progress" },
-                            { label: "ดำเนินการเสร็จสิ้น", value: "completed" },
-                            { label: "ปฏิเสธคำร้อง", value: "rejected" },
-                            { label: "ยกเลิกรายการ", value: "cancelled" },
+                            { label: STATUS_DETAILS.pending.label, value: 'pending' },
+                            { label: STATUS_DETAILS.received.label, value: 'received' },
+                            { label: STATUS_DETAILS.in_progress.label, value: 'in_progress' },
+                            { label: STATUS_DETAILS.completed.label, value: 'completed' },
+                            { label: STATUS_DETAILS.rejected.label, value: 'rejected' },
+                            { label: STATUS_DETAILS.cancelled.label, value: 'cancelled' },
                             ...(profile?.role !== 'staff' ? [{ label: 'โอนคำร้อง', value: 'transfer' }] : [])
                           ]}
                         />
@@ -586,7 +750,7 @@ function ReportDetailPageContent({ params }: ReportDetailPageProps) {
                       
                       {updateStatus === 'transfer' && (
                         <div>
-                          <label className="text-[12px] text-slate-700 font-bold block mb-2">โอนคำร้องไปยังหน่วยงาน</label>
+                          <label className="text-[12px] sm:text-[13px] text-slate-500 font-medium block mb-1.5">โอนคำร้องไปยังหน่วยงาน</label>
                           <AppSelect
                             value={updateDepartmentId.toString()}
                             onChange={(val) => setUpdateDepartmentId(Number(val))}
@@ -601,34 +765,101 @@ function ReportDetailPageContent({ params }: ReportDetailPageProps) {
                         </div>
                       )}
                       
+                      {updateStatus === 'completed' && (
+                        <div>
+                          <label className="text-[12px] sm:text-[13px] text-slate-500 font-medium block mb-1.5">
+                            ภาพประกอบการทำงาน <span className="text-rose-500">*</span>
+                          </label>
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            className="hidden" 
+                            ref={fileInputRef} 
+                            onChange={handleImageChange} 
+                            disabled={isSaving}
+                          />
+                          {!completionImagePreview ? (
+                            <button 
+                              type="button"
+                              onClick={() => fileInputRef.current?.click()} 
+                              className="w-full h-32 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center gap-2 hover:bg-slate-50 transition-colors cursor-pointer"
+                              disabled={isSaving}
+                            >
+                              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                                <ImagePlus className="w-5 h-5" />
+                              </div>
+                              <div className="text-center">
+                                <span className="text-[13px] font-bold text-slate-700 block">คลิกเพื่ออัปโหลดรูปภาพ</span>
+                                <span className="text-[11px] text-slate-500">รองรับ JPG, PNG สูงสุด 5MB</span>
+                              </div>
+                            </button>
+                          ) : (
+                            <div className="relative group rounded-xl overflow-hidden border border-slate-200 max-h-56 bg-slate-50 flex items-center justify-center">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={completionImagePreview} alt="Preview" className="w-full h-auto max-h-56 object-contain" />
+                              {!isSaving && (
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                                  <button type="button" onClick={() => fileInputRef.current?.click()} className="px-3 py-1.5 bg-white text-slate-700 text-[12px] font-bold rounded-lg hover:bg-slate-50 shadow-sm cursor-pointer">เปลี่ยนรูป</button>
+                                  <button type="button" onClick={() => { setCompletionImage(null); setCompletionImagePreview(null); }} className="px-3 py-1.5 bg-rose-500 text-white text-[12px] font-bold rounded-lg hover:bg-rose-600 shadow-sm cursor-pointer">ลบรูป</button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
                       <div>
-                        <label className="text-[12px] text-slate-700 font-bold block mb-2">บันทึกข้อความภายใน</label>
+                        <label className="text-[12px] sm:text-[13px] text-slate-500 font-medium block mb-1.5">หมายเหตุสรุปผล</label>
                         <textarea
-                          className="w-full border border-slate-200 rounded-xl px-4 py-3 text-[14px] bg-slate-50 focus:ring-2 focus:ring-primary/20 outline-none min-h-[100px] resize-y disabled:opacity-50"
-                          placeholder="เพิ่มรายละเอียดการดำเนินการ หรือหมายเหตุสำหรับเจ้าหน้าที่..."
+                          className="w-full border border-slate-200 rounded-xl px-3.5 sm:px-4 py-2.5 sm:py-3 text-[13px] sm:text-[14px] bg-white focus:ring-2 focus:ring-primary/20 outline-none min-h-[90px] sm:min-h-[100px] resize-y disabled:opacity-50 text-slate-800 font-medium"
+                          placeholder="ระบุรายละเอียดการดำเนินงานหรือผลการแก้ไข..."
                           value={updateRemark}
                           onChange={(e) => setUpdateRemark(e.target.value)}
                           disabled={isSaving}
                         ></textarea>
                       </div>
-                      <div className="sticky bottom-4 z-10 pt-1">
+                      
+                      <div className="pt-2 flex flex-row gap-2.5 sm:gap-3">
+                        <AppButton
+                          fullWidth
+                          variant="secondary"
+                          className="text-[13px] sm:text-[14px] py-3 sm:py-3.5 flex-1 bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-bold cursor-pointer shrink-0"
+                          onClick={() => {
+                            if (isCompleted) {
+                              setIsEditMode(false);
+                            } else {
+                              setUpdateStatus(report.status);
+                              setUpdateRemark("");
+                              setCompletionImage(null);
+                              setCompletionImagePreview(null);
+                            }
+                            setSaveMessage(null);
+                          }}
+                          disabled={isSaving}
+                        >
+                          ยกเลิก
+                        </AppButton>
                         <AppButton
                           fullWidth
                           variant="primary"
-                          className="shadow-md shadow-primary/10 text-[14px] py-2.5"
+                          className="shadow-md shadow-primary/10 text-[13px] sm:text-[14px] py-3 sm:py-3.5 flex-1 font-bold cursor-pointer shrink-0"
                           onClick={handleSave}
                           disabled={isSaving}
                         >
-                          {isSaving ? "กำลังบันทึก..." : "บันทึกข้อมูล"}
+                          {isSaving ? (
+                            <span className="flex items-center justify-center gap-2">
+                              <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                              กำลังบันทึก...
+                            </span>
+                          ) : (
+                            "บันทึกข้อมูล"
+                          )}
                         </AppButton>
                       </div>
                     </div>
                   )}
                 </div>
               </AppCard>
-            )}
-          </div>
-
               {/* 6. TIMELINE SECTION */}
               <AppCard className="!p-5 md:!p-6 border-[#EDF0F4] shadow-sm bg-white rounded-[16px]">
               <div className="flex justify-between items-center mb-6">
@@ -651,9 +882,7 @@ function ReportDetailPageContent({ params }: ReportDetailPageProps) {
                     const isActive = idx === 0;
                     const statusInfo = log.action === 'transfer' ? { label: "โอนคำร้อง" } : (STATUS_DETAILS[log.new_status] || { label: log.action || "อัปเดต" });
                     // Use the actual staff full_name if available
-                    const staffName = log.action === "created" 
-                      ? "ระบบ" 
-                      : (log.staff_users?.full_name || "เจ้าหน้าที่");
+                    const staffName = log.staff_users?.full_name || "ระบบ";
 
                     let Icon = Clock;
                     if (log.new_status === 'in_progress') Icon = RefreshCcw;

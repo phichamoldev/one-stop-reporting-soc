@@ -81,8 +81,53 @@ export async function GET(
       throw logsError;
     }
 
+    // Process Operated Reports from logs
+    const operatedReportsMap = new Map<string, any>();
+    
+    // Logs are already sorted by created_at desc, so the first time we see a report_id, it's the latest action by this staff
+    for (const log of (timeline || [])) {
+      if (!log.reports) continue; // Safety check
+      
+      if (!operatedReportsMap.has(log.report_id)) {
+        // Find the actual current report data for this report_id
+        // Since the inner join on reports gives us limited data in the logs query, we might need to fetch the full report data
+        // But let's just collect the report_ids first
+        operatedReportsMap.set(log.report_id, {
+          latestAction: log.action,
+          latestActionDate: log.created_at,
+          reportId: log.report_id
+        });
+      }
+    }
+
+    const reportIds = Array.from(operatedReportsMap.keys());
+    let operatedReports: any[] = [];
+
+    if (reportIds.length > 0) {
+      // Fetch the full report details for these distinct reports
+      const { data: reportsData, error: reportsError } = await supabaseAdmin
+        .from("reports")
+        .select("id, public_id, title, status, created_at, updated_at, categories (department_id, name)")
+        .in("id", reportIds);
+        
+      if (reportsError) throw reportsError;
+
+      operatedReports = (reportsData || []).map((report: any) => {
+        const opData = operatedReportsMap.get(report.id);
+        return {
+          ...report,
+          latestActionByStaff: opData.latestAction,
+          latestActionDateByStaff: opData.latestActionDate
+        };
+      });
+      
+      // Sort operatedReports by the staff's latest action date descending
+      operatedReports.sort((a, b) => new Date(b.latestActionDateByStaff).getTime() - new Date(a.latestActionDateByStaff).getTime());
+    }
+
     return NextResponse.json({
-      timeline
+      timeline,
+      operatedReports
     });
 
   } catch (error: any) {

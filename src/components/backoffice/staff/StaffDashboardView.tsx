@@ -4,13 +4,14 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useStaffAuth } from "@/hooks/useStaffAuth";
 import { supabase } from "@/lib/supabase";
-import { Users, UserCircle, Star, ShieldAlert, BarChart3, TrendingUp, History, Search } from "lucide-react";
+import { Users, UserCircle, Star, ShieldAlert, BarChart3, TrendingUp, History, Search, Clock, Activity, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { StaffCard } from "./StaffCard";
 import { StaffDetailModal } from "./StaffDetailModal";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Legend
 } from "recharts";
 import { AppSelect } from "@/components/ui/AppSelect";
+import { getRoleDisplayName } from "@/lib/role-config";
 
 export default function StaffDashboardView() {
   const router = useRouter();
@@ -26,6 +27,7 @@ export default function StaffDashboardView() {
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
   const [selectedDept, setSelectedDept] = useState("all");
+  const [workloadFilter, setWorkloadFilter] = useState("all");
   const [selectedStaff, setSelectedStaff] = useState<any>(null);
   const [sessionToken, setSessionToken] = useState<string>("");
 
@@ -84,10 +86,28 @@ export default function StaffDashboardView() {
   // Filtering
   const filteredStaff = staff.filter(s => {
     const matchesTab = activeTab === "all" || s.role === activeTab;
-    const matchesDept = selectedDept === "all" || s.departments?.name_th === selectedDept;
     const matchesSearch = s.full_name?.toLowerCase().includes(search.toLowerCase()) || 
                           s.email?.toLowerCase().includes(search.toLowerCase());
-    return matchesTab && matchesSearch && matchesDept;
+    
+    // Department Filter
+    let matchesDept = true;
+    if (selectedDept !== "all") {
+      if (s.role === 'manager' && s.manager_departments && s.manager_departments.length > 0) {
+        matchesDept = s.manager_departments.some((md: any) => md.departments?.name_th === selectedDept);
+      } else {
+        matchesDept = s.departments?.name_th === selectedDept;
+      }
+    }
+
+    // Workload Filter
+    let matchesWorkload = true;
+    if (workloadFilter === "hasWork") {
+      matchesWorkload = s.stats.total > 0;
+    } else if (workloadFilter === "noWork") {
+      matchesWorkload = s.stats.total === 0;
+    }
+
+    return matchesTab && matchesSearch && matchesDept && matchesWorkload;
   });
 
   // Top 10 Leaderboard by completed tasks
@@ -153,41 +173,50 @@ export default function StaffDashboardView() {
 
       {/* KPI Cards */}
       {kpis && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="bg-white dark:bg-slate-900 rounded-[20px] p-5 shadow-sm border border-slate-100 dark:border-slate-800 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+            <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center">
               <Users className="w-6 h-6" />
             </div>
             <div>
               <p className="text-xs font-bold text-slate-500 mb-1">เจ้าหน้าที่ทั้งหมด</p>
-              <h3 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">{kpis.total}</h3>
+              <h3 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">{kpis.totalStaff}</h3>
             </div>
           </div>
           <div className="bg-white dark:bg-slate-900 rounded-[20px] p-5 shadow-sm border border-slate-100 dark:border-slate-800 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center">
-              <UserCircle className="w-6 h-6" />
+            <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+              <BarChart3 className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs font-bold text-slate-500 mb-1">เจ้าหน้าที่ปฏิบัติงาน</p>
-              <h3 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">{kpis.staff}</h3>
+              <p className="text-xs font-bold text-slate-500 mb-1">คำร้องที่มีการดำเนินการ</p>
+              <h3 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">{kpis.totalOperations}</h3>
+            </div>
+          </div>
+          <div className="bg-white dark:bg-slate-900 rounded-[20px] p-5 shadow-sm border border-slate-100 dark:border-slate-800 flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center">
+              <Clock className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-500 mb-1">ดำเนินการรับเรื่อง</p>
+              <h3 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">{kpis.pending}</h3>
             </div>
           </div>
           <div className="bg-white dark:bg-slate-900 rounded-[20px] p-5 shadow-sm border border-slate-100 dark:border-slate-800 flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center">
-              <Star className="w-6 h-6" />
+              <Activity className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs font-bold text-slate-500 mb-1">ผู้ดูแลหน่วยงาน</p>
-              <h3 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">{kpis.manager}</h3>
+              <p className="text-xs font-bold text-slate-500 mb-1">กำลังดำเนินการ</p>
+              <h3 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">{kpis.inProgress}</h3>
             </div>
           </div>
           <div className="bg-white dark:bg-slate-900 rounded-[20px] p-5 shadow-sm border border-slate-100 dark:border-slate-800 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center">
-              <ShieldAlert className="w-6 h-6" />
+            <div className="w-12 h-12 rounded-2xl bg-green-100 text-green-600 flex items-center justify-center">
+              <CheckCircle2 className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs font-bold text-slate-500 mb-1">ผู้ดูแลระบบ</p>
-              <h3 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">{kpis.admin}</h3>
+              <p className="text-xs font-bold text-slate-500 mb-1">ดำเนินการเสร็จสิ้น</p>
+              <h3 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">{kpis.completed}</h3>
             </div>
           </div>
         </div>
@@ -199,10 +228,10 @@ export default function StaffDashboardView() {
           <div className="flex flex-wrap gap-2">
             {[
               { id: "all", label: "ทั้งหมด" },
-              { id: "staff", label: "เจ้าหน้าที่ปฏิบัติงาน" },
-              { id: "manager", label: "ผู้ดูแลหน่วยงาน" },
-              { id: "admin", label: "ผู้ดูแลระบบ" },
-              { id: "super_admin", label: "ผู้ดูแลระบบสูงสุด" }
+              { id: "staff", label: getRoleDisplayName("staff") },
+              { id: "manager", label: getRoleDisplayName("manager") },
+              { id: "admin", label: getRoleDisplayName("admin") },
+              { id: "super_admin", label: getRoleDisplayName("super_admin") }
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -219,6 +248,17 @@ export default function StaffDashboardView() {
           </div>
           
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="w-[140px]">
+              <AppSelect
+                value={workloadFilter}
+                onChange={(val) => setWorkloadFilter(val as string)}
+                options={[
+                  { label: "ทั้งหมด", value: "all" },
+                  { label: "มีการดำเนินการ", value: "hasWork" },
+                  { label: "ไม่มีการดำเนินการ", value: "noWork" }
+                ]}
+              />
+            </div>
             <div className="w-[180px]">
               <AppSelect
                 value={selectedDept}
@@ -248,7 +288,7 @@ export default function StaffDashboardView() {
               <p className="text-slate-400 font-medium text-sm">ไม่พบเจ้าหน้าที่</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 sm:gap-5">
               {filteredStaff.map((s) => (
                 <StaffCard key={s.id} staff={s} onClick={setSelectedStaff} />
               ))}

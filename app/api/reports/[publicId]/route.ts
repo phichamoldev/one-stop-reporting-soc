@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { createClient } from "@supabase/supabase-js";
+import { getAccessibleDepartmentIds } from "@/lib/auth-helpers";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ publicId
     }
 
     let isAuthenticated = false;
+    let staffProfileData: any = null;
     const authHeader = req.headers.get("authorization");
     if (authHeader) {
       const token = authHeader.replace("Bearer ", "");
@@ -21,12 +23,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ publicId
         // Verify the user is a staff member
         const { data: staffProfile } = await supabaseAdmin
           .from("staff_users")
-          .select("id")
+          .select("id, role, department_id")
           .eq("id", user.id)
           .maybeSingle();
         
         if (staffProfile) {
           isAuthenticated = true;
+          staffProfileData = { ...staffProfile, user_id: user.id };
         }
       }
     }
@@ -52,6 +55,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ publicId
           action,
           new_status,
           remark,
+          image_url,
           created_at,
           staff_users (
             full_name
@@ -75,15 +79,38 @@ export async function GET(req: Request, { params }: { params: Promise<{ publicId
       return NextResponse.json({ error: "ไม่พบข้อมูลรายงาน" }, { status: 404 });
     }
 
-    // PII filtering for public access
-    if (!isAuthenticated) {
+    let canManage = false;
+
+    if (isAuthenticated && staffProfileData) {
+      const reportDeptId = (data.categories as any)?.department_id;
+      
+      if (staffProfileData.role === 'super_admin' || staffProfileData.role === 'admin') {
+        canManage = true;
+      } else {
+        const accessibleIds = await getAccessibleDepartmentIds(
+          staffProfileData.user_id,
+          staffProfileData,
+          supabaseAdmin
+        );
+        if (reportDeptId && accessibleIds.includes(reportDeptId)) {
+          canManage = true;
+        }
+      }
+      
+      // Security Requirement: If staff is authenticated but unauthorized, they can only view as public
+    }
+
+    // PII filtering for public access or unauthorized staff
+    if (!isAuthenticated || !canManage) {
       delete data.tracking_token;
       delete data.admin_remark;
       delete data.assigned_to;
+      delete data.reporter_name;
+      delete data.reporter_contact;
       delete data.completed_by;
     }
 
-    return NextResponse.json({ report: data });
+    return NextResponse.json({ report: data, canManage });
   } catch (error: any) {
     console.error("Error fetching report:", error);
     return NextResponse.json(

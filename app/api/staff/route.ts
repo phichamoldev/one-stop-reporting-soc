@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { getRoleDisplayName } from "@/lib/role-config";
 
 export const dynamic = "force-dynamic";
 
@@ -67,7 +68,7 @@ export async function GET(req: Request) {
         id: s.id,
         name: s.first_name && s.last_name ? `${s.first_name} ${s.last_name}` : (s.email || "Unknown"),
         email: s.email,
-        role: s.role === 'super_admin' ? 'ผู้ดูแลระบบสูงสุด' : (s.role === 'admin' ? 'ผู้ดูแลระบบ' : 'เจ้าหน้าที่ปฏิบัติงาน'),
+        role: getRoleDisplayName(s.role),
         department: s.departments?.name_th || "ไม่ระบุฝ่าย",
         imageUrl: s.avatar_url || null,
         activeTasks: activeTasksCount,

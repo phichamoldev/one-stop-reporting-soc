@@ -14,7 +14,6 @@ export async function verifyAuthToken(req: Request) {
   if (!token || token === "undefined" || token === "null") {
     return { user: null, error: "Missing token", token: null };
   }
-  
   const supabaseClient = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -24,7 +23,7 @@ export async function verifyAuthToken(req: Request) {
     }
   );
 
-  const { data: { user }, error } = await supabaseClient.auth.getUser();
+  const { data: { user }, error } = await supabaseClient.auth.getUser(token);
   return { user, error, token };
 }
 
@@ -93,7 +92,11 @@ export function hasAccess(role: string | null | undefined, route: string): boole
     return role === "super_admin";
   }
   
-  if (route === "/backoffice" || route.startsWith("/backoffice/analytics") || route.startsWith("/backoffice/staff")) {
+  if (route === "/backoffice") {
+    return ["super_admin", "admin", "manager", "staff"].includes(role);
+  }
+
+  if (route.startsWith("/backoffice/analytics") || route.startsWith("/backoffice/staff")) {
     return ["super_admin", "admin", "manager"].includes(role);
   }
 

@@ -20,7 +20,7 @@ export default function BackofficeReportsPage() {
 
   if (authLoading || isLoading) {
     return (
-      <div className="flex-1 p-6 md:px-[50px] md:py-8 space-y-8 animate-pulse w-full">
+      <div className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8 animate-pulse w-full">
         <div className="h-10 w-64 bg-slate-200 dark:bg-slate-800 rounded-lg" />
         <div className="h-20 bg-white dark:bg-slate-900 rounded-[20px]" />
         <div className="h-[450px] bg-white dark:bg-slate-900 rounded-[20px]" />
@@ -29,7 +29,7 @@ export default function BackofficeReportsPage() {
   }
 
   return (
-    <div className="flex-1 p-6 md:px-[50px] md:py-8 space-y-8 animate-fade-in w-full pb-12">
+    <div className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8 animate-fade-in w-full pb-12">
       <ReportsView reports={data?.reports || []} filterOptions={data?.filterOptions || null} />
     </div>
   );

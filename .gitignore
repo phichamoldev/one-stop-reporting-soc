@@ -41,3 +41,35 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# temp & backup files
+*.orig
+*.rej
+*.bak
+*.patch
+*.mjs
+scratch/
+.git-audit/
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+
+# internal reports & audit documentation
+*_REPORT*.md
+*_AUDIT*.md
+*_TRACE*.md
+AUTH_*.md
+HOTFIX_*.md
+LOGOUT_*.md
+PERMISSION_*.md
+PHASE_*.md
+PROFILE_*.md
+ROLE_*.md
+ROUTER_*.md
+SWR_*.md
+UX_*.md
+BACKUP_*.md
+RESTORE_*.md
+CLAUDE.md
+/docs/audit/

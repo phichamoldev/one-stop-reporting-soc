@@ -1,54 +1,53 @@
 "use client";
 
 import React from 'react';
-import { Clock, Play, Check, AlertTriangle, ArrowRightLeft, X, History } from 'lucide-react';
+import { Clock, Play, Check, AlertTriangle, ArrowRightLeft, X, History, Inbox } from 'lucide-react';
+
+import { STATUS_DETAILS } from '@/types/report';
 
 const STATUS_LABELS: Record<string, string> = {
-  pending: "รับเรื่องแล้ว",
-  in_progress: "กำลังดำเนินการ",
-  completed: "เสร็จสิ้น",
-  cancelled: "ไม่สามารถดำเนินการได้"
+  pending: STATUS_DETAILS.pending.label,
+  in_progress: STATUS_DETAILS.in_progress.label,
+  completed: STATUS_DETAILS.completed.label,
+  rejected: STATUS_DETAILS.rejected.label,
+  cancelled: STATUS_DETAILS.cancelled.label
 };
 
 const getTimelineIcon = (status: string) => {
-  switch (status) {
-    case 'pending':
-      return (
-        <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 flex items-center justify-center border-4 border-white dark:border-slate-900 z-10 shrink-0">
-          <Clock className="w-5 h-5" />
-        </div>
-      );
-    case 'in_progress':
-      return (
-        <div className="w-9 h-9 rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400 flex items-center justify-center border-4 border-white dark:border-slate-900 z-10 shrink-0">
-          <Play className="w-5 h-5 rotate-90" />
-        </div>
-      );
-    case 'completed':
-      return (
-        <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 flex items-center justify-center border-4 border-white dark:border-slate-900 z-10 shrink-0">
-          <Check className="w-5 h-5" />
-        </div>
-      );
-    case 'cancelled':
-      return (
-        <div className="w-9 h-9 rounded-full bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400 flex items-center justify-center border-4 border-white dark:border-slate-900 z-10 shrink-0">
-          <AlertTriangle className="w-5 h-5" />
-        </div>
-      );
-    case 'transfer':
-      return (
-        <div className="w-9 h-9 rounded-full bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400 flex items-center justify-center border-4 border-white dark:border-slate-900 z-10 shrink-0">
-          <ArrowRightLeft className="w-5 h-5" />
-        </div>
-      );
-    default:
-      return (
-        <div className="w-9 h-9 rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 flex items-center justify-center border-4 border-white dark:border-slate-900 z-10 shrink-0">
-          <X className="w-5 h-5" />
-        </div>
-      );
+  if (status === 'transfer') {
+    return (
+      <div className="w-9 h-9 rounded-full bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400 flex items-center justify-center border-4 border-white dark:border-slate-900 z-10 shrink-0">
+        <ArrowRightLeft className="w-5 h-5" />
+      </div>
+    );
   }
+
+  const config = STATUS_DETAILS[status as keyof typeof STATUS_DETAILS];
+  if (!config) {
+    return (
+      <div className="w-9 h-9 rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 flex items-center justify-center border-4 border-white dark:border-slate-900 z-10 shrink-0">
+        <X className="w-5 h-5" />
+      </div>
+    );
+  }
+
+  const renderIcon = () => {
+    switch (config.icon) {
+      case 'Clock': return <Clock className="w-5 h-5" />;
+      case 'Inbox': return <Inbox className="w-5 h-5" />;
+      case 'Play': return <Play className="w-5 h-5 rotate-90" />;
+      case 'CheckCircle2': return <Check className="w-5 h-5" />;
+      case 'XCircle': return <X className="w-5 h-5" />;
+      case 'AlertTriangle': return <AlertTriangle className="w-5 h-5" />;
+      default: return <Clock className="w-5 h-5" />;
+    }
+  };
+
+  return (
+    <div className={`w-9 h-9 rounded-full ${config.bgClass} ${config.colorClass} flex items-center justify-center border-4 border-white dark:border-slate-900 z-10 shrink-0`}>
+      {renderIcon()}
+    </div>
+  );
 };
 
 interface ReportTimelineProps {
@@ -81,7 +80,7 @@ export const ReportTimeline: React.FC<ReportTimelineProps> = ({ logs }) => {
                 </div>
                 
                 <p className="text-[10px] text-slate-400 font-bold mb-2">
-                  ผู้ดำเนินการ: {log.staff_profiles?.full_name || "ระบบ"}
+                  ผู้ดำเนินการ: {log.staff_users?.full_name || "ระบบ"}
                 </p>
 
                 {log.remark && (

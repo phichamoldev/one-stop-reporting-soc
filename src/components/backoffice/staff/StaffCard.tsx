@@ -1,5 +1,6 @@
 import React from "react";
 import { CheckCircle2, AlertTriangle, Clock, XCircle, Ban } from "lucide-react";
+import { getRoleDisplayName } from "@/lib/role-config";
 
 interface StaffCardProps {
   staff: any;
@@ -13,18 +14,11 @@ const roleColors: Record<string, string> = {
   super_admin: "bg-red-100 text-red-700 border-red-200"
 };
 
-const roleLabels: Record<string, string> = {
-  staff: "เจ้าหน้าที่ปฏิบัติงาน",
-  manager: "ผู้ดูแลหน่วยงาน",
-  admin: "ผู้ดูแลระบบ",
-  super_admin: "ผู้ดูแลระบบสูงสุด"
-};
-
 export const StaffCard: React.FC<StaffCardProps> = ({ staff, onClick }) => {
   const { stats } = staff;
   const initial = staff.full_name ? staff.full_name.charAt(0) : "?";
   const roleColor = roleColors[staff.role] || roleColors.staff;
-  const roleLabel = roleLabels[staff.role] || staff.role;
+  const roleLabel = getRoleDisplayName(staff.role);
 
   return (
     <div 
@@ -45,45 +39,37 @@ export const StaffCard: React.FC<StaffCardProps> = ({ staff, onClick }) => {
               {roleLabel}
             </span>
             <span className="text-[11px] text-slate-500 font-medium truncate">
-              {staff.departments?.name_th || "ไม่มีสังกัด"}
+              {staff.role === 'manager' && staff.manager_departments && staff.manager_departments.length > 0
+                ? staff.manager_departments.map((md: any) => md.departments?.name_th).filter(Boolean).join(", ")
+                : staff.departments?.name_th || "ไม่มีสังกัด"}
             </span>
           </div>
         </div>
       </div>
 
-      <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-        <div className="flex justify-between items-end mb-1">
-          <span className="text-[11px] font-bold text-slate-500">รับผิดชอบทั้งหมด</span>
-          <span className="text-lg font-extrabold text-slate-800 dark:text-slate-100 leading-none">{stats.total} <span className="text-[10px] font-normal text-slate-500">งาน</span></span>
+      <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+        <div className="text-[11px] font-bold text-slate-500 mb-1">
+          การดำเนินงาน
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
-          <div className="bg-slate-50/70 dark:bg-slate-800/50 p-2 rounded-xl border border-slate-100 dark:border-slate-700/50 flex flex-col justify-between">
-            <div className="flex items-start gap-1 mb-1.5 text-slate-500">
-              <AlertTriangle className="w-3.5 h-3.5 text-orange-500 shrink-0 mt-[1px]" />
-              <span className="text-[9px] sm:text-[10px] font-medium leading-tight">กำลังดำเนินการ</span>
-            </div>
-            <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{stats.inProgress}</p>
+        <div className="flex items-center justify-between px-2">
+          <div className="flex flex-col items-center">
+            <span className="text-[10px] font-medium text-slate-400 mb-1">ทั้งหมด</span>
+            <span className="text-lg font-extrabold text-slate-700 dark:text-slate-200">{stats.total}</span>
           </div>
-
-          <div className="bg-slate-50/70 dark:bg-slate-800/50 p-2 rounded-xl border border-slate-100 dark:border-slate-700/50 flex flex-col justify-between">
-            <div className="flex items-start gap-1 mb-1.5 text-slate-500">
-              <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0 mt-[1px]" />
-              <span className="text-[9px] sm:text-[10px] font-medium leading-tight">เสร็จสิ้น</span>
-            </div>
-            <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{stats.completed}</p>
+          <div className="w-px h-8 bg-slate-100 dark:bg-slate-800"></div>
+          <div className="flex flex-col items-center">
+            <span className="text-[10px] font-medium text-slate-400 mb-1">กำลังทำ</span>
+            <span className="text-lg font-extrabold text-orange-600">{stats.inProgress}</span>
           </div>
-
-          <div className="bg-slate-50/70 dark:bg-slate-800/50 p-2 rounded-xl border border-slate-100 dark:border-slate-700/50 flex flex-col justify-between">
-            <div className="flex items-start gap-1 mb-1.5 text-slate-500">
-              <Ban className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-[1px]" />
-              <span className="text-[9px] sm:text-[10px] font-medium leading-tight">ทำไม่ได้/ยกเลิก</span>
-            </div>
-            <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{stats.cancelled + stats.rejected}</p>
+          <div className="w-px h-8 bg-slate-100 dark:bg-slate-800"></div>
+          <div className="flex flex-col items-center">
+            <span className="text-[10px] font-medium text-slate-400 mb-1">เสร็จสิ้น</span>
+            <span className="text-lg font-extrabold text-green-600">{stats.completed}</span>
           </div>
         </div>
 
-        <div className="pt-2">
+        <div className="pt-1">
           <div className="flex justify-between items-center mb-1.5">
             <span className="text-[10px] font-bold text-slate-500">ความสำเร็จ</span>
             <span className="text-[11px] font-extrabold text-primary">{stats.completionRate}%</span>

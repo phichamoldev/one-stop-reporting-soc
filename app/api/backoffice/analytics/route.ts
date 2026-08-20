@@ -65,6 +65,15 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "คุณไม่มีสิทธิ์เข้าถึงข้อมูล", code: "NO_PERMISSION" }, { status: 403 });
     }
 
+    let availableDepartments: { id: number, name_th: string }[] = [];
+    if (accessibleDeptIds.length > 0) {
+      const { data } = await supabaseAdmin.from("departments").select("id, name_th").in("id", accessibleDeptIds);
+      availableDepartments = data || [];
+    } else {
+      const { data } = await supabaseAdmin.from("departments").select("id, name_th");
+      availableDepartments = data || [];
+    }
+
     // If the frontend requests a specific department, enforce that it's within the accessible set
     let deptIdsToQuery: number[] = [];
     
@@ -284,7 +293,8 @@ export async function GET(req: Request) {
       categoryAnalytics,
       departmentPerformance,
       monthlyTrend,
-      peakHours
+      peakHours,
+      filterOptions: { departments: availableDepartments }
     });
     
   } catch (error: any) {

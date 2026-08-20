@@ -1,7 +1,16 @@
 import React, { useState, useEffect } from "react";
-import { X, Clock, CheckCircle2, AlertTriangle, XCircle, Ban, Activity } from "lucide-react";
+import { X, Clock, CheckCircle2, AlertTriangle, XCircle, Ban, Activity, ListTodo, History } from "lucide-react";
+import { StatusBadge } from "@/components/design-system/StatusBadge";
 
-
+const formatThaiDate = (dateStr: string) => {
+  if (!dateStr) return "-";
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('th-TH', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+};
 interface StaffDetailModalProps {
   staff: any;
   isOpen: boolean;
@@ -11,7 +20,9 @@ interface StaffDetailModalProps {
 
 export const StaffDetailModal: React.FC<StaffDetailModalProps> = ({ staff, isOpen, onClose, token }) => {
   const [timeline, setTimeline] = useState<any[]>([]);
+  const [operatedReports, setOperatedReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<"tasks" | "timeline">("tasks");
 
   useEffect(() => {
     const fetchTimeline = async () => {
@@ -25,6 +36,7 @@ export const StaffDetailModal: React.FC<StaffDetailModalProps> = ({ staff, isOpe
         if (res.ok) {
           const data = await res.json();
           setTimeline(data.timeline || []);
+          setOperatedReports(data.operatedReports || []);
         }
       } catch (err) {
         console.error(err);
@@ -96,38 +108,94 @@ export const StaffDetailModal: React.FC<StaffDetailModalProps> = ({ staff, isOpe
               </div>
             </div>
 
-            {/* Timeline Section */}
-            <div className="p-6 pt-0">
-              <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-6">Timeline การทำงาน</h4>
+            {/* Tabs */}
+            <div className="flex border-b border-slate-100 dark:border-slate-800 px-6">
+              <button
+                onClick={() => setActiveTab("tasks")}
+                className={`py-3 px-4 font-bold text-sm border-b-2 transition-colors flex items-center gap-2 ${
+                  activeTab === "tasks" 
+                    ? "border-primary text-primary" 
+                    : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                }`}
+              >
+                <ListTodo className="w-4 h-4" /> คำร้องที่ดำเนินการ
+              </button>
+              <button
+                onClick={() => setActiveTab("timeline")}
+                className={`py-3 px-4 font-bold text-sm border-b-2 transition-colors flex items-center gap-2 ${
+                  activeTab === "timeline" 
+                    ? "border-primary text-primary" 
+                    : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                }`}
+              >
+                <History className="w-4 h-4" /> ประวัติการทำงาน
+              </button>
+            </div>
+
+            {/* Content Section */}
+            <div className="p-6">
               
               {loading ? (
                 <div className="flex justify-center py-8">
                   <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
                 </div>
-              ) : timeline.length === 0 ? (
-                <div className="text-center py-10 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700">
-                  <p className="text-sm font-medium text-slate-400">ยังไม่มีประวัติการทำงาน</p>
-                </div>
-              ) : (
-                <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
-                  {timeline.map((log, i) => (
-                    <div key={log.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                      <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white dark:border-slate-900 bg-slate-100 dark:bg-slate-800 text-slate-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
-                        <CheckCircle2 className="w-4 h-4 text-primary" />
-                      </div>
-                      <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-bold text-xs text-primary">{log.reports?.public_id}</span>
-                          <time className="text-[10px] font-medium text-slate-400">
-                            {new Date(log.created_at).toLocaleDateString('th-TH')}
-                          </time>
+              ) : activeTab === "tasks" ? (
+                /* Tasks Tab */
+                operatedReports.length === 0 ? (
+                  <div className="text-center py-10 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700">
+                    <p className="text-sm font-medium text-slate-400">ไม่มีการดำเนินการใดๆ</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {operatedReports.map((report) => (
+                      <div key={report.public_id} className="p-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex items-start justify-between gap-3 mb-2">
+                          <h5 className="font-bold text-slate-800 dark:text-slate-100 text-sm line-clamp-1 flex-1">
+                            {report.title}
+                          </h5>
+                          <StatusBadge status={report.status} />
                         </div>
-                        <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">{log.action}</p>
-                        <p className="text-[11px] text-slate-500 line-clamp-2">{log.remark || log.reports?.title}</p>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="font-bold text-xs text-primary">{report.public_id}</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 truncate max-w-[150px]">
+                            {report.categories?.name || "ไม่มีหมวดหมู่"}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] font-medium text-slate-500 mt-2 p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                          <span>ล่าสุด: <span className="font-bold text-slate-700 dark:text-slate-300">{report.latestActionByStaff || "มีการดำเนินการ"}</span></span>
+                          <span>เมื่อ: {formatThaiDate(report.latestActionDateByStaff)}</span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )
+              ) : (
+                /* Timeline Tab */
+                timeline.length === 0 ? (
+                  <div className="text-center py-10 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700">
+                    <p className="text-sm font-medium text-slate-400">ยังไม่มีประวัติการทำงาน</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
+                    {timeline.map((log, i) => (
+                      <div key={log.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white dark:border-slate-900 bg-slate-100 dark:bg-slate-800 text-slate-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
+                          <CheckCircle2 className="w-4 h-4 text-primary" />
+                        </div>
+                        <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-bold text-xs text-primary">{log.reports?.public_id}</span>
+                            <time className="text-[10px] font-medium text-slate-400">
+                              {new Date(log.created_at).toLocaleDateString('th-TH')}
+                            </time>
+                          </div>
+                          <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">{log.action}</p>
+                          <p className="text-[11px] text-slate-500 line-clamp-2">{log.remark || log.reports?.title}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
               )}
             </div>
           </div>

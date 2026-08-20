@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { fetchWithAuth } from "@/lib/api-client";
+import { getRoleDisplayName } from "@/lib/role-config";
 
 interface AuditLog {
   id: string;
@@ -11,6 +12,7 @@ interface AuditLog {
   created_at: string;
   staff_users: {
     full_name: string;
+    email?: string;
     role: string;
   };
 }
@@ -72,8 +74,10 @@ export default function AuditLogsTab() {
                     {new Date(log.created_at).toLocaleString('th-TH')}
                   </td>
                   <td>
-                    <div className="font-medium">{log.staff_users?.full_name || "Unknown"}</div>
-                    <div className="text-xs text-gray-500">{log.staff_users?.role || "-"}</div>
+                    <div className="flex flex-col">
+                      <div className="font-semibold text-gray-800">{log.staff_users?.full_name || log.staff_users?.email || "Unknown User"}</div>
+                      <div className="text-xs text-gray-500">{getRoleDisplayName(log.staff_users?.role)}</div>
+                    </div>
                   </td>
                   <td>
                     <span className="badge badge-ghost badge-sm">{log.action}</span>

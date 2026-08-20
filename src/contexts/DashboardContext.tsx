@@ -17,13 +17,18 @@ const DashboardContext = createContext<DashboardContextType | undefined>(undefin
 
 export const DashboardProvider = ({ 
   children, 
-  dateRange 
+  dateRange,
+  department
 }: { 
   children: React.ReactNode; 
   dateRange: string;
+  department?: string;
 }) => {
   const { user, profile } = useStaffAuth();
   const params = new URLSearchParams({ dateRange });
+  if (department && department !== "all") {
+    params.set("department", department);
+  }
   
   const { data, isLoading, error, mutate } = useSWR(
     user && profile && hasAccess(profile.role, "/backoffice") 

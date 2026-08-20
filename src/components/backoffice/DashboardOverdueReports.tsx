@@ -6,11 +6,29 @@ import { ChevronRight, Inbox, Eye } from "lucide-react";
 import { useDashboardContext } from "@/contexts/DashboardContext";
 import { StatusBadge } from "@/components/design-system/StatusBadge";
 
-export const DashboardRecentReports: React.FC = React.memo(() => {
+export const DashboardOverdueReports: React.FC = React.memo(() => {
   const router = useRouter();
   const { data, isLoading } = useDashboardContext();
 
-  const reports = React.useMemo(() => data?.reports || [], [data?.reports]);
+  const reports = React.useMemo(() => {
+    const now = new Date();
+    // Reset to start of day for accurate day diffs, or just use absolute 24h
+    // The prompt says "หากคำร้องเข้ามาแล้วตั้งแต่ 1 วันขึ้นไป" - 24 hours is a safe approach.
+    return (data?.reports || [])
+      .filter((r: any) => {
+        if (r.status !== 'pending' && r.status !== 'in_progress') return false;
+        const createdDate = new Date(r.created_at);
+        const diffTime = now.getTime() - createdDate.getTime();
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays >= 1;
+      })
+      .map((r: any) => {
+        const createdDate = new Date(r.created_at);
+        const diffTime = now.getTime() - createdDate.getTime();
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        return { ...r, overdueDays: diffDays };
+      });
+  }, [data?.reports]);
 
   if (isLoading || !data) return (
     <div className="h-[400px] bg-slate-50 dark:bg-slate-900 rounded-[20px] animate-pulse"></div>
@@ -31,14 +49,14 @@ export const DashboardRecentReports: React.FC = React.memo(() => {
     <div className="bg-white dark:bg-slate-900 rounded-[20px] border border-slate-100 dark:border-slate-800/60 card-shadow overflow-hidden">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between px-6 py-5 border-b border-slate-50 dark:border-slate-800/60 gap-4">
         <div>
-          <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">📋 ตารางคำร้องล่าสุด</h3>
-          <p className="text-xs text-slate-400 dark:text-slate-500">รายการแจ้งซ่อมและร้องเรียน 5 รายการล่าสุดในระบบ</p>
+          <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">⏳ งานค้าง</h3>
+          <p className="text-xs text-slate-400 dark:text-slate-500">คำร้องที่ยังไม่เสร็จและเข้ามาเกิน 1 วัน</p>
         </div>
         <button 
           onClick={() => router.push('/backoffice/reports')}
           className="flex items-center gap-1.5 px-4 py-2 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl border border-slate-100 dark:border-slate-700 transition-colors cursor-pointer self-start sm:self-auto"
         >
-          ดูทั้งหมด
+          ดูงานค้างทั้งหมด
           <ChevronRight className="w-3.5 h-3.5" />
         </button>
       </div>
@@ -49,9 +67,9 @@ export const DashboardRecentReports: React.FC = React.memo(() => {
             <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-full text-slate-300 dark:text-slate-600 mb-4">
               <Inbox className="w-10 h-10" />
             </div>
-            <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300">ไม่มีข้อมูลคำร้องในขณะนี้</h4>
+            <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300">ไม่มีงานค้าง</h4>
             <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 max-w-sm text-center">
-              ระบบยังไม่ได้รับเรื่องแจ้งร้องเรียนใดๆ
+              ยอดเยี่ยม! คุณจัดการงานได้ตามกำหนดเวลาทั้งหมด
             </p>
           </div>
         ) : (
@@ -119,13 +137,16 @@ export const DashboardRecentReports: React.FC = React.memo(() => {
                       <StatusBadge status={report.status} className="px-3 py-1 text-[11px] font-semibold shadow-sm" />
                     </td>
                     <td className="py-4 px-6 text-center">
-                      <button
-                        onClick={() => router.push(`/backoffice/reports/${report.public_id}`)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-750 dark:text-slate-300 dark:hover:text-slate-100 rounded-xl font-bold transition-all cursor-pointer text-xs"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>ดูรายละเอียด</span>
-                      </button>
+                      <div className="flex flex-col items-center gap-1.5">
+                        <span className="text-[11px] font-bold text-rose-500">ค้าง {report.overdueDays} วัน</span>
+                        <button
+                          onClick={() => router.push(`/backoffice/reports/${report.public_id}`)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-750 dark:text-slate-300 dark:hover:text-slate-100 rounded-xl font-bold transition-all cursor-pointer text-xs"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>ดูงาน</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -137,4 +158,4 @@ export const DashboardRecentReports: React.FC = React.memo(() => {
   );
 });
 
-DashboardRecentReports.displayName = "DashboardRecentReports";
+DashboardOverdueReports.displayName = "DashboardOverdueReports";

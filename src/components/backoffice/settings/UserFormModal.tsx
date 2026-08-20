@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, ChevronDown } from "lucide-react";
 import { fetchWithAuth } from "@/lib/api-client";
 import { AppButton } from "@/components/design-system/AppButton";
 import { AppSelect } from "@/components/ui/AppSelect";
+import { getRoleDisplayName } from "@/lib/role-config";
 
 interface UserFormModalProps {
   isOpen: boolean;
@@ -60,6 +61,7 @@ export function UserFormModal({ isOpen, onClose, user, departments, onSuccess }:
     confirmPassword: "",
     full_name: "",
     department_id: "",
+    department_ids: [] as string[],
     role: "staff",
     status: "active",
   });
@@ -77,6 +79,9 @@ export function UserFormModal({ isOpen, onClose, user, departments, onSuccess }:
           confirmPassword: "",
           full_name: user.full_name || "",
           department_id: user.department_id ? String(user.department_id) : "",
+          department_ids: user.manager_departments && user.manager_departments.length > 0
+            ? user.manager_departments.map((d: any) => String(d.department_id))
+            : (user.department_id ? [String(user.department_id)] : []),
           role: user.role || "staff",
           status: user.status || "active",
         });
@@ -87,6 +92,7 @@ export function UserFormModal({ isOpen, onClose, user, departments, onSuccess }:
           confirmPassword: "",
           full_name: "",
           department_id: "",
+          department_ids: [],
           role: "staff",
           status: "active",
         });
@@ -94,6 +100,8 @@ export function UserFormModal({ isOpen, onClose, user, departments, onSuccess }:
       setError("");
     }
   }, [isOpen, user]);
+
+  const [isMultiOpen, setIsMultiOpen] = useState(false);
 
   if (!isOpen) return null;
 
@@ -103,7 +111,7 @@ export function UserFormModal({ isOpen, onClose, user, departments, onSuccess }:
 
     if (!isEdit) {
       if (!formData.email) return setError("กรุณากรอกอีเมล");
-      if (formData.password.length < 8) return setError("รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร");
+      if (!formData.password.trim()) return setError("รหัสผ่านห้ามเป็นค่าว่าง");
       if (formData.password !== formData.confirmPassword) return setError("รหัสผ่านไม่ตรงกัน");
     }
     if (!formData.full_name) return setError("กรุณากรอกชื่อ-สกุล");
@@ -115,8 +123,13 @@ export function UserFormModal({ isOpen, onClose, user, departments, onSuccess }:
         full_name: formData.full_name,
         role: formData.role,
         status: formData.status,
-        department_id: formData.department_id ? parseInt(formData.department_id) : null,
       };
+
+      if (formData.role === "manager") {
+        payload.department_ids = formData.department_ids;
+      } else {
+        payload.department_id = formData.department_id ? parseInt(formData.department_id) : null;
+      }
 
       let res;
       if (isEdit) {
@@ -151,6 +164,12 @@ export function UserFormModal({ isOpen, onClose, user, departments, onSuccess }:
     { label: "— ไม่ระบุ —", value: "" },
     ...departments.map((d) => ({ label: d.name_th, value: String(d.id) })),
   ];
+
+  const managerDeptOptions = departments.map((d) => ({ label: d.name_th, value: String(d.id) }));
+
+  const selectedLabels = managerDeptOptions
+    .filter((o) => formData.department_ids.includes(o.value))
+    .map((o) => o.label);
 
   return (
     <div className="modal modal-open">
@@ -189,7 +208,7 @@ export function UserFormModal({ isOpen, onClose, user, departments, onSuccess }:
                   <PasswordInput
                     value={formData.password}
                     onChange={(val) => setFormData({ ...formData, password: val })}
-                    placeholder="อย่างน้อย 8 ตัวอักษร"
+                    placeholder="กำหนดรหัสผ่าน"
                     required
                   />
                 </div>
@@ -229,10 +248,10 @@ export function UserFormModal({ isOpen, onClose, user, departments, onSuccess }:
                   value={formData.role}
                   onChange={(val) => setFormData({ ...formData, role: val as string })}
                   options={[
-                    { label: "Staff", value: "staff" },
-                    { label: "ผู้ดูแลหน่วยงาน", value: "manager" },
-                    { label: "Admin", value: "admin" },
-                    { label: "Super Admin", value: "super_admin" },
+                    { label: getRoleDisplayName("staff"), value: "staff" },
+                    { label: getRoleDisplayName("manager"), value: "manager" },
+                    { label: getRoleDisplayName("admin"), value: "admin" },
+                    { label: getRoleDisplayName("super_admin"), value: "super_admin" },
                   ]}
                 />
                 <p className="mt-2 text-[11px] text-slate-500">
@@ -241,12 +260,58 @@ export function UserFormModal({ isOpen, onClose, user, departments, onSuccess }:
               </div>
               <div>
                 <label className={labelCls}>หน่วยงาน (ถ้ามี)</label>
-                <AppSelect
-                  value={formData.department_id}
-                  onChange={(val) => setFormData({ ...formData, department_id: val as string })}
-                  options={deptOptions}
-                  placeholder="— ไม่ระบุ —"
-                />
+                {formData.role === "manager" ? (
+                  <div className="relative">
+                    <div
+                      className={inputCls + " cursor-pointer flex items-center justify-between min-h-[46px]"}
+                      onClick={() => setIsMultiOpen(!isMultiOpen)}
+                    >
+                      <span className="truncate">
+                        {selectedLabels.length > 0 ? selectedLabels.join(", ") : "— ไม่ระบุ —"}
+                      </span>
+                      <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+                    </div>
+
+                    {isMultiOpen && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-40"
+                          onClick={() => setIsMultiOpen(false)}
+                        ></div>
+                        <div className="absolute z-50 w-full mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl max-h-60 overflow-y-auto py-2">
+                          {managerDeptOptions.map((opt) => (
+                            <label
+                              key={opt.value}
+                              className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={formData.department_ids.includes(opt.value)}
+                                onChange={(e) => {
+                                  const newVals = e.target.checked
+                                    ? [...formData.department_ids, opt.value]
+                                    : formData.department_ids.filter((v) => v !== opt.value);
+                                  setFormData({ ...formData, department_ids: newVals });
+                                }}
+                                className="w-4 h-4 text-primary bg-slate-100 border-slate-300 rounded focus:ring-primary dark:bg-slate-700 dark:border-slate-600"
+                              />
+                              <span className="text-sm text-slate-700 dark:text-slate-300">
+                                {opt.label}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <AppSelect
+                    value={formData.department_id}
+                    onChange={(val) => setFormData({ ...formData, department_id: val as string })}
+                    options={deptOptions}
+                    placeholder="— ไม่ระบุ —"
+                  />
+                )}
               </div>
             </div>
           </div>

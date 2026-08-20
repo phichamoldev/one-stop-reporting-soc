@@ -48,15 +48,21 @@ export async function GET(req: Request) {
         departments (
           id,
           name_th
+        ),
+        manager_departments (
+          departments (
+            id,
+            name_th
+          )
         )
       `)
       .order("created_at", { ascending: false });
 
-    // 2. Fetch Reports workloads
-    let reportsQuery = supabaseAdmin
-      .from("reports")
-      .select("id, status, assigned_to");
-      
+    // 2. Fetch Report Logs for workloads
+    let logsForWorkloadQuery = supabaseAdmin
+      .from("report_logs")
+      .select("report_id, user_id, new_status, created_at")
+      .order("created_at", { ascending: false });
     // Enforce permissions
     const accessibleDeptIds = await getAccessibleDepartmentIds(user.id, profile as any, supabaseAdmin);
 
@@ -101,9 +107,12 @@ export async function GET(req: Request) {
         
       const catIds = catData ? catData.map(c => c.id) : [];
       if (catIds.length > 0) {
-        reportsQuery = reportsQuery.in("category_id", catIds);
+        // Unfortunately we can't easily filter report_logs by category directly in the query 
+        // without an inner join, but since we are doing data processing we will fetch all 
+        // logs for allowed userIds first.
+        logsForWorkloadQuery = logsForWorkloadQuery.in("user_id", allAllowedIds);
       } else {
-        reportsQuery = reportsQuery.in("category_id", [0]);
+        logsForWorkloadQuery = logsForWorkloadQuery.in("user_id", [-1]); // No categories allowed
       }
     } else {
       const { data: deptData } = await supabaseAdmin.from("departments").select("name_th");
@@ -116,10 +125,10 @@ export async function GET(req: Request) {
       throw staffError;
     }
 
-    const { data: reports, error: reportsError } = await reportsQuery;
+    const { data: reportLogsData, error: logsWorkloadError } = await logsForWorkloadQuery;
 
-    if (reportsError) {
-      throw reportsError;
+    if (logsWorkloadError) {
+      throw logsWorkloadError;
     }
 
     // 3. Fetch Recent Activities (Logs)
@@ -172,50 +181,93 @@ export async function GET(req: Request) {
 
     // Process data for KPIs and Workloads
     let kpis = {
-      total: 0,
-      staff: 0,
-      manager: 0,
-      admin: 0
+      totalStaff: 0,
+      totalOperations: 0,
+      pending: 0,
+      inProgress: 0,
+      completed: 0
     };
 
     const staffStats: Record<string, any> = {};
 
     staffUsers?.forEach((staff: any) => {
-      kpis.total++;
-      if (staff.role === "staff") kpis.staff++;
-      if (staff.role === "manager") kpis.manager++;
-      if (staff.role === "admin" || staff.role === "super_admin") kpis.admin++;
+      kpis.totalStaff++;
 
       staffStats[staff.id] = {
         total: 0,
         pending: 0,
         inProgress: 0,
         completed: 0,
-        cancelled: 0,
         rejected: 0,
-        completionRate: 0
+        completionRate: 0,
+        // Internal sets to keep track of distinct report_ids
+        _reportsTotal: new Set(),
+        _reportsPending: new Set(),
+        _reportsInProgress: new Set(),
+        _reportsCompleted: new Set(),
+        _reportsRejected: new Set(),
       };
     });
 
-    reports?.forEach((report: any) => {
-      if (report.assigned_to && staffStats[report.assigned_to]) {
-        const stats = staffStats[report.assigned_to];
-        stats.total++;
-        if (report.status === "pending") stats.pending++;
-        if (report.status === "in_progress") stats.inProgress++;
-        if (report.status === "completed") stats.completed++;
-        if (report.status === "cancelled") stats.cancelled++;
-        if (report.status === "rejected") stats.rejected++;
+    reportLogsData?.forEach((log: any) => {
+      if (log.user_id && staffStats[log.user_id]) {
+        const stats = staffStats[log.user_id];
+        
+        stats._reportsTotal.add(log.report_id);
+        
+        if (log.new_status === "pending" || log.new_status === "received") {
+          stats._reportsPending.add(log.report_id);
+        }
+        if (log.new_status === "in_progress") {
+          stats._reportsInProgress.add(log.report_id);
+        }
+        if (log.new_status === "completed") {
+          stats._reportsCompleted.add(log.report_id);
+        }
+        if (log.new_status === "rejected" || log.new_status === "cancelled") {
+          stats._reportsRejected.add(log.report_id);
+        }
       }
     });
 
-    // Calculate Completion Rate
+    // We also need global distinct counts for KPIs among allowed staff
+    const globalTotal = new Set();
+    const globalPending = new Set();
+    const globalInProgress = new Set();
+    const globalCompleted = new Set();
+
     Object.keys(staffStats).forEach((staffId) => {
       const stats = staffStats[staffId];
+      
+      stats.total = stats._reportsTotal.size;
+      stats.pending = stats._reportsPending.size;
+      stats.inProgress = stats._reportsInProgress.size;
+      stats.completed = stats._reportsCompleted.size;
+      stats.rejected = stats._reportsRejected.size;
+      
+      // Calculate Completion Rate
       if (stats.total > 0) {
         stats.completionRate = Math.round((stats.completed / stats.total) * 100);
       }
+      
+      // Add to global sets
+      stats._reportsTotal.forEach((id: string) => globalTotal.add(id));
+      stats._reportsPending.forEach((id: string) => globalPending.add(id));
+      stats._reportsInProgress.forEach((id: string) => globalInProgress.add(id));
+      stats._reportsCompleted.forEach((id: string) => globalCompleted.add(id));
+
+      // Delete the sets so they are not sent to client
+      delete stats._reportsTotal;
+      delete stats._reportsPending;
+      delete stats._reportsInProgress;
+      delete stats._reportsCompleted;
+      delete stats._reportsRejected;
     });
+
+    kpis.totalOperations = globalTotal.size;
+    kpis.pending = globalPending.size;
+    kpis.inProgress = globalInProgress.size;
+    kpis.completed = globalCompleted.size;
 
     // Merge staff data with stats
     const staffWithStats = staffUsers?.map((staff: any) => ({

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useStaffAuth } from "@/hooks/useStaffAuth";
 import { hasAccess } from "@/lib/auth-helpers";
+import { getRoleDisplayName } from "@/lib/role-config";
 import { preload, useSWRConfig } from "swr";
 import { fetcherWithAuth } from "@/lib/fetcher";
 import { 
@@ -85,7 +86,7 @@ export const BackofficeSidebar: React.FC = () => {
   ].filter(item => hasAccess(profile?.role, item.href));
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-50 flex flex-col w-[260px] bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800/60">
+    <aside className="fixed inset-y-0 left-0 z-50 flex flex-col w-[240px] bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800/60">
       {/* Header/Logo */}
       <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-slate-800/40">
         <div className="flex items-center gap-3">
@@ -142,7 +143,7 @@ export const BackofficeSidebar: React.FC = () => {
               </div>
               <div className="flex flex-col overflow-hidden">
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{profile.full_name}</span>
-                <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate">{profile.role === 'super_admin' ? 'ผู้ดูแลระบบ' : profile.role}</span>
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate">{getRoleDisplayName(profile.role)}</span>
               </div>
             </div>
             <button onClick={() => signOut()} className="text-slate-400 hover:text-red-500 transition-colors p-1" title="ออกจากระบบ">

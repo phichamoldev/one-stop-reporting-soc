@@ -16,7 +16,7 @@ const InnerLayout = ({ children, isLoginPage }: { children: React.ReactNode, isL
   const { user } = useStaffAuth();
   
   if (isLoginPage) {
-    return <div className="min-h-screen bg-slate-50 font-sans">{children}</div>;
+    return <div data-theme="light" className="min-h-screen bg-slate-50 font-sans">{children}</div>;
   }
   
   const authKey = user?.id ?? "guest";
@@ -25,18 +25,22 @@ const InnerLayout = ({ children, isLoginPage }: { children: React.ReactNode, isL
     <NotificationProvider>
       <RealtimeListener />
       <NotificationToastContainer />
-      <div className="min-h-screen bg-[#F8FAFC] font-sans flex">
+      <div data-theme="light" className="min-h-screen bg-[#F8FAFC] font-sans flex">
         {/* Sidebar for Desktop */}
-        <div className="hidden lg:block w-[260px] shrink-0">
+        <div className="hidden lg:block w-[240px] shrink-0">
           <BackofficeSidebar key={`sidebar-${authKey}`} />
         </div>
       
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 bg-[#F8FAFC]">
         <BackofficeNavbar key={`navbar-${authKey}`} />
-        <AuthGuard>
-          {children}
-        </AuthGuard>
+        <main className="flex-1 w-full flex flex-col min-w-0">
+          <div className="w-full max-w-[1440px] mx-auto min-w-0 flex-1 flex flex-col">
+            <AuthGuard>
+              {children}
+            </AuthGuard>
+          </div>
+        </main>
       </div>
       </div>
     </NotificationProvider>

@@ -22,7 +22,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ public
     }
 
     const body = await req.json();
-    const { status, remark, reportId, oldStatus, departmentId } = body;
+    const { status, remark, reportId, oldStatus, departmentId, imageUrl } = body;
 
     if (!reportId) {
       return NextResponse.json({ error: "Missing reportId" }, { status: 400 });
@@ -49,6 +49,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ public
       .select(`
         id,
         category_id,
+        status,
         categories(department_id)
       `)
       .eq("id", reportId)
@@ -56,6 +57,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ public
 
     if (fetchError || !currentReport) {
       return NextResponse.json({ error: "Report not found" }, { status: 404 });
+    }
+
+    if (currentReport.status === 'completed' && !['admin', 'super_admin', 'manager'].includes(staffProfile.role)) {
+      return NextResponse.json({ error: "Forbidden: Cannot edit a completed report" }, { status: 403 });
     }
 
     const currentDepartmentId = (currentReport.categories as any)?.department_id;
@@ -177,6 +182,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ public
         old_status: oldStatus || updatedReport.status, // Ideally passing old_status from client or fetching it before update
         new_status: status === "transfer" ? "pending" : (status || updatedReport.status),
         remark: logRemark,
+        image_url: imageUrl || null,
         created_at: now
       });
 

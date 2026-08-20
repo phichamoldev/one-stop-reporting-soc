@@ -12,13 +12,18 @@ import {
   Eye
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useStaffAuth } from "@/hooks/useStaffAuth";
 import { AppSelect } from "@/components/ui/AppSelect";
+import { StatusBadge } from "@/components/design-system/StatusBadge";
+
+import { STATUS_DETAILS } from '@/types/report';
 
 const STATUS_LABELS: Record<string, string> = {
-  pending: "รับเรื่องแล้ว",
-  in_progress: "กำลังดำเนินการ",
-  completed: "เสร็จสิ้น",
-  cancelled: "ไม่สามารถดำเนินการได้"
+  pending: STATUS_DETAILS.pending.label,
+  in_progress: STATUS_DETAILS.in_progress.label,
+  completed: STATUS_DETAILS.completed.label,
+  rejected: STATUS_DETAILS.rejected.label,
+  cancelled: STATUS_DETAILS.cancelled.label
 };
 
 interface ReportsViewProps {
@@ -36,8 +41,17 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ reports, filterOptions
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('ทั้งหมด');
   const [selectedCategory, setSelectedCategory] = useState<string>('ทั้งหมด');
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('ทั้งหมด');
   const [selectedTimeframe, setSelectedTimeframe] = useState<string>('ทั้งหมด');
   const [sortBy, setSortBy] = useState<'date-desc' | 'date-asc'>('date-desc');
+  
+  const { profile } = useStaffAuth();
+
+  useEffect(() => {
+    if (profile && profile.role !== 'super_admin' && profile.role !== 'admin' && profile.department_id) {
+       setSelectedDepartment(profile.departments?.name_th || 'ทั้งหมด');
+    }
+  }, [profile]);
   
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -49,7 +63,12 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ reports, filterOptions
   const categories = filterOptions?.categories
     ? ['ทั้งหมด', ...filterOptions.categories]
     : ['ทั้งหมด', ...Array.from(new Set(reports.map(r => r.categories?.name_th || 'ไม่ระบุ')))];
-  const statuses = ['ทั้งหมด', 'pending', 'in_progress', 'completed', 'cancelled'];
+  
+  const departments = filterOptions?.departments
+    ? ['ทั้งหมด', ...filterOptions.departments]
+    : ['ทั้งหมด', ...Array.from(new Set(reports.map(r => r.categories?.departments?.name_th || 'ไม่ระบุ')))];
+
+  const statuses = ['ทั้งหมด', 'pending', 'in_progress', 'completed', 'rejected', 'cancelled'];
 
   const getStatusLabel = (s: string) => {
     if (s === 'ทั้งหมด') return s;
@@ -73,6 +92,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ reports, filterOptions
     const catName = report.categories?.name_th || 'ไม่ระบุ';
     const matchesCategory = selectedCategory === 'ทั้งหมด' || catName === selectedCategory;
 
+    // Department match
+    const deptName = report.categories?.departments?.name_th || 'ไม่ระบุ';
+    const matchesDepartment = selectedDepartment === 'ทั้งหมด' || deptName === selectedDepartment;
+
     // Timeframe match
     let matchesTime = true;
     if (selectedTimeframe !== 'ทั้งหมด') {
@@ -90,7 +113,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ reports, filterOptions
       }
     }
 
-    return matchesSearch && matchesStatus && matchesCategory && matchesTime;
+    return matchesSearch && matchesStatus && matchesCategory && matchesDepartment && matchesTime;
   });
 
   // Sorting Logic
@@ -128,38 +151,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ reports, filterOptions
   };
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-600 border border-blue-100 dark:bg-blue-900/25 dark:text-blue-400 dark:border-blue-800/40">
-            {STATUS_LABELS[status]}
-          </span>
-        );
-      case 'in_progress':
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-600 border border-amber-100 dark:bg-amber-900/25 dark:text-amber-400 dark:border-amber-800/40">
-            {STATUS_LABELS[status]}
-          </span>
-        );
-      case 'completed':
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-600 border border-emerald-100 dark:bg-emerald-900/25 dark:text-emerald-400 dark:border-emerald-800/40">
-            {STATUS_LABELS[status]}
-          </span>
-        );
-      case 'cancelled':
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-600 border border-rose-100 dark:bg-rose-900/25 dark:text-rose-400 dark:border-rose-800/40">
-            {STATUS_LABELS[status]}
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-            {status}
-          </span>
-        );
-    }
+    return <StatusBadge status={status as any} />;
   };
 
   // Loading handled by parent
@@ -185,40 +177,61 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ reports, filterOptions
           <span>ระบบคัดกรองข้อมูลขั้นสูง</span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="ค้นหารหัสคำร้อง, ชื่อเรื่อง, ผู้แจ้ง..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border-0 focus:ring-2 focus:ring-primary/20 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 outline-none"
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5 sm:gap-4">
+          <div className="space-y-1.5">
+            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">ค้นหา</label>
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="ค้นหารหัสคำร้อง, ชื่อเรื่อง, ผู้แจ้ง..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary/20 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">สถานะคำร้อง</label>
+            <AppSelect
+              value={selectedStatus}
+              onChange={(val) => setSelectedStatus(val as string)}
+              options={statuses.map(s => ({ label: getStatusLabel(s), value: s }))}
             />
           </div>
 
-          <AppSelect
-            value={selectedStatus}
-            onChange={(val) => setSelectedStatus(val as string)}
-            options={statuses.map(s => ({ label: getStatusLabel(s), value: s }))}
-          />
+          <div className="space-y-1.5">
+            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">หมวดหมู่หลัก</label>
+            <AppSelect
+              value={selectedCategory}
+              onChange={(val) => setSelectedCategory(val as string)}
+              options={categories.map(c => ({ label: c, value: c }))}
+            />
+          </div>
 
-          <AppSelect
-            value={selectedCategory}
-            onChange={(val) => setSelectedCategory(val as string)}
-            options={categories.map(c => ({ label: c, value: c }))}
-          />
+          <div className="space-y-1.5">
+            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">หน่วยงาน</label>
+            <AppSelect
+              value={selectedDepartment}
+              onChange={(val) => setSelectedDepartment(val as string)}
+              options={departments.map(d => ({ label: d, value: d }))}
+            />
+          </div>
 
-          <AppSelect
-            value={selectedTimeframe}
-            onChange={(val) => setSelectedTimeframe(val as string)}
-            options={[
-              { label: "ทุกช่วงเวลา", value: "ทั้งหมด" },
-              { label: "แจ้งวันนี้", value: "วันนี้" },
-              { label: "สัปดาห์นี้", value: "สัปดาห์นี้" },
-              { label: "เดือนนี้", value: "เดือนนี้" },
-            ]}
-          />
+          <div className="space-y-1.5">
+            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">ช่วงเวลา</label>
+            <AppSelect
+              value={selectedTimeframe}
+              onChange={(val) => setSelectedTimeframe(val as string)}
+              options={[
+                { label: "ทุกช่วงเวลา", value: "ทั้งหมด" },
+                { label: "แจ้งวันนี้", value: "วันนี้" },
+                { label: "สัปดาห์นี้", value: "สัปดาห์นี้" },
+                { label: "เดือนนี้", value: "เดือนนี้" },
+              ]}
+            />
+          </div>
         </div>
       </div>
 

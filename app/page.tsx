@@ -9,7 +9,7 @@ import { StatusBadge } from "@/components/design-system/StatusBadge";
 import { AppSelect } from "@/components/ui/AppSelect";
 import { supabase } from "@/lib/supabase";
 import { Report, DBCategory, DBSubcategory } from "@/types/report";
-import { generatePublicId, generateTrackingToken } from "@/lib/utils";
+import { generatePublicId, generateTrackingToken, sortSubcategories } from "@/lib/utils";
 import Image from "next/image";
 import { GlobalFooter } from "@/components/shared/GlobalFooter";
 import useSWR from "swr";
@@ -44,7 +44,7 @@ export default function Home() {
     fetcher,
     { dedupingInterval: 3600000 }
   );
-  const subcategories: DBSubcategory[] = subcategoriesData?.subcategories || [];
+  const subcategories: DBSubcategory[] = sortSubcategories(subcategoriesData?.subcategories || []);
 
   const [location, setLocation] = useState<string>("");
   const [description, setDescription] = useState<string>("");

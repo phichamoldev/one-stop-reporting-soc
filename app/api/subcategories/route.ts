@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { sortSubcategories } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,9 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: false, message: "Internal Server Error" }, { status: 500 });
     }
 
-    return NextResponse.json({ subcategories: data });
+    const sortedSubcategories = sortSubcategories(data || []);
+
+    return NextResponse.json({ subcategories: sortedSubcategories });
   } catch (error: any) {
     console.error("Error fetching subcategories:", error);
     return NextResponse.json(

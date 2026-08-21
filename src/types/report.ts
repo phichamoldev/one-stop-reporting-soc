@@ -13,6 +13,26 @@ type ReportPriority =
   | 'medium' 
   | 'high';
 
+export type SearchMethod = 'soc' | 'phone';
+
+export interface ReportLookupSummary {
+  public_id: string;
+  title?: string;
+  description: string;
+  location?: string;
+  status: ReportStatus;
+  created_at: string;
+  category_name?: string;
+}
+
+export type LookupPhoneResponse = {
+  found: boolean;
+  count?: number;
+  maskedPhone: string;
+  reports: ReportLookupSummary[];
+  error?: string;
+};
+
 export interface Report {
   id: string; // UUID จากฐานข้อมูล
   public_id: string; // SOC-XXXXX
@@ -25,6 +45,7 @@ export interface Report {
   reporter_name: string;
   email: string;
   phone?: string;
+  reporter_phone?: string;
   status: ReportStatus;
   priority: ReportPriority;
   admin_remark: string | null;

@@ -430,7 +430,7 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
                 </div>
                 <div>
                   <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">เบอร์โทรศัพท์</p>
-                  <p className="text-slate-800 dark:text-slate-200 font-semibold font-mono">{data.reporter_phone || "-"}</p>
+                  <p className="text-slate-800 dark:text-slate-200 font-semibold font-mono">{data.phone || data.reporter_phone || "-"}</p>
                 </div>
               </div>
             </div>

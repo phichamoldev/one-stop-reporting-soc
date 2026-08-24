@@ -434,4 +434,77 @@ test.describe('Report Detail Page — Staff Authentication & Response Flow Tests
     await expect(saveBtn).toBeEnabled();
     await expect(page.locator('text=กรุณาเลือกสถานะใหม่ หรือเพิ่มหมายเหตุ')).toHaveCount(0);
   });
+
+  test('8. Staff Exit Mode on Report: Clicking "ออกจากโหมดเจ้าหน้าที่" returns to Public View without clearing Supabase session', async ({ page }) => {
+    const reportData = createMockReport('in_progress');
+
+    let isAuthed = false;
+    await page.route('**/api/reports/SOC-TEST01', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ report: reportData, canManage: isAuthed })
+      });
+    });
+
+    await page.route('**/auth/v1/token?grant_type=password', async (route) => {
+      isAuthed = true;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          access_token: "mock-access-token",
+          token_type: "bearer",
+          expires_in: 3600,
+          refresh_token: "mock-refresh-token",
+          user: {
+            id: "mock-staff-uid",
+            email: "staff@ku.th",
+            app_metadata: {},
+            user_metadata: {}
+          }
+        })
+      });
+    });
+
+    await page.route('**/api/staff/profile', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          profile: {
+            id: "mock-staff-uid",
+            email: "staff@ku.th",
+            full_name: "นายทดสอบ ปฏิบัติงาน",
+            role: "staff",
+            department_id: 1
+          }
+        })
+      });
+    });
+
+    await page.goto('/report/SOC-TEST01');
+    await page.waitForLoadState('networkidle');
+
+    // Login to enter Staff Mode
+    await page.fill('input[type="email"]', 'staff@ku.th');
+    await page.fill('input[type="password"]', 'password123');
+    await page.click('button:has-text("เข้าสู่ระบบเพื่อดำเนินการ")');
+
+    await expect(page.locator('text=นายทดสอบ ปฏิบัติงาน')).toBeVisible();
+    await expect(page.locator('button:has-text("บันทึกข้อมูล")')).toBeVisible();
+
+    // Click "ออกจากโหมดเจ้าหน้าที่"
+    await page.click('button:has-text("ออกจากโหมดเจ้าหน้าที่")');
+
+    // Report switches back to Public View (Staff Action Form hidden, login prompt / resume button shown)
+    await expect(page.locator('button:has-text("บันทึกข้อมูล")')).toHaveCount(0);
+    await expect(page.locator('h4:has-text("เข้าสู่ระบบสำหรับเจ้าหน้าที่")')).toBeVisible();
+    await expect(page.locator('button:has-text("กลับเข้าสู่โหมดเจ้าหน้าที่ (นายทดสอบ ปฏิบัติงาน)")')).toBeVisible();
+
+    // Re-enter Staff Mode via quick button
+    await page.click('button:has-text("กลับเข้าสู่โหมดเจ้าหน้าที่ (นายทดสอบ ปฏิบัติงาน)")');
+    await expect(page.locator('text=นายทดสอบ ปฏิบัติงาน')).toBeVisible();
+    await expect(page.locator('button:has-text("บันทึกข้อมูล")')).toBeVisible();
+  });
 });

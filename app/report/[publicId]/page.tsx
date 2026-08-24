@@ -50,7 +50,10 @@ function ReportDetailPageContent({ params }: ReportDetailPageProps) {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const { user, profile, loading: authLoading, signOut } = usePublicStaffAuth();
+  const { user, profile, loading: authLoading } = usePublicStaffAuth();
+  const [isStaffModeDismissed, setIsStaffModeDismissed] = useState(false);
+  const isStaffActive = Boolean(user && profile && !isStaffModeDismissed);
+
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -69,6 +72,7 @@ function ReportDetailPageContent({ params }: ReportDetailPageProps) {
         password: loginPassword,
       });
       if (error) throw error;
+      setIsStaffModeDismissed(false);
       setShowLoginModal(false);
       setLoginPassword("");
       await fetchReport(true);
@@ -213,8 +217,12 @@ const [mounted, setMounted] = useState(false);
 
   const handleSave = async () => {
     if (!report) return;
-    if (!user) {
-      setShowLoginModal(true);
+    if (!isStaffActive) {
+      if (user && profile) {
+        setIsStaffModeDismissed(false);
+      } else {
+        setShowLoginModal(true);
+      }
       return;
     }
 
@@ -568,27 +576,29 @@ const [mounted, setMounted] = useState(false);
                   </div>
                 </div>
 
-                {/* Profile Block (Shown whenever staff user is logged in) */}
-                {user && profile && (
+                {/* Profile Block (Shown whenever staff user is active in staff mode) */}
+                {isStaffActive && (
                   <div className="px-4 sm:px-5 py-3.5 sm:py-4 bg-slate-50/70 border-b border-slate-100 flex items-center gap-3">
                     <div className="w-9 h-9 sm:w-10 sm:h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-[13px] sm:text-[14px] uppercase shrink-0">
-                      {profile.full_name ? profile.full_name.substring(0, 2) : "จน"}
+                      {profile?.full_name ? profile.full_name.substring(0, 2) : "จน"}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <span className="text-[13px] sm:text-[14px] font-bold text-slate-800 block leading-tight">{profile.full_name}</span>
-                      <span className="text-[11px] sm:text-[12px] text-slate-500 font-medium truncate block">{getRoleDisplayName(profile.role)}</span>
+                      <span className="text-[13px] sm:text-[14px] font-bold text-slate-800 block leading-tight">{profile?.full_name}</span>
+                      <span className="text-[11px] sm:text-[12px] text-slate-500 font-medium truncate block">{getRoleDisplayName(profile?.role)}</span>
                     </div>
                     <div className="ml-auto shrink-0">
                       <button 
-                        onClick={async () => {
-                          await signOut();
+                        type="button"
+                        onClick={() => {
+                          setIsStaffModeDismissed(true);
                           setCanManage(false);
                           setIsEditMode(false);
                         }} 
                         className="text-[11px] sm:text-[12px] text-red-600 hover:text-red-700 underline font-medium px-1.5 decoration-red-600/30 underline-offset-4 cursor-pointer flex items-center gap-1"
+                        title="ออกจากโหมดเจ้าหน้าที่"
                       >
                         <LogOut className="w-3 h-3" />
-                        ออกจากระบบ
+                        ออกจากโหมดเจ้าหน้าที่
                       </button>
                     </div>
                   </div>
@@ -665,8 +675,8 @@ const [mounted, setMounted] = useState(false);
                           </div>
                           
                           {/* 5. ปุ่ม Action */}
-                          {user && profile ? (
-                            canManage && profile.role !== 'staff' && (
+                          {isStaffActive ? (
+                            canManage && profile?.role !== 'staff' && (
                               <AppButton
                                 fullWidth
                                 variant="primary"
@@ -691,7 +701,14 @@ const [mounted, setMounted] = useState(false);
                               fullWidth
                               variant="secondary"
                               className="text-[14px] sm:text-[15px] py-3 sm:py-3.5 bg-white border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center justify-center gap-2 mt-4 cursor-pointer"
-                              onClick={() => setShowLoginModal(true)}
+                              onClick={() => {
+                                if (user && profile) {
+                                  setIsStaffModeDismissed(false);
+                                  fetchReport(true);
+                                } else {
+                                  setShowLoginModal(true);
+                                }
+                              }}
                             >
                               <Lock className="w-4 h-4" /> เข้าสู่ระบบเพื่อแก้ไข
                             </AppButton>
@@ -700,8 +717,8 @@ const [mounted, setMounted] = useState(false);
                       ) : (
                         <div className="text-center py-6">
                           <p className="text-[13px] text-slate-400 italic mb-4">ยังไม่มีประวัติการดำเนินการจากเจ้าหน้าที่</p>
-                          {user && profile ? (
-                            canManage && profile.role !== 'staff' && (
+                          {isStaffActive ? (
+                            canManage && profile?.role !== 'staff' && (
                               <AppButton
                                 fullWidth
                                 variant="primary"
@@ -720,7 +737,14 @@ const [mounted, setMounted] = useState(false);
                               fullWidth
                               variant="secondary"
                               className="text-[14px] py-3 bg-white border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center justify-center gap-2 cursor-pointer"
-                              onClick={() => setShowLoginModal(true)}
+                              onClick={() => {
+                                if (user && profile) {
+                                  setIsStaffModeDismissed(false);
+                                  fetchReport(true);
+                                } else {
+                                  setShowLoginModal(true);
+                                }
+                              }}
                             >
                               <Lock className="w-4 h-4" /> เข้าสู่ระบบเพื่อดำเนินการ
                             </AppButton>
@@ -728,8 +752,8 @@ const [mounted, setMounted] = useState(false);
                         </div>
                       )}
                     </div>
-                  ) : !user ? (
-                    // === CASE 1 & 3: NO ACTIVE SESSION (UNAUTHENTICATED) ===
+                  ) : !isStaffActive ? (
+                    // === CASE 1 & 3: NO ACTIVE SESSION (UNAUTHENTICATED) OR STAFF MODE DISMISSED ===
                     <div className="space-y-4 py-2 animate-fade-in">
                       <div className="text-center pb-2">
                         <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 mx-auto mb-2.5">
@@ -738,6 +762,21 @@ const [mounted, setMounted] = useState(false);
                         <h4 className="text-[15px] font-bold text-slate-800 dark:text-slate-100">เข้าสู่ระบบสำหรับเจ้าหน้าที่</h4>
                         <p className="text-[12px] text-slate-500 mt-0.5">กรุณาเข้าสู่ระบบเพื่อบันทึกการดำเนินการหรือเปลี่ยนสถานะ</p>
                       </div>
+
+                      {user && profile && isStaffModeDismissed && (
+                        <div className="text-center pb-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsStaffModeDismissed(false);
+                              fetchReport(true);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-semibold cursor-pointer transition-colors"
+                          >
+                            กลับเข้าสู่โหมดเจ้าหน้าที่ ({profile.full_name})
+                          </button>
+                        </div>
+                      )}
 
                       {loginError && (
                         <div className="p-3 bg-red-50 text-red-600 text-[12px] font-medium rounded-xl border border-red-100">
@@ -1075,6 +1114,23 @@ const [mounted, setMounted] = useState(false);
               </button>
             </div>
             <div className="p-6 text-center overflow-y-auto custom-scrollbar pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+
+              {user && profile && isStaffModeDismissed && (
+                <div className="mb-4 p-3.5 bg-blue-50 rounded-xl border border-blue-100 flex flex-col gap-2 text-left">
+                  <span className="text-xs text-blue-700 font-medium">พบเซสชันของ {profile.full_name}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsStaffModeDismissed(false);
+                      setShowLoginModal(false);
+                      fetchReport(true);
+                    }}
+                    className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    ใช้งานต่อในฐานะ {profile.full_name}
+                  </button>
+                </div>
+              )}
 
               {loginError && (
                 <div className="mb-4 p-3 bg-red-50 text-red-600 text-[12px] font-medium rounded-xl border border-red-100 text-left">

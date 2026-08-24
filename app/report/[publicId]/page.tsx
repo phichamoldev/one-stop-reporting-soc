@@ -70,12 +70,13 @@ function ReportDetailPageContent({ params }: ReportDetailPageProps) {
       });
       if (error) throw error;
       setShowLoginModal(false);
-      // Do NOT auto-enter edit mode — stay in Viewing State
-      // User must explicitly click [แก้ไข] to enter Edit State
+      setLoginPassword("");
+      await fetchReport(true);
     } catch (err: any) {
-      setLoginError(err.message);
+      setLoginError(err.message || "อีเมลหรือรหัสผ่านไม่ถูกต้อง");
+    } finally {
+      setIsLoggingIn(false);
     }
-    setIsLoggingIn(false);
   };
 
   const [updateStatus, setUpdateStatus] = useState<string>("pending");
@@ -205,6 +206,11 @@ const [mounted, setMounted] = useState(false);
     }
   }, [report]);
 
+  const isStatusChanged = Boolean(report && updateStatus && updateStatus !== '' && (updateStatus === 'transfer' || updateStatus !== report.status));
+  const isRemarkChanged = Boolean(report && (updateRemark || "").trim() !== (report.admin_remark || "").trim());
+  const hasImageChange = Boolean(completionImage);
+  const hasAnyChange = isStatusChanged || isRemarkChanged || hasImageChange;
+
   const handleSave = async () => {
     if (!report) return;
     if (!user) {
@@ -212,8 +218,10 @@ const [mounted, setMounted] = useState(false);
       return;
     }
 
-    const isStatusChanged = report.status !== updateStatus;
-    const isRemarkChanged = (report.admin_remark || "") !== (updateRemark || "");
+    if (!hasAnyChange) {
+      setSaveMessage({ type: 'error', text: 'กรุณาเลือกสถานะใหม่ หรือเพิ่มหมายเหตุ' });
+      return;
+    }
 
     if (updateStatus === 'transfer') {
       if (!updateDepartmentId) {
@@ -221,11 +229,8 @@ const [mounted, setMounted] = useState(false);
         setIsSaving(false);
         return;
       }
-    } else if (updateStatus === 'completed' && !completionImage && !completionImagePreview) {
+    } else if (updateStatus === 'completed' && (!isCompleted || isStatusChanged) && !completionImage && !completionImagePreview) {
       setSaveMessage({ type: 'error', text: 'กรุณาแนบรูปภาพตอบกลับเมื่อเลือกสถานะเสร็จสิ้น' });
-      return;
-    } else if (!isStatusChanged && !isRemarkChanged && !completionImage && !completionImagePreview) {
-      setIsEditMode(report.status !== 'completed');
       return;
     }
 
@@ -563,8 +568,8 @@ const [mounted, setMounted] = useState(false);
                   </div>
                 </div>
 
-                {/* Profile Block (State 3 Only: isCompleted, not edit mode, user logged in) */}
-                {!isEditMode && isCompleted && user && profile && (
+                {/* Profile Block (Shown whenever staff user is logged in) */}
+                {user && profile && (
                   <div className="px-4 sm:px-5 py-3.5 sm:py-4 bg-slate-50/70 border-b border-slate-100 flex items-center gap-3">
                     <div className="w-9 h-9 sm:w-10 sm:h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-[13px] sm:text-[14px] uppercase shrink-0">
                       {profile.full_name ? profile.full_name.substring(0, 2) : "จน"}
@@ -575,9 +580,14 @@ const [mounted, setMounted] = useState(false);
                     </div>
                     <div className="ml-auto shrink-0">
                       <button 
-                        onClick={() => { signOut(); setIsEditMode(report?.status !== 'completed'); }} 
-                        className="text-[11px] sm:text-[12px] text-red-600 hover:text-red-700 underline font-medium px-1.5 decoration-red-600/30 underline-offset-4 cursor-pointer"
+                        onClick={async () => {
+                          await signOut();
+                          setCanManage(false);
+                          setIsEditMode(false);
+                        }} 
+                        className="text-[11px] sm:text-[12px] text-red-600 hover:text-red-700 underline font-medium px-1.5 decoration-red-600/30 underline-offset-4 cursor-pointer flex items-center gap-1"
                       >
+                        <LogOut className="w-3 h-3" />
                         ออกจากระบบ
                       </button>
                     </div>
@@ -591,7 +601,7 @@ const [mounted, setMounted] = useState(false);
                       <div className="h-4 bg-slate-100 rounded w-1/3 mx-auto"></div>
                       <div className="h-3 bg-slate-100 rounded w-1/2 mx-auto mb-4"></div>
                     </div>
-                  ) : !isEditMode && isCompleted ? (
+                  ) : isCompleted && !isEditMode ? (
                     // === VIEW MODE (COMPLETED READ-ONLY SUMMARY) ===
                     <div className="space-y-4">
                       {sortedLogs[0] ? (
@@ -718,8 +728,79 @@ const [mounted, setMounted] = useState(false);
                         </div>
                       )}
                     </div>
+                  ) : !user ? (
+                    // === CASE 1 & 3: NO ACTIVE SESSION (UNAUTHENTICATED) ===
+                    <div className="space-y-4 py-2 animate-fade-in">
+                      <div className="text-center pb-2">
+                        <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 mx-auto mb-2.5">
+                          <Lock className="w-5 h-5" />
+                        </div>
+                        <h4 className="text-[15px] font-bold text-slate-800 dark:text-slate-100">เข้าสู่ระบบสำหรับเจ้าหน้าที่</h4>
+                        <p className="text-[12px] text-slate-500 mt-0.5">กรุณาเข้าสู่ระบบเพื่อบันทึกการดำเนินการหรือเปลี่ยนสถานะ</p>
+                      </div>
+
+                      {loginError && (
+                        <div className="p-3 bg-red-50 text-red-600 text-[12px] font-medium rounded-xl border border-red-100">
+                          {loginError}
+                        </div>
+                      )}
+
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-[12px] text-slate-500 font-medium block mb-1">อีเมลเจ้าหน้าที่</label>
+                          <input
+                            type="email"
+                            value={loginEmail}
+                            onChange={(e) => setLoginEmail(e.target.value)}
+                            placeholder="อีเมล (@ku.th)"
+                            className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-[13px] sm:text-[14px] bg-white outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[12px] text-slate-500 font-medium block mb-1">รหัสผ่าน</label>
+                          <input
+                            type="password"
+                            value={loginPassword}
+                            onChange={(e) => setLoginPassword(e.target.value)}
+                            placeholder="รหัสผ่าน"
+                            className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-[13px] sm:text-[14px] bg-white outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-slate-800"
+                            onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+                          />
+                        </div>
+                      </div>
+
+                      <AppButton
+                        fullWidth
+                        onClick={handleLogin}
+                        variant="primary"
+                        disabled={isLoggingIn}
+                        className="py-3 shadow-md shadow-primary/10 text-[14px] font-bold mt-2 cursor-pointer"
+                      >
+                        {isLoggingIn ? (
+                          <span className="flex items-center justify-center gap-2">
+                            <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            กำลังเข้าสู่ระบบ...
+                          </span>
+                        ) : (
+                          "เข้าสู่ระบบเพื่อดำเนินการ"
+                        )}
+                      </AppButton>
+                    </div>
+                  ) : !canManage ? (
+                    // === CASE 5: LOGGED IN BUT UNAUTHORIZED ===
+                    <div className="text-center py-6 space-y-3 animate-fade-in">
+                      <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 mx-auto">
+                        <Lock className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-[14px] font-bold text-slate-800">ไม่มีสิทธิ์จัดการคำร้องนี้</h4>
+                        <p className="text-[12px] text-slate-500 mt-1 max-w-xs mx-auto leading-relaxed">
+                          คำร้องนี้สังกัดหน่วยงาน &quot;{report.categories?.name_th || 'ไม่ระบุ'}&quot; ซึ่งอยู่นอกเหนือสิทธิ์การเข้าถึงของบัญชีท่าน
+                        </p>
+                      </div>
+                    </div>
                   ) : (
-                    // === EDIT MODE ===
+                    // === CASE 2 & 4: LOGGED IN & AUTHORIZED -> STAFF ACTION FORM ===
                     <div className="space-y-4 sm:space-y-5 animate-fade-in">
                       {saveMessage && (
                         <div className={`p-3 rounded-xl text-[13px] font-medium border ${saveMessage.type === 'success'
@@ -744,6 +825,7 @@ const [mounted, setMounted] = useState(false);
                           }}
                           disabled={isSaving}
                           options={[
+                            { label: 'เลือกสถานะ...', value: '' },
                             { label: STATUS_DETAILS.pending.label, value: 'pending' },
                             { label: STATUS_DETAILS.received.label, value: 'received' },
                             { label: STATUS_DETAILS.in_progress.label, value: 'in_progress' },
@@ -753,6 +835,11 @@ const [mounted, setMounted] = useState(false);
                             ...(profile?.role !== 'staff' ? [{ label: 'โอนคำร้อง', value: 'transfer' }] : [])
                           ]}
                         />
+                        {!hasAnyChange && (
+                          <p className="text-[12px] text-rose-500 font-medium mt-1.5 animate-fade-in">
+                            กรุณาเลือกสถานะใหม่ หรือเพิ่มหมายเหตุ
+                          </p>
+                        )}
                       </div>
                       
                       {updateStatus === 'transfer' && (
@@ -859,7 +946,7 @@ const [mounted, setMounted] = useState(false);
                           variant="primary"
                           className="shadow-md shadow-primary/10 text-[13px] sm:text-[14px] py-3 sm:py-3.5 flex-1 font-bold cursor-pointer shrink-0"
                           onClick={handleSave}
-                          disabled={isSaving}
+                          disabled={isSaving || !hasAnyChange}
                         >
                           {isSaving ? (
                             <span className="flex items-center justify-center gap-2">

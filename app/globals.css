@@ -1,15 +1,13 @@
 @import "tailwindcss";
-@plugin "daisyui";
 
 @custom-variant dark {
-  @media (prefers-color-scheme: dark) {
-    &:not([data-theme="light"], [data-theme="light"] *) {
-      @slot;
-    }
+  &:where(.dark, .dark *) {
+    @slot;
   }
 }
 
 :root {
+  color-scheme: light;
   --background: #F5F6F8;
   --foreground: #111827;
   --primary: #D1350F;
@@ -29,7 +27,7 @@
 }
 
 @plugin "daisyui" {
-  themes: light --default, dark --prefersdark;
+  themes: light --default;
 }
 
 @plugin "daisyui/theme" {
@@ -68,17 +66,17 @@
   --color-base-content: #F3F4F6;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0d0e12;
-    --foreground: #f3f4f6;
-    --primary: #D1350F;
-    --primary-hover: #e6451e;
-    --primary-light: #200f0b;
-  }
+/* Preserved Dark Mode variables for future reactivation via .dark selector */
+:root[data-theme="dark"], :root.dark {
+  --background: #0d0e12;
+  --foreground: #f3f4f6;
+  --primary: #D1350F;
+  --primary-hover: #e6451e;
+  --primary-light: #200f0b;
 }
 
 html {
+  color-scheme: light;
   scrollbar-gutter: stable;
 }
 

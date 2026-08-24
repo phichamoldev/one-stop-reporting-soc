@@ -50,6 +50,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ public
         id,
         category_id,
         status,
+        admin_remark,
         categories(department_id)
       `)
       .eq("id", reportId)
@@ -57,6 +58,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ public
 
     if (fetchError || !currentReport) {
       return NextResponse.json({ error: "Report not found" }, { status: 404 });
+    }
+
+    const isStatusProvided = Boolean(status && typeof status === "string" && status.trim() !== "");
+    const isStatusChanged = isStatusProvided && (status === "transfer" || status !== currentReport.status);
+    const isRemarkProvided = remark !== undefined;
+    const isRemarkChanged = isRemarkProvided && (remark || "").trim() !== (currentReport.admin_remark || "").trim();
+    const isImageProvided = Boolean(imageUrl);
+
+    // Rule: Must have at least 1 change (status, remark, or image)
+    if (!isStatusChanged && !isRemarkChanged && !isImageProvided) {
+      return NextResponse.json({ error: "กรุณาเลือกสถานะใหม่ หรือเพิ่มหมายเหตุ" }, { status: 400 });
     }
 
     if (currentReport.status === 'completed' && !['admin', 'super_admin', 'manager'].includes(staffProfile.role)) {
@@ -131,7 +143,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ public
       const remarkText = remark ? `\n\nหมายเหตุ:\n${remark}` : "";
       updatePayload.admin_remark = `โอนคำร้อง\n\nจาก:\n${oldDeptName}\n\nไปยัง:\n${newDeptName}${remarkText}`;
     } else {
-      if (status) {
+      if (isStatusChanged) {
         updatePayload.status = status;
         if (status === "completed") {
           updatePayload.completed_by = user.id;
@@ -139,7 +151,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ public
         }
       }
       
-      if (remark !== undefined) {
+      if (isRemarkChanged || (remark !== undefined && isStatusChanged)) {
         updatePayload.admin_remark = remark;
       }
     }
@@ -167,10 +179,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ public
     if (status === "transfer") {
       actionName = "transfer";
       logRemark = updatePayload.admin_remark; // Use the formatted remark with old/new category names
-    } else if (status && remark === undefined) {
+    } else if (isStatusChanged && !isRemarkChanged) {
       actionName = "status_updated";
-    } else if (remark !== undefined && !status) {
+    } else if (isRemarkChanged && !isStatusChanged) {
       actionName = "note_updated";
+    } else if (isStatusChanged && isRemarkChanged) {
+      actionName = "status_updated";
     }
 
     const { error: logError } = await supabaseAdmin
@@ -179,8 +193,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ public
         report_id: reportId,
         user_id: user.id,
         action: actionName,
-        old_status: oldStatus || updatedReport.status, // Ideally passing old_status from client or fetching it before update
-        new_status: status === "transfer" ? "pending" : (status || updatedReport.status),
+        old_status: currentReport.status,
+        new_status: status === "transfer" ? "pending" : (isStatusChanged ? status : currentReport.status),
         remark: logRemark,
         image_url: imageUrl || null,
         created_at: now

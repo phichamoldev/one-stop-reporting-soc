@@ -21,6 +21,8 @@ export default function RootLayout({
   return (
     <html
       lang="th"
+      data-theme="light"
+      style={{ colorScheme: "light" }}
       className={`${sarabun.variable} h-full antialiased`}
       suppressHydrationWarning
     >

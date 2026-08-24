@@ -55,7 +55,7 @@ const config: Config = {
         },
       },
     ],
-    darkTheme: 'dark',
+    darkTheme: false,
     styled: true,
     base: true,
     utils: true,

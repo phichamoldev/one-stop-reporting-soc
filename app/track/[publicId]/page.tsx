@@ -10,7 +10,7 @@ import { StatusBadge } from "@/components/design-system/StatusBadge";
 import { AppButton } from "@/components/design-system/AppButton";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
-import { Report, STATUS_DETAILS } from "@/types/report";
+import { Report, STATUS_DETAILS, getStatusLabel } from "@/types/report";
 import { GlobalFooter } from "@/components/shared/GlobalFooter";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
@@ -388,7 +388,7 @@ export default function TrackPage({ params }: TrackPageProps) {
                       <p className="text-[13px] text-slate-400 pl-8">ยังไม่มีประวัติการดำเนินงาน</p>
                    ) : sortedLogs.map((log, idx) => {
                      const isActive = idx === 0;
-                     const statusInfo = log.custom_label ? { label: log.custom_label } : (STATUS_DETAILS[log.new_status as keyof typeof STATUS_DETAILS] || { label: log.action || "อัปเดต" });
+                     const statusInfo = log.custom_label ? { label: log.custom_label } : (log.action === 'transfer' ? { label: "โอนคำร้อง" } : (STATUS_DETAILS[log.new_status as keyof typeof STATUS_DETAILS] || { label: getStatusLabel(log.new_status) }));
                      const staffName = log.staff_users?.full_name || "ระบบ";
                      
                      let Icon = Clock;

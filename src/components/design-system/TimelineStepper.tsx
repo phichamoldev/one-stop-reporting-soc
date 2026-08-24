@@ -8,7 +8,7 @@ interface TimelineStepperProps {
 
 export const TimelineStepper: React.FC<TimelineStepperProps> = ({ report }) => {
   const status = report.status;
-  const statusInfo = STATUS_DETAILS[status];
+  const statusInfo = STATUS_DETAILS[status] || STATUS_DETAILS.pending;
 
   if (status === 'rejected' || status === 'cancelled') {
     return (

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { X, Clock, CheckCircle2, AlertTriangle, XCircle, Ban, Activity, ListTodo, History } from "lucide-react";
 import { StatusBadge } from "@/components/design-system/StatusBadge";
+import { getActionLabel, getStatusLabel } from "@/types/report";
 
 const formatThaiDate = (dateStr: string) => {
   if (!dateStr) return "-";
@@ -189,7 +190,7 @@ export const StaffDetailModal: React.FC<StaffDetailModalProps> = ({ staff, isOpe
                               {new Date(log.created_at).toLocaleDateString('th-TH')}
                             </time>
                           </div>
-                          <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">{log.action}</p>
+                          <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">{getActionLabel(log.action, log.new_status)}</p>
                           <p className="text-[11px] text-slate-500 line-clamp-2">{log.remark || log.reports?.title}</p>
                         </div>
                       </div>

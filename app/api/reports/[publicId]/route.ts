@@ -105,7 +105,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ publicId
       delete data.tracking_token;
       delete data.admin_remark;
       delete data.assigned_to;
-      delete data.reporter_name;
       delete data.reporter_contact;
       delete data.completed_by;
     }

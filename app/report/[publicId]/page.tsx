@@ -9,7 +9,7 @@ import { AppCard } from "@/components/design-system/AppCard";
 import { StatusBadge } from "@/components/design-system/StatusBadge";
 import { AppButton } from "@/components/design-system/AppButton";
 import { supabase } from "@/lib/supabase";
-import { Report, STATUS_DETAILS } from "@/types/report";
+import { Report, STATUS_DETAILS, getStatusLabel } from "@/types/report";
 import { GlobalFooter } from "@/components/shared/GlobalFooter";
 import { usePublicStaffAuth } from "@/hooks/usePublicStaffAuth";
 import { getRoleDisplayName } from "@/lib/role-config";
@@ -198,6 +198,10 @@ const [mounted, setMounted] = useState(false);
       setUpdateStatus(report.status);
       setUpdateRemark(report.admin_remark || "");
       setIsEditMode(report.status !== 'completed');
+      if (report.status !== 'completed') {
+        setCompletionImage(null);
+        setCompletionImagePreview(null);
+      }
     }
   }, [report]);
 
@@ -221,7 +225,7 @@ const [mounted, setMounted] = useState(false);
       setSaveMessage({ type: 'error', text: 'กรุณาแนบรูปภาพตอบกลับเมื่อเลือกสถานะเสร็จสิ้น' });
       return;
     } else if (!isStatusChanged && !isRemarkChanged && !completionImage && !completionImagePreview) {
-      setIsEditMode(false);
+      setIsEditMode(report.status !== 'completed');
       return;
     }
 
@@ -233,25 +237,27 @@ const [mounted, setMounted] = useState(false);
       if (!session) throw new Error("No active session");
 
       let publicUrl: string | null = null;
-      if (!completionImage && completionImagePreview && completionImagePreview.startsWith('http')) {
-        publicUrl = completionImagePreview;
-      }
-      
-      if (updateStatus === 'completed' && completionImage) {
-        const fileExt = completionImage.name.split('.').pop();
-        const randomFileToken = Math.random().toString(36).substring(2, 12);
-        const fileName = `${Date.now()}-${randomFileToken}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage
-          .from('report-images')
-          .upload(fileName, completionImage, { cacheControl: '3600', upsert: false });
-          
-        if (uploadError) throw new Error("อัปโหลดรูปภาพไม่สำเร็จ: " + uploadError.message);
+      if (updateStatus === 'completed') {
+        if (!completionImage && completionImagePreview && completionImagePreview.startsWith('http')) {
+          publicUrl = completionImagePreview;
+        }
         
-        const { data: { publicUrl: url } } = supabase.storage
-          .from('report-images')
-          .getPublicUrl(fileName);
+        if (completionImage) {
+          const fileExt = completionImage.name.split('.').pop();
+          const randomFileToken = Math.random().toString(36).substring(2, 12);
+          const fileName = `${Date.now()}-${randomFileToken}.${fileExt}`;
+          const { error: uploadError } = await supabase.storage
+            .from('report-images')
+            .upload(fileName, completionImage, { cacheControl: '3600', upsert: false });
+            
+          if (uploadError) throw new Error("อัปโหลดรูปภาพไม่สำเร็จ: " + uploadError.message);
           
-        publicUrl = url;
+          const { data: { publicUrl: url } } = supabase.storage
+            .from('report-images')
+            .getPublicUrl(fileName);
+            
+          publicUrl = url;
+        }
       }
 
       const res = await fetch(`/api/reports/${publicId}/status`, {
@@ -266,7 +272,7 @@ const [mounted, setMounted] = useState(false);
           remark: updateRemark,
           oldStatus: report.status,
           departmentId: (updateStatus as string) === 'transfer' ? updateDepartmentId : undefined,
-          imageUrl: publicUrl
+          imageUrl: updateStatus === 'completed' ? publicUrl : undefined
         })
       });
 
@@ -277,9 +283,13 @@ const [mounted, setMounted] = useState(false);
 
       setSaveMessage({ type: 'success', text: 'บันทึกข้อมูลเรียบร้อยแล้ว' });
       setUpdateDepartmentId("");
+      if (updateStatus !== 'completed') {
+        setCompletionImage(null);
+        setCompletionImagePreview(null);
+      }
       await fetchReport(true);
 
-      setIsEditMode(false);
+      setIsEditMode(updateStatus !== 'completed');
 
       setTimeout(() => {
         setSaveMessage(null);
@@ -373,7 +383,7 @@ const [mounted, setMounted] = useState(false);
 
   const sortedLogs = [...(report.report_logs || [])].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   const completionLog = sortedLogs.find(log => log.new_status === 'completed');
-  const staffActionImage = sortedLogs[0]?.image_url || completionLog?.image_url || sortedLogs.find(l => l.image_url)?.image_url;
+  const staffActionImage = isCompleted ? (completionLog?.image_url || sortedLogs[0]?.image_url || null) : null;
 
   // VIEW !== EDIT: canManage = department access, canEditCompleted = management right
   const canEditCompleted = canManage && profile?.role !== 'staff';
@@ -542,29 +552,19 @@ const [mounted, setMounted] = useState(false);
                     </h3>
                   </div>
                   <div className="shrink-0">
-                    {isEditMode ? (
-                      isCompleted ? (
-                        <span className="text-[11px] sm:text-[12px] text-blue-700 bg-blue-100/60 px-2.5 sm:px-3 py-1 rounded-full font-bold flex items-center gap-1.5">
-                          <FileText className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                          กำลังแก้ไข
-                        </span>
-                      ) : (
-                        <span className="text-[11px] sm:text-[12px] text-amber-700 bg-amber-100/60 px-2.5 sm:px-3 py-1 rounded-full font-bold flex items-center gap-1.5">
-                          <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                          รอดำเนินการ
-                        </span>
-                      )
-                    ) : (
-                      <span className="text-[11px] sm:text-[12px] text-emerald-700 bg-emerald-100/60 px-2.5 sm:px-3 py-1 rounded-full font-bold flex items-center gap-1.5">
-                        <CheckCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                        เสร็จสิ้น
+                    {isEditMode && isCompleted ? (
+                      <span className="text-[11px] sm:text-[12px] text-blue-700 bg-blue-100/60 px-2.5 sm:px-3 py-1 rounded-full font-bold flex items-center gap-1.5">
+                        <FileText className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                        กำลังแก้ไข
                       </span>
+                    ) : (
+                      <StatusBadge status={report.status} label={currentStatusInfo.label} />
                     )}
                   </div>
                 </div>
 
                 {/* Profile Block (State 3 Only: isCompleted, not edit mode, user logged in) */}
-                {!isEditMode && user && profile && (
+                {!isEditMode && isCompleted && user && profile && (
                   <div className="px-4 sm:px-5 py-3.5 sm:py-4 bg-slate-50/70 border-b border-slate-100 flex items-center gap-3">
                     <div className="w-9 h-9 sm:w-10 sm:h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-[13px] sm:text-[14px] uppercase shrink-0">
                       {profile.full_name ? profile.full_name.substring(0, 2) : "จน"}
@@ -591,8 +591,8 @@ const [mounted, setMounted] = useState(false);
                       <div className="h-4 bg-slate-100 rounded w-1/3 mx-auto"></div>
                       <div className="h-3 bg-slate-100 rounded w-1/2 mx-auto mb-4"></div>
                     </div>
-                  ) : !isEditMode ? (
-                    // === VIEW MODE ===
+                  ) : !isEditMode && isCompleted ? (
+                    // === VIEW MODE (COMPLETED READ-ONLY SUMMARY) ===
                     <div className="space-y-4">
                       {sortedLogs[0] ? (
                         <>
@@ -734,7 +734,14 @@ const [mounted, setMounted] = useState(false);
                         <label className="text-[12px] sm:text-[13px] text-slate-500 font-medium block mb-1.5">สถานะคำร้อง</label>
                         <AppSelect
                           value={updateStatus}
-                          onChange={(val) => setUpdateStatus(val as string)}
+                          onChange={(val) => {
+                            const newStatus = val as string;
+                            setUpdateStatus(newStatus);
+                            if (newStatus !== 'completed') {
+                              setCompletionImage(null);
+                              setCompletionImagePreview(null);
+                            }
+                          }}
                           disabled={isSaving}
                           options={[
                             { label: STATUS_DETAILS.pending.label, value: 'pending' },
@@ -827,9 +834,17 @@ const [mounted, setMounted] = useState(false);
                           onClick={() => {
                             if (isCompleted) {
                               setIsEditMode(false);
+                              setUpdateStatus(report.status);
+                              setUpdateRemark(report.admin_remark || "");
+                              setCompletionImage(null);
+                              if (completionLog) {
+                                setCompletionImagePreview(completionLog.image_url || null);
+                              } else {
+                                setCompletionImagePreview(null);
+                              }
                             } else {
                               setUpdateStatus(report.status);
-                              setUpdateRemark("");
+                              setUpdateRemark(report.admin_remark || "");
                               setCompletionImage(null);
                               setCompletionImagePreview(null);
                             }
@@ -880,7 +895,7 @@ const [mounted, setMounted] = useState(false);
                     <p className="text-[13px] text-slate-400 pl-8">ยังไม่มีประวัติการดำเนินงาน</p>
                   ) : sortedLogs.map((log, idx) => {
                     const isActive = idx === 0;
-                    const statusInfo = log.action === 'transfer' ? { label: "โอนคำร้อง" } : (STATUS_DETAILS[log.new_status] || { label: log.action || "อัปเดต" });
+                    const statusInfo = log.action === 'transfer' ? { label: "โอนคำร้อง" } : (STATUS_DETAILS[log.new_status] || { label: getStatusLabel(log.new_status) });
                     // Use the actual staff full_name if available
                     const staffName = log.staff_users?.full_name || "ระบบ";
 

@@ -16,15 +16,7 @@ import { useStaffAuth } from "@/hooks/useStaffAuth";
 import { AppSelect } from "@/components/ui/AppSelect";
 import { StatusBadge } from "@/components/design-system/StatusBadge";
 
-import { STATUS_DETAILS } from '@/types/report';
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: STATUS_DETAILS.pending.label,
-  in_progress: STATUS_DETAILS.in_progress.label,
-  completed: STATUS_DETAILS.completed.label,
-  rejected: STATUS_DETAILS.rejected.label,
-  cancelled: STATUS_DETAILS.cancelled.label
-};
+import { STATUS_DETAILS, getStatusLabel } from '@/types/report';
 
 interface ReportsViewProps {
   reports: any[];
@@ -68,11 +60,11 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ reports, filterOptions
     ? ['ทั้งหมด', ...filterOptions.departments]
     : ['ทั้งหมด', ...Array.from(new Set(reports.map(r => r.categories?.departments?.name_th || 'ไม่ระบุ')))];
 
-  const statuses = ['ทั้งหมด', 'pending', 'in_progress', 'completed', 'rejected', 'cancelled'];
+  const statuses = ['ทั้งหมด', 'pending', 'received', 'in_progress', 'completed', 'rejected', 'cancelled'];
 
-  const getStatusLabel = (s: string) => {
+  const getFilterStatusLabel = (s: string) => {
     if (s === 'ทั้งหมด') return s;
-    return STATUS_LABELS[s] || s;
+    return getStatusLabel(s);
   };
 
   // Filtering Logic

@@ -1,8 +1,8 @@
 import React from 'react';
-import { ReportStatus, STATUS_DETAILS } from '@/types/report';
+import { ReportStatus, STATUS_DETAILS, getStatusLabel } from '@/types/report';
 
 interface StatusBadgeProps {
-  status: ReportStatus;
+  status: ReportStatus | string;
   label?: string;
   animatePulse?: boolean;
   className?: string;
@@ -14,8 +14,8 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
   animatePulse = false,
   className = '' 
 }) => {
-  const config = STATUS_DETAILS[status] || STATUS_DETAILS['pending'];
-  const displayLabel = label || config.label || status;
+  const config = STATUS_DETAILS[status as ReportStatus] || STATUS_DETAILS['pending'];
+  const displayLabel = label || getStatusLabel(status);
 
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${config.bgClass} ${config.colorClass} ${config.borderClass} ${className}`}>

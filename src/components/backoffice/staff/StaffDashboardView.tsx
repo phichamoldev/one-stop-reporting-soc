@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { AppSelect } from "@/components/ui/AppSelect";
 import { getRoleDisplayName } from "@/lib/role-config";
+import { getStatusLabel } from "@/types/report";
 
 export default function StaffDashboardView() {
   const router = useRouter();
@@ -416,17 +417,18 @@ export default function StaffDashboardView() {
                     {log.reports?.public_id || "-"}
                   </td>
                   <td className="px-5 py-4 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                    {log.action}
+                    {log.action === 'transfer' ? 'โอนคำร้อง' : log.action === 'status_updated' || log.action === 'อัปเดตข้อมูล' ? 'เปลี่ยนสถานะ' : (log.action || '-')}
                   </td>
                   <td className="px-5 py-4">
                     {log.new_status && (
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border
                         ${log.new_status === 'completed' ? 'bg-green-100 text-green-700 border-green-200' :
                           log.new_status === 'in_progress' ? 'bg-orange-100 text-orange-700 border-orange-200' :
+                          log.new_status === 'received' ? 'bg-blue-100 text-blue-700 border-blue-200' :
                           log.new_status === 'pending' ? 'bg-amber-100 text-amber-700 border-amber-200' :
                           'bg-slate-100 text-slate-700 border-slate-200'}
                       `}>
-                        {log.new_status}
+                        {getStatusLabel(log.new_status)}
                       </span>
                     )}
                   </td>

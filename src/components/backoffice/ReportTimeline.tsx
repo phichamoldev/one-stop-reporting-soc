@@ -3,15 +3,7 @@
 import React from 'react';
 import { Clock, Play, Check, AlertTriangle, ArrowRightLeft, X, History, Inbox } from 'lucide-react';
 
-import { STATUS_DETAILS } from '@/types/report';
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: STATUS_DETAILS.pending.label,
-  in_progress: STATUS_DETAILS.in_progress.label,
-  completed: STATUS_DETAILS.completed.label,
-  rejected: STATUS_DETAILS.rejected.label,
-  cancelled: STATUS_DETAILS.cancelled.label
-};
+import { STATUS_DETAILS, getStatusLabel } from '@/types/report';
 
 const getTimelineIcon = (status: string) => {
   if (status === 'transfer') {
@@ -72,7 +64,7 @@ export const ReportTimeline: React.FC<ReportTimelineProps> = ({ logs }) => {
               <div className="flex-1 bg-slate-50/50 dark:bg-slate-800/20 p-3.5 rounded-2xl border border-slate-100/50 dark:border-slate-800/20 text-xs">
                 <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
                   <span className="font-extrabold text-slate-800 dark:text-slate-200">
-                    {log.action === 'transfer' ? 'โอนคำร้อง' : `เปลี่ยนสถานะเป็น ${STATUS_LABELS[log.new_status] || log.new_status}`}
+                    {log.action === 'transfer' ? 'โอนคำร้อง' : `เปลี่ยนสถานะเป็น ${getStatusLabel(log.new_status)}`}
                   </span>
                   <span className="text-[10px] text-slate-400 font-mono">
                     {new Date(log.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.

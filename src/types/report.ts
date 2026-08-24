@@ -162,7 +162,7 @@ export const STATUS_DETAILS: Record<ReportStatus, StatusConfig> = {
     stepIndex: 3
   },
   rejected: {
-    label: 'ไม่สามารถดำเนินการ',
+    label: 'ไม่สามารถดำเนินการได้',
     description: 'เรื่องนี้ไม่อยู่ในขอบเขตการดำเนินงานของคณะ',
     colorClass: 'text-red-700 dark:text-red-400',
     bgClass: 'bg-red-50 dark:bg-red-950/20',
@@ -184,4 +184,37 @@ export const STATUS_DETAILS: Record<ReportStatus, StatusConfig> = {
     stepIndex: 5
   }
 };
+
+export const STATUS_LABELS: Record<string, string> = {
+  pending: STATUS_DETAILS.pending.label,
+  received: STATUS_DETAILS.received.label,
+  in_progress: STATUS_DETAILS.in_progress.label,
+  completed: STATUS_DETAILS.completed.label,
+  rejected: STATUS_DETAILS.rejected.label,
+  cancelled: STATUS_DETAILS.cancelled.label
+};
+
+export function getStatusLabel(status: string | null | undefined): string {
+  if (!status) return '-';
+  const clean = status.trim().toLowerCase();
+  if (clean === 'pending') return STATUS_DETAILS.pending.label;
+  if (clean === 'received') return STATUS_DETAILS.received.label;
+  if (clean === 'in_progress') return STATUS_DETAILS.in_progress.label;
+  if (clean === 'completed') return STATUS_DETAILS.completed.label;
+  if (clean === 'rejected') return STATUS_DETAILS.rejected.label;
+  if (clean === 'cancelled') return STATUS_DETAILS.cancelled.label;
+  return STATUS_DETAILS[clean as ReportStatus]?.label || status;
+}
+
+export function getActionLabel(action: string | null | undefined, newStatus?: string | null): string {
+  if (action === 'transfer') return 'โอนคำร้อง';
+  if (action === 'created') return 'ส่งเรื่องเข้าระบบ';
+  if (action === 'status_updated' || action === 'อัปเดตข้อมูล' || action === 'update') {
+    return newStatus ? `เปลี่ยนสถานะเป็น ${getStatusLabel(newStatus)}` : 'อัปเดตข้อมูล';
+  }
+  if (action === 'note_updated') return 'อัปเดตหมายเหตุ';
+  if (newStatus) return `เปลี่ยนสถานะเป็น ${getStatusLabel(newStatus)}`;
+  if (!action) return '-';
+  return action;
+}
 

@@ -39,15 +39,7 @@ interface ReportDetailViewProps {
 
 import { StatusBadge } from "@/components/design-system/StatusBadge";
 
-import { STATUS_DETAILS } from '@/types/report';
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: STATUS_DETAILS.pending.label,
-  in_progress: STATUS_DETAILS.in_progress.label,
-  completed: STATUS_DETAILS.completed.label,
-  rejected: STATUS_DETAILS.rejected.label,
-  cancelled: STATUS_DETAILS.cancelled.label
-};
+import { STATUS_DETAILS, getStatusLabel } from '@/types/report';
 
 export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
   publicId,
@@ -291,11 +283,6 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
       minute: '2-digit'
     }) + ' น.';
   };
-
-  const getStatusLabel = (s: string) => {
-    return STATUS_LABELS[s] || s;
-  };
-
 
   const logs = data.report_logs || [];
 

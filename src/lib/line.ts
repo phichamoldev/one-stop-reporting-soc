@@ -59,6 +59,8 @@ export async function notifyLine(message: string | LineNotificationPayload, cust
     
     if (statusText === "pending") {
       mappedStatus = `🟡 ${STATUS_DETAILS.pending.label}`;
+    } else if (statusText === "received") {
+      mappedStatus = `🟡 ${STATUS_DETAILS.received.label}`;
     } else if (statusText === "in_progress") {
       mappedStatus = `🔵 ${STATUS_DETAILS.in_progress.label}`;
     } else if (statusText === "completed") {

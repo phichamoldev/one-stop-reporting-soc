@@ -129,9 +129,15 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
     if (reportData) {
       setData(reportData);
       setSelectedStatus(reportData.status);
+      setAdminNotes(reportData.admin_remark || '');
       setIsEditMode(reportData.status !== 'completed');
     }
   }, [reportData]);
+
+  const isStatusChanged = Boolean(data && selectedStatus && selectedStatus !== '' && (selectedStatus === 'transfer' || selectedStatus !== data.status));
+  const isRemarkChanged = Boolean(data && (adminNotes || "").trim() !== (data.admin_remark || "").trim());
+  const hasImageChange = Boolean(completionImage);
+  const hasAnyChange = isStatusChanged || isRemarkChanged || hasImageChange;
 
   const handleSaveStatus = async () => {
     if (!data) return;
@@ -142,8 +148,11 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("ไม่พบเซสชัน กรุณาเข้าสู่ระบบใหม่");
 
-      const isStatusChanged = selectedStatus !== data.status;
-      const isRemarkChanged = adminNotes.trim().length > 0;
+      if (!hasAnyChange) {
+        setSaveMessage({ type: 'error', text: 'กรุณาเลือกสถานะใหม่ หรือเพิ่มหมายเหตุ' });
+        setIsSaving(false);
+        return;
+      }
 
       if (selectedStatus === 'transfer') {
         if (!selectedDepartmentId) {
@@ -151,13 +160,13 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
           setIsSaving(false);
           return;
         }
-        if (!isRemarkChanged) {
+        if (!adminNotes.trim()) {
           setSaveMessage({ type: 'error', text: 'กรุณาระบุเหตุผลที่โอนเรื่อง' });
           setIsSaving(false);
           return;
         }
       } else if (selectedStatus === 'completed' && (!isEditMode || data.status !== 'completed')) {
-        if (!isRemarkChanged) {
+        if (!adminNotes.trim()) {
           setSaveMessage({ type: 'error', text: 'กรุณาระบุหมายเหตุสรุปผล' });
           setIsSaving(false);
           return;
@@ -168,15 +177,11 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
           return;
         }
       } else if (selectedStatus === 'rejected' && data.status !== 'rejected') {
-        if (!isRemarkChanged) {
+        if (!adminNotes.trim()) {
           setSaveMessage({ type: 'error', text: 'กรุณาระบุเหตุผลที่ไม่สามารถดำเนินการได้' });
           setIsSaving(false);
           return;
         }
-      } else if (!isStatusChanged && !isRemarkChanged && !completionImage && !completionImagePreview) {
-        setSaveMessage({ type: 'error', text: 'กรุณาเลือกสถานะใหม่ หรือระบุหมายเหตุ' });
-        setIsSaving(false);
-        return;
       }
 
       let publicUrl: string | null = null;
@@ -553,6 +558,7 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
                             onChange={(val) => setSelectedStatus(val as string)}
                             disabled={isSaving}
                             options={[
+                              { label: 'เลือกสถานะ...', value: '' },
                               ...(data.status === 'pending' ? [{ label: STATUS_DETAILS.pending.label, value: 'pending' }] : []),
                               { label: STATUS_DETAILS.received.label, value: 'received' },
                               { label: STATUS_DETAILS.in_progress.label, value: 'in_progress' },
@@ -562,6 +568,11 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
                               ...(userRole !== 'staff' ? [{ label: 'โอนคำร้อง', value: 'transfer' }] : [])
                             ]}
                           />
+                          {!hasAnyChange && (
+                            <p className="text-[12px] text-rose-500 font-medium mt-1.5 animate-fade-in">
+                              กรุณาเลือกสถานะใหม่ หรือเพิ่มหมายเหตุ
+                            </p>
+                          )}
                         </div>
                       </div>
 
@@ -680,7 +691,7 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
                         <button
                           type="button"
                           onClick={handleSaveStatus}
-                          disabled={isSaving}
+                          disabled={isSaving || !hasAnyChange}
                           className="flex-1 flex items-center justify-center gap-2 py-3 bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:pointer-events-none text-white font-black text-[14px] rounded-xl cursor-pointer transition-all shadow-md shadow-primary/10 hover:shadow-primary/25"
                         >
                           {isSaving ? (

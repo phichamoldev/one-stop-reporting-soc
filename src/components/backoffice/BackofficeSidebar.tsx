@@ -34,14 +34,10 @@ export const BackofficeSidebar: React.FC = () => {
     console.log(`[Sidebar] Object.is(profile, authGuardProfile) = ${Object.is(profile, (window as any).__authGuardProfile)}`);
   }
 
-  // Sync Dark Mode class from storage
+  // Sync Dark Mode class from storage (Locked to Light Mode in current release)
   useEffect(() => {
-    const storedDarkMode = localStorage.getItem('soc_backoffice_darkmode') === 'true';
-    if (storedDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    // Preserved for future reactivation: const storedDarkMode = localStorage.getItem('soc_backoffice_darkmode') === 'true';
+    document.documentElement.classList.remove('dark');
 
     const storedSim = localStorage.getItem('soc_backoffice_simulating') !== 'false';
     setIsSimulating(storedSim);

@@ -9,6 +9,7 @@ import { AppButton } from "@/components/design-system/AppButton";
 import { StatusBadge } from "@/components/design-system/StatusBadge";
 import { GlobalFooter } from "@/components/shared/GlobalFooter";
 import { SearchMethod, ReportLookupSummary } from "@/types/report";
+import { normalizePublicId } from "@/lib/utils";
 import { Search, SearchX, ArrowLeft, ArrowRight } from "lucide-react";
 
 export default function TrackLookupPage() {
@@ -55,7 +56,7 @@ export default function TrackLookupPage() {
     setError(null);
 
     if (searchMethod === "soc") {
-      const publicId = inputValue.trim().toUpperCase();
+      const publicId = normalizePublicId(inputValue);
 
       if (!publicId) {
         setError("กรุณากรอกเลขที่แจ้งปัญหา");
@@ -183,7 +184,7 @@ export default function TrackLookupPage() {
                         setError(null);
                       }
                     }}
-                    placeholder={searchMethod === "soc" ? "เช่น SOC-98469" : "เช่น 0812345678"}
+                    placeholder={searchMethod === "soc" ? "เช่น SOC-80397 หรือ 80397" : "เช่น 0812345678"}
                     className={`w-full text-[14px] font-normal placeholder-slate-400 bg-slate-100/50 dark:bg-slate-900/50 border px-4 py-3.5 rounded-[16px] text-center tracking-wider focus:ring-2 focus:ring-primary/20 ${
                       error
                         ? "border-rose-500 text-rose-500"

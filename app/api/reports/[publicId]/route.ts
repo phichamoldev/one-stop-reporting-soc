@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { createClient } from "@supabase/supabase-js";
 import { getAccessibleDepartmentIds } from "@/lib/auth-helpers";
+import { normalizePublicId } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +35,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ publicId
       }
     }
 
-    const normalizedPublicId = publicId.trim().toUpperCase();
+    const normalizedPublicId = normalizePublicId(publicId);
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalizedPublicId);
 
     let query = supabaseAdmin

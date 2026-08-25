@@ -40,6 +40,7 @@ export interface Report {
   category_id?: number;
   subcategory_id?: number;
   location: string;
+  room_number?: string;
   description: string;
   image_url: string | null;
   reporter_name: string;

@@ -115,6 +115,151 @@ test.describe('Report Detail Page — Responsive Reporter Information Mismatch T
     });
   }
 
+  test('Location Mapping: Public and Backoffice both render location string correctly (SOC-99230 scenario)', async ({ page }) => {
+    const mockSOC99230 = {
+      ...mockReportWithData,
+      public_id: "SOC-99230",
+      location: "ซุ้มสาขาสังคมวิทยาและมานุษยวิทยา"
+    };
+
+    await page.route('**/api/reports/SOC-99230', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          report: mockSOC99230,
+          canManage: true
+        })
+      });
+    });
+
+    await page.route('**/api/departments', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ departments: [{ id: 1, name_th: "อาคารและสถานที่" }] })
+      });
+    });
+
+    // 1. Check Public page
+    await page.goto('/report/SOC-99230');
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('text=ซุ้มสาขาสังคมวิทยาและมานุษยวิทยา')).toBeVisible();
+
+    // 2. Check Backoffice page (via login)
+    await page.route('**/auth/v1/token?grant_type=password', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          access_token: "mock-token",
+          token_type: "bearer",
+          expires_in: 3600,
+          refresh_token: "mock-refresh-token",
+          user: { id: "mock-staff", email: "staff@ku.th" }
+        })
+      });
+    });
+
+    await page.route('**/auth/v1/user', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ id: "mock-staff", email: "staff@ku.th" })
+      });
+    });
+
+    await page.route('**/api/staff/profile*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          profile: { id: "mock-staff", email: "staff@ku.th", full_name: "เจ้าหน้าที่ทดสอบ", role: "staff", department_id: 1 }
+        })
+      });
+    });
+
+    await page.goto('/backoffice/login?next=/backoffice/reports/SOC-99230');
+    await page.waitForLoadState('networkidle');
+    await page.fill('input[type="email"]', 'staff@ku.th');
+    await page.fill('input[type="password"]', 'password123');
+    await page.click('button[type="submit"]');
+
+    await page.waitForURL('**/backoffice/reports/SOC-99230');
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('text=ซุ้มสาขาสังคมวิทยาและมานุษยวิทยา')).toBeVisible();
+  });
+
+  test('Location Mapping: When location is null or missing, Backoffice renders "ไม่ระบุ"', async ({ page }) => {
+    const mockReportNoLocation = {
+      ...mockReportWithData,
+      public_id: "SOC-NOLOC",
+      location: null
+    };
+
+    await page.route('**/api/reports/SOC-NOLOC', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          report: mockReportNoLocation,
+          canManage: true
+        })
+      });
+    });
+
+    await page.route('**/api/departments', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ departments: [{ id: 1, name_th: "อาคารและสถานที่" }] })
+      });
+    });
+
+    await page.route('**/auth/v1/token?grant_type=password', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          access_token: "mock-token",
+          token_type: "bearer",
+          expires_in: 3600,
+          refresh_token: "mock-refresh-token",
+          user: { id: "mock-staff", email: "staff@ku.th" }
+        })
+      });
+    });
+
+    await page.route('**/auth/v1/user', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ id: "mock-staff", email: "staff@ku.th" })
+      });
+    });
+
+    await page.route('**/api/staff/profile*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          profile: { id: "mock-staff", email: "staff@ku.th", full_name: "เจ้าหน้าที่ทดสอบ", role: "staff", department_id: 1 }
+        })
+      });
+    });
+
+    await page.goto('/backoffice/login?next=/backoffice/reports/SOC-NOLOC');
+    await page.waitForLoadState('networkidle');
+    await page.fill('input[type="email"]', 'staff@ku.th');
+    await page.fill('input[type="password"]', 'password123');
+    await page.click('button[type="submit"]');
+
+    await page.waitForURL('**/backoffice/reports/SOC-NOLOC');
+    await page.waitForLoadState('networkidle');
+    const locationField = page.locator('h5:has-text("สถานที่")').locator('xpath=..').locator('p');
+    await expect(locationField).toContainText('ไม่ระบุ');
+  });
+
   test('Public API does not strip reporter_name for unauthenticated requests', async ({ request }) => {
     // If a report exists in DB, it returns reporter_name. If not found, returns 404.
     const res = await request.get('/api/reports/SOC-00000');

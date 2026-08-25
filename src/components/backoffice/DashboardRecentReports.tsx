@@ -93,9 +93,9 @@ export const DashboardRecentReports: React.FC = React.memo(() => {
                         <span className="font-semibold text-slate-700 dark:text-slate-200 truncate block max-w-[200px]">
                           {report.title || report.description}
                         </span>
-                        {report.room_number && (
+                        {(report.location || report.room_number) && (
                           <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate block max-w-[220px]">
-                            {report.room_number}
+                            {report.location || report.room_number}
                           </span>
                         )}
                       </div>

@@ -303,9 +303,9 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ reports, filterOptions
                         <span className="font-semibold text-slate-800 dark:text-slate-200 truncate block">
                           {report.title || report.description}
                         </span>
-                        {report.room_number && (
+                        {(report.location || report.room_number) && (
                           <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 truncate block">
-                            {report.room_number}
+                            {report.location || report.room_number}
                           </span>
                         )}
                       </div>

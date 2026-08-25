@@ -360,10 +360,10 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
               </div>
 
               <div className="pb-5 border-b border-slate-50 dark:border-slate-800/30">
-                <h5 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">สถานที่ชำรุด</h5>
+                <h5 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">สถานที่</h5>
                 <p className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                   <MapPin className="w-5 h-5 text-primary shrink-0" />
-                  {data.room_number || "ไม่ระบุ"}
+                  {data.location || data.room_number || "ไม่ระบุ"}
                 </p>
               </div>
 
@@ -735,7 +735,7 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
               className="max-w-full max-h-[85vh] md:max-h-[90vh] object-contain rounded-lg shadow-2xl"
             />
             <p className="text-white text-sm font-bold mt-4 px-4 py-2 bg-white/10 rounded-full text-center max-w-lg">
-              {fullscreenImage === data.image_url ? `${data.title || data.description} • ${data.room_number || "ไม่ระบุ"}` : "ภาพประกอบการตอบกลับของเจ้าหน้าที่"}
+              {fullscreenImage === data.image_url ? `${data.title || data.description} • ${data.location || data.room_number || "ไม่ระบุ"}` : "ภาพประกอบการตอบกลับของเจ้าหน้าที่"}
             </p>
           </div>
         </div>,

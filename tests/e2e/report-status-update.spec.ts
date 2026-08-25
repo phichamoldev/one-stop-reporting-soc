@@ -434,4 +434,280 @@ test.describe('Report Detail Page — Staff Authentication & Response Flow Tests
     await expect(saveBtn).toBeEnabled();
     await expect(page.locator('text=กรุณาเลือกสถานะใหม่ หรือเพิ่มหมายเหตุ')).toHaveCount(0);
   });
+
+  test('8. Staff Exit Mode on Report: Clicking "ออกจากโหมดเจ้าหน้าที่" returns to Public View without clearing Supabase session', async ({ page }) => {
+    const reportData = createMockReport('in_progress');
+
+    let isAuthed = false;
+    await page.route('**/api/reports/SOC-TEST01', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ report: reportData, canManage: isAuthed })
+      });
+    });
+
+    await page.route('**/auth/v1/token?grant_type=password', async (route) => {
+      isAuthed = true;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          access_token: "mock-access-token",
+          token_type: "bearer",
+          expires_in: 3600,
+          refresh_token: "mock-refresh-token",
+          user: {
+            id: "mock-staff-uid",
+            email: "staff@ku.th",
+            app_metadata: {},
+            user_metadata: {}
+          }
+        })
+      });
+    });
+
+    await page.route('**/api/staff/profile', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          profile: {
+            id: "mock-staff-uid",
+            email: "staff@ku.th",
+            full_name: "นายทดสอบ ปฏิบัติงาน",
+            role: "staff",
+            department_id: 1
+          }
+        })
+      });
+    });
+
+    await page.goto('/report/SOC-TEST01');
+    await page.waitForLoadState('networkidle');
+
+    // Login to enter Staff Mode
+    await page.fill('input[type="email"]', 'staff@ku.th');
+    await page.fill('input[type="password"]', 'password123');
+    await page.click('button:has-text("เข้าสู่ระบบเพื่อดำเนินการ")');
+
+    await expect(page.locator('text=นายทดสอบ ปฏิบัติงาน')).toBeVisible();
+    await expect(page.locator('button:has-text("บันทึกข้อมูล")')).toBeVisible();
+
+    // Click "ออกจากโหมดเจ้าหน้าที่"
+    await page.click('button:has-text("ออกจากโหมดเจ้าหน้าที่")');
+
+    // Report switches back to Public View (Staff Action Form hidden, login prompt / resume button shown)
+    await expect(page.locator('button:has-text("บันทึกข้อมูล")')).toHaveCount(0);
+    await expect(page.locator('h4:has-text("เข้าสู่ระบบสำหรับเจ้าหน้าที่")')).toBeVisible();
+    await expect(page.locator('button:has-text("กลับเข้าสู่โหมดเจ้าหน้าที่ (นายทดสอบ ปฏิบัติงาน)")')).toBeVisible();
+
+    // Re-enter Staff Mode via quick button
+    await page.click('button:has-text("กลับเข้าสู่โหมดเจ้าหน้าที่ (นายทดสอบ ปฏิบัติงาน)")');
+    await expect(page.locator('text=นายทดสอบ ปฏิบัติงาน')).toBeVisible();
+    await expect(page.locator('button:has-text("บันทึกข้อมูล")')).toBeVisible();
+  });
+
+  test('9. Timeline / Track Synchronization: Public /track/[publicId] renders received status milestone correctly (SOC-80397 scenario)', async ({ page }) => {
+    const reportData = createMockReport('received', {
+      public_id: "SOC-80397",
+      status: "received",
+      report_logs: [
+        {
+          id: 101,
+          action: "status_updated",
+          old_status: "pending",
+          new_status: "received",
+          remark: "รับเรื่องเข้าระบบแล้ว",
+          image_url: null,
+          created_at: "2026-08-24T09:19:00.000Z",
+          staff_users: { full_name: "ผู้ดูแลระบบ" }
+        }
+      ]
+    });
+
+    await page.route('**/api/reports/SOC-80397', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ report: reportData, canManage: false })
+      });
+    });
+
+    // 1. Check Public Track page
+    await page.goto('/track/SOC-80397');
+    await page.waitForLoadState('networkidle');
+
+    // Should show "2 รายการ" (รับเรื่องแล้ว + ส่งเรื่องเข้าระบบแล้ว) and NOT "0 รายการ" / "ยังไม่มีประวัติการดำเนินงาน"
+    await expect(page.locator('text=2 รายการ')).toBeVisible();
+    await expect(page.locator('text=ยังไม่มีประวัติการดำเนินงาน')).toHaveCount(0);
+    await expect(page.locator('h4:has-text("รับเรื่องแล้ว")')).toBeVisible();
+    await expect(page.locator('h4:has-text("ส่งเรื่องเข้าระบบแล้ว")')).toBeVisible();
+    await expect(page.locator('text=รับเรื่องเข้าระบบแล้ว')).toBeVisible();
+
+    // 2. Check Public Report Detail page
+    await page.goto('/report/SOC-80397');
+    await page.waitForLoadState('networkidle');
+
+    await expect(page.locator('text=1 รายการ')).toBeVisible();
+    await expect(page.locator('h4:has-text("รับเรื่องแล้ว")')).toBeVisible();
+    await expect(page.locator('text=ผู้ดูแลระบบ')).toBeVisible();
+  });
+
+  test('10. Public Timeline Deduplication: Multiple logs on same status show only 1 status milestone (SOC-82781 scenario)', async ({ page }) => {
+    const reportData = createMockReport('received', {
+      public_id: "SOC-82781",
+      status: "received",
+      created_at: "2026-08-24T10:00:00.000Z",
+      report_logs: [
+        {
+          id: 201,
+          action: "status_updated",
+          old_status: "pending",
+          new_status: "received",
+          remark: null,
+          image_url: null,
+          created_at: "2026-08-24T11:01:00.000Z",
+          staff_users: { full_name: "ผู้ดูแลระบบ" }
+        },
+        {
+          id: 202,
+          action: "status_updated",
+          old_status: "received",
+          new_status: "received",
+          remark: "รอช่างมาเปลี่ยนมอเตอร์พัดลม",
+          image_url: null,
+          created_at: "2026-08-24T11:03:00.000Z",
+          staff_users: { full_name: "ผู้ดูแลระบบ" }
+        }
+      ]
+    });
+
+    await page.route('**/api/reports/SOC-82781', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ report: reportData, canManage: false })
+      });
+    });
+
+    // 1. Check Public Track page
+    await page.goto('/track/SOC-82781');
+    await page.waitForLoadState('networkidle');
+
+    // Must show 2 milestones (1 x "รับเรื่องแล้ว" and 1 x "ส่งเรื่องเข้าระบบแล้ว") -> NO duplicate "รับเรื่องแล้ว"!
+    await expect(page.locator('text=2 รายการ')).toBeVisible();
+    await expect(page.locator('h4:has-text("รับเรื่องแล้ว")')).toHaveCount(1);
+    await expect(page.locator('h4:has-text("ส่งเรื่องเข้าระบบแล้ว")')).toHaveCount(1);
+    // Note from the latest update is displayed in the milestone
+    await expect(page.locator('text=รอช่างมาเปลี่ยนมอเตอร์พัดลม')).toBeVisible();
+  });
+
+  test('11. Note-only updates do not create extra milestones in Public Timeline', async ({ page }) => {
+    const reportData = createMockReport('in_progress', {
+      public_id: "SOC-77123",
+      status: "in_progress",
+      created_at: "2026-08-24T08:00:00.000Z",
+      report_logs: [
+        {
+          id: 301,
+          action: "status_updated",
+          old_status: "pending",
+          new_status: "received",
+          remark: null,
+          created_at: "2026-08-24T09:00:00.000Z"
+        },
+        {
+          id: 302,
+          action: "note_updated",
+          old_status: "received",
+          new_status: "received",
+          remark: "ตรวจรับเรื่องแล้ว",
+          created_at: "2026-08-24T09:15:00.000Z"
+        },
+        {
+          id: 303,
+          action: "status_updated",
+          old_status: "received",
+          new_status: "in_progress",
+          remark: "ส่งทีมช่างเข้าตรวจสอบ",
+          created_at: "2026-08-24T10:00:00.000Z"
+        },
+        {
+          id: 304,
+          action: "note_updated",
+          old_status: "in_progress",
+          new_status: "in_progress",
+          remark: "กำลังซ่อมแซม",
+          created_at: "2026-08-24T10:30:00.000Z"
+        }
+      ]
+    });
+
+    await page.route('**/api/reports/SOC-77123', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ report: reportData, canManage: false })
+      });
+    });
+
+    await page.goto('/track/SOC-77123');
+    await page.waitForLoadState('networkidle');
+
+    // Total 3 milestones: กำลังดำเนินการ, รับเรื่องแล้ว, ส่งเรื่องเข้าระบบแล้ว
+    await expect(page.locator('text=3 รายการ')).toBeVisible();
+    await expect(page.locator('h4:has-text("กำลังดำเนินการ")')).toHaveCount(1);
+    await expect(page.locator('h4:has-text("รับเรื่องแล้ว")')).toHaveCount(1);
+    await expect(page.locator('h4:has-text("ส่งเรื่องเข้าระบบแล้ว")')).toHaveCount(1);
+    await expect(page.locator('text=กำลังซ่อมแซม')).toBeVisible();
+  });
+
+  test('12. Public Report Detail Timeline: uses STATUS_DETAILS design system colors without hardcoded primary orange override (SOC-82781)', async ({ page }) => {
+    const reportData = createMockReport('received', {
+      public_id: "SOC-82781",
+      status: "received",
+      report_logs: [
+        {
+          id: 501,
+          action: "status_updated",
+          old_status: "pending",
+          new_status: "received",
+          remark: "รอช่างมาเปลี่ยนมอเตอร์พัดลม",
+          image_url: null,
+          created_at: "2026-08-24T11:03:00.000Z",
+          staff_users: { full_name: "ผู้ดูแลระบบ" }
+        }
+      ]
+    });
+
+    await page.route('**/api/reports/SOC-82781', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ report: reportData, canManage: false })
+      });
+    });
+
+    await page.goto('/report/SOC-82781');
+    await page.waitForLoadState('networkidle');
+
+    // 1. Verify Status Badge at the top is blue
+    const badge = page.locator('span:has-text("รับเรื่องแล้ว")').first();
+    await expect(badge).toBeVisible();
+    await expect(badge).toHaveClass(/text-blue-700/);
+    await expect(badge).toHaveClass(/bg-blue-50/);
+
+    // 2. Verify Timeline title for "รับเรื่องแล้ว" is blue (text-blue-700), NOT primary (text-primary)
+    const timelineTitle = page.locator('h4:has-text("รับเรื่องแล้ว")');
+    await expect(timelineTitle).toBeVisible();
+    await expect(timelineTitle).toHaveClass(/text-blue-700/);
+    await expect(timelineTitle).not.toHaveClass(/text-primary/);
+
+    // 3. Verify Timeline remark box has blue border / bg from STATUS_DETAILS
+    const remarkBox = page.locator('div:has-text("รอช่างมาเปลี่ยนมอเตอร์พัดลม")').last();
+    await expect(remarkBox).toBeVisible();
+    await expect(remarkBox).toHaveClass(/bg-blue-50/);
+    await expect(remarkBox).toHaveClass(/border-blue-200/);
+  });
 });

@@ -10,7 +10,7 @@ import { StatusBadge } from "@/components/design-system/StatusBadge";
 import { AppButton } from "@/components/design-system/AppButton";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
-import { Report, STATUS_DETAILS, getStatusLabel } from "@/types/report";
+import { Report, ReportStatus, STATUS_DETAILS, getStatusLabel } from "@/types/report";
 import { GlobalFooter } from "@/components/shared/GlobalFooter";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
@@ -28,8 +28,105 @@ import {
   Clock,
   ArrowLeft,
   ArrowRightLeft,
-  Plus
+  Plus,
+  Inbox,
+  AlertTriangle
 } from "lucide-react";
+
+export interface PublicTimelineMilestone {
+  key: string;
+  status: string;
+  label: string;
+  created_at: string;
+  remark: string | null;
+  image_url?: string | null;
+  staff_users?: { full_name: string } | null;
+}
+
+export function extractPublicMilestones(report?: Report | null): PublicTimelineMilestone[] {
+  if (!report) return [];
+
+  const rawLogs = [...(report.report_logs || [])].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  );
+
+  const milestones: PublicTimelineMilestone[] = [];
+
+  // 1. Initial Submission Milestone (ส่งเรื่องเข้าระบบแล้ว)
+  const createdLog = rawLogs.find(l => l.action === 'created');
+  milestones.push({
+    key: 'created',
+    status: 'pending',
+    label: 'ส่งเรื่องเข้าระบบแล้ว',
+    created_at: createdLog?.created_at || report.created_at,
+    remark: createdLog?.remark || null,
+    image_url: createdLog?.image_url || null,
+    staff_users: createdLog?.staff_users || null
+  });
+
+  // 2. Track seen statuses to prevent duplicate status entries
+  const seenStatuses = new Set<string>(['pending']);
+
+  for (const log of rawLogs) {
+    if (log.action === 'created') continue;
+
+    // Note-only updates (without status change) are internal logs -> do not create duplicate public milestone
+    if (log.action === 'note_updated') {
+      const existing = milestones.find(m => m.status === log.new_status);
+      if (existing && log.remark) {
+        existing.remark = log.remark;
+      }
+      if (existing && log.staff_users) {
+        existing.staff_users = log.staff_users;
+      }
+      continue;
+    }
+
+    if (log.action === 'transfer') {
+      milestones.push({
+        key: `transfer-${log.id}`,
+        status: 'transfer',
+        label: 'โอนคำร้อง',
+        created_at: log.created_at,
+        remark: log.remark || null,
+        image_url: log.image_url || null,
+        staff_users: log.staff_users || null
+      });
+      continue;
+    }
+
+    // Status change event
+    const targetStatus = log.new_status;
+    if (!targetStatus) continue;
+
+    // Prevent duplicate milestone if the status hasn't changed or has already been recorded
+    if (seenStatuses.has(targetStatus)) {
+      const existing = milestones.find(m => m.status === targetStatus);
+      if (existing && log.remark) {
+        existing.remark = log.remark;
+      }
+      if (existing && log.staff_users) {
+        existing.staff_users = log.staff_users;
+      }
+      continue;
+    }
+
+    seenStatuses.add(targetStatus);
+    const statusConfig = STATUS_DETAILS[targetStatus as ReportStatus];
+    milestones.push({
+      key: `status-${targetStatus}-${log.id}`,
+      status: targetStatus,
+      label: statusConfig?.label || getStatusLabel(targetStatus),
+      created_at: log.created_at,
+      remark: log.remark || null,
+      image_url: log.image_url || null,
+      staff_users: log.staff_users || null
+    });
+  }
+
+  // Sort descending (latest milestone on top)
+  return milestones.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+}
 
 interface TrackPageProps {
   params: Promise<{
@@ -123,57 +220,8 @@ export default function TrackPage({ params }: TrackPageProps) {
     }) + ' น.';
   };
 
-  // Reduce timeline events
-  const rawLogs = [...(report.report_logs || [])].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-  
-  const displayLogs: any[] = [];
-  
-  // 1. Created Event
-  const createdLog = rawLogs.find(l => l.action === 'created');
-  if (createdLog) {
-    displayLogs.push({
-      ...createdLog,
-      custom_label: 'ส่งเรื่องเข้าระบบแล้ว'
-    });
-  }
-
-  // 2. Transfer Events
-  const transferLogs = rawLogs.filter(l => l.action === 'transfer');
-  transferLogs.forEach(log => {
-    displayLogs.push({
-      ...log,
-      custom_label: 'โอนคำร้อง'
-    });
-  });
-
-  // 3. In Progress Event (combine received and in_progress)
-  const inProgressLogs = rawLogs.filter(l => l.new_status === 'in_progress');
-  if (inProgressLogs.length > 0) {
-    const latestInProgress = inProgressLogs[inProgressLogs.length - 1];
-    displayLogs.push({
-      ...latestInProgress,
-      new_status: 'in_progress',
-      custom_label: 'กำลังดำเนินการ'
-    });
-  }
-
-  // 4. Final Event
-  const finalLogs = rawLogs.filter(l => ['completed', 'rejected', 'cancelled'].includes(l.new_status));
-  if (finalLogs.length > 0) {
-    const latestFinal = finalLogs[finalLogs.length - 1];
-    let finalLabel = "เสร็จสิ้น";
-    if (latestFinal.new_status === 'rejected') finalLabel = "ไม่สามารถดำเนินการได้";
-    if (latestFinal.new_status === 'cancelled') finalLabel = "ยกเลิกรายการ";
-    
-    displayLogs.push({
-      ...latestFinal,
-      custom_label: finalLabel
-    });
-  }
-
-  displayLogs.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-  const sortedLogs = displayLogs.reverse();
-  const completionLog = sortedLogs.find(log => log.new_status === 'completed');
+  const sortedLogs = extractPublicMilestones(report);
+  const completionLog = sortedLogs.find(log => log.status === 'completed');
   const isCompleted = report.status === 'completed';
 
   return (
@@ -388,61 +436,47 @@ export default function TrackPage({ params }: TrackPageProps) {
                       <p className="text-[13px] text-slate-400 pl-8">ยังไม่มีประวัติการดำเนินงาน</p>
                    ) : sortedLogs.map((log, idx) => {
                      const isActive = idx === 0;
-                     const statusInfo = log.custom_label ? { label: log.custom_label } : (log.action === 'transfer' ? { label: "โอนคำร้อง" } : (STATUS_DETAILS[log.new_status as keyof typeof STATUS_DETAILS] || { label: getStatusLabel(log.new_status) }));
-                     const staffName = log.staff_users?.full_name || "ระบบ";
-                     
+                     const config = log.status === 'transfer' 
+                       ? {
+                           label: 'โอนคำร้อง',
+                           colorClass: 'text-purple-700 dark:text-purple-400',
+                           bgClass: 'bg-purple-50 dark:bg-purple-950/20',
+                           borderClass: 'border-purple-200 dark:border-purple-900/50',
+                           dotClass: 'bg-purple-500',
+                           icon: 'ArrowRightLeft'
+                         }
+                       : STATUS_DETAILS[log.status as ReportStatus] || STATUS_DETAILS.pending;
+
                      let Icon = Clock;
-                     if (log.new_status === 'in_progress') Icon = RefreshCcw;
-                     if (log.new_status === 'completed') Icon = CheckCircle2;
-                     if (log.action === 'transfer') Icon = ArrowRightLeft;
-                     
-                     const isLogCompleted = log.new_status === 'completed';
-                     const isTransfer = log.action === 'transfer';
-                     
-                     let circleColorClass = 'border-slate-200 text-slate-400 bg-white';
-                     let titleColorClass = 'text-slate-600';
-                     let boxColorClass = 'bg-slate-50 text-slate-600 border border-transparent';
-                     
-                     if (isTransfer) {
-                       circleColorClass = 'border-purple-400 bg-purple-50 text-purple-600 shadow-[0_0_10px_rgba(168,85,247,0.15)]';
-                       titleColorClass = 'text-purple-700';
-                       boxColorClass = 'bg-purple-50 border border-purple-200 text-purple-800';
-                     } else if (isLogCompleted) {
-                       circleColorClass = 'border-emerald-400 bg-emerald-50 text-emerald-700 shadow-[0_0_10px_rgba(52,211,153,0.15)]';
-                       titleColorClass = 'text-emerald-700';
-                       boxColorClass = 'bg-emerald-50 border border-emerald-400 text-emerald-800';
-                     } else if (isActive) {
-                       circleColorClass = 'border-primary/40 text-primary shadow-[0_0_10px_rgba(209,53,15,0.1)] bg-white';
-                       titleColorClass = 'text-primary';
-                       boxColorClass = 'bg-primary/5 border border-primary/30 text-primary/90';
-                     }
-                     
+                     if (config.icon === 'Inbox') Icon = Inbox;
+                     else if (config.icon === 'Play') Icon = RefreshCcw;
+                     else if (config.icon === 'CheckCircle2') Icon = CheckCircle2;
+                     else if (config.icon === 'XCircle') Icon = X;
+                     else if (config.icon === 'AlertTriangle') Icon = AlertTriangle;
+                     else if (log.status === 'transfer') Icon = ArrowRightLeft;
+
                      return (
-                       <div key={log.id} className="relative pl-10">
-                         {/* Circle Icon Indicator */}
-                         <div className={`absolute -left-[16px] top-0 w-8 h-8 rounded-full border flex items-center justify-center ${circleColorClass}`}>
-                            <Icon className={`w-3.5 h-3.5 ${isActive && log.new_status === 'in_progress' ? 'animate-spin-slow' : ''}`} />
+                       <div key={log.key || log.status} className="relative pl-10">
+                         {/* Circle Icon Indicator styled with System Design System */}
+                         <div className={`absolute -left-[16px] top-0 w-8 h-8 rounded-full border-2 flex items-center justify-center ${config.bgClass} ${config.colorClass} ${config.borderClass}`}>
+                            <Icon className={`w-3.5 h-3.5 ${isActive && log.status === 'in_progress' ? 'animate-spin-slow' : ''}`} />
                          </div>
                          
                          <div className="flex flex-col pt-1">
-                            <h4 className={`text-[14px] font-bold mb-2 ${titleColorClass}`}>
-                              {statusInfo.label}
+                            <h4 className={`text-[14px] font-bold mb-1.5 ${config.colorClass}`}>
+                              {log.label}
                             </h4>
                             
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 text-[11px] text-slate-400 font-medium mb-3">
-                               <span className="flex items-center gap-1.5">
-                                 <Clock className="w-3.5 h-3.5 shrink-0" />
-                                 <span className="truncate">{formatDate(log.created_at)}</span>
-                               </span>
-                               <span className="flex items-start sm:items-center gap-1.5">
-                                 <User className="w-3.5 h-3.5 shrink-0 mt-0.5 sm:mt-0" />
-                                 <span className="break-words line-clamp-2">{staffName}</span>
-                               </span>
+                            <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-medium mb-2">
+                              <Clock className="w-3.5 h-3.5 shrink-0" />
+                              <span>{formatDate(log.created_at)}</span>
                             </div>
                             
-                            <div className={`rounded-xl p-4 text-[13px] leading-relaxed ${boxColorClass}`}>
-                               {log.remark || <span className="italic opacity-70">ไม่มีหมายเหตุเพิ่มเติม</span>}
-                            </div>
+                            {log.remark && (
+                              <div className={`rounded-xl p-3.5 text-[13px] leading-relaxed border ${config.bgClass} ${config.colorClass} ${config.borderClass}`}>
+                                {log.remark}
+                              </div>
+                            )}
                          </div>
                        </div>
                      );

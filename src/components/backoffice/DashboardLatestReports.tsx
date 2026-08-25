@@ -57,17 +57,17 @@ export const DashboardLatestReports: React.FC = React.memo(() => {
             </p>
           </div>
         ) : (
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse min-w-[850px]">
             <thead>
               <tr className="bg-slate-50/50 dark:bg-slate-800/30 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 border-b border-slate-100/50 dark:border-slate-800/40">
-                <th className="py-4 px-6 font-semibold first:rounded-l-xl">เลขที่อ้างอิง</th>
-                <th className="py-4 px-4">หมวดหมู่</th>
-                <th className="py-4 px-4 w-[250px]">หัวข้อ</th>
-                <th className="py-4 px-4">ผู้แจ้ง</th>
-                <th className="py-4 px-4">หน่วยงาน</th>
-                <th className="py-4 px-4">วันที่แจ้ง</th>
-                <th className="py-4 px-4 text-center">สถานะ</th>
-                <th className="py-4 px-6 text-center last:rounded-r-xl">จัดการ</th>
+                <th className="py-4 px-6 font-semibold first:rounded-l-xl whitespace-nowrap">เลขที่อ้างอิง</th>
+                <th className="py-4 px-4 whitespace-nowrap">หมวดหมู่</th>
+                <th className="py-4 px-4 w-[250px] whitespace-nowrap">หัวข้อ</th>
+                <th className="py-4 px-4 whitespace-nowrap">ผู้แจ้ง</th>
+                <th className="py-4 px-4 whitespace-nowrap">หน่วยงาน</th>
+                <th className="py-4 px-4 whitespace-nowrap">วันที่แจ้ง</th>
+                <th className="py-4 px-4 text-center whitespace-nowrap">สถานะ</th>
+                <th className="py-4 px-6 text-center last:rounded-r-xl whitespace-nowrap">จัดการ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50 dark:divide-slate-800/40 text-xs">
@@ -78,60 +78,76 @@ export const DashboardLatestReports: React.FC = React.memo(() => {
                     key={report.id} 
                     className="hover:bg-slate-50/40 dark:hover:bg-slate-800/10 transition-colors group"
                   >
-                    <td className="py-4 px-6 font-mono font-bold text-slate-800 dark:text-slate-200">
+                    <td className="py-4 px-6 font-mono font-bold text-slate-800 dark:text-slate-200 whitespace-nowrap">
                       {report.public_id}
                     </td>
-                    <td className="py-4 px-4">
-                      <div className="flex flex-col gap-1">
-                        <span className="font-semibold text-slate-700 dark:text-slate-300">
+                    <td className="py-4 px-4 max-w-[180px]">
+                      <div className="flex flex-col gap-0.5">
+                        <span 
+                          className="font-semibold text-slate-700 dark:text-slate-300 truncate block"
+                          title={report.categories?.name_th || "-"}
+                        >
                           {report.categories?.name_th || "-"}
                         </span>
-                        <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+                        <span 
+                          className="text-[10px] text-slate-400 dark:text-slate-500 font-medium truncate block"
+                          title={report.subcategories?.name_th || "-"}
+                        >
                           {report.subcategories?.name_th || "-"}
                         </span>
                       </div>
                     </td>
                     <td className="py-4 px-4 max-w-xs">
-                      <div className="flex flex-col gap-1.5">
-                        <span className="font-semibold text-slate-700 dark:text-slate-200 truncate block max-w-[200px]">
+                      <div className="flex flex-col gap-0.5">
+                        <span 
+                          className="font-semibold text-slate-800 dark:text-slate-200 truncate block max-w-[220px]"
+                          title={report.title || report.description}
+                        >
                           {report.title || report.description}
                         </span>
                         {(report.location || report.room_number) && (
-                          <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate block max-w-[220px]">
+                          <span 
+                            className="text-[10px] font-medium text-slate-400 dark:text-slate-500 truncate block max-w-[220px]"
+                            title={report.location || report.room_number}
+                          >
                             {report.location || report.room_number}
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="py-4 px-4">
+                    <td className="py-4 px-4 max-w-[150px]">
                       <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 text-[10px] font-bold uppercase">
+                        <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 text-[10px] font-bold uppercase shrink-0">
                           {(report.users?.first_name || report.reporter_name || "U").charAt(0)}
                         </div>
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-slate-700 dark:text-slate-300">
-                            {report.users ? `${report.users.first_name} ${report.users.last_name}` : (report.reporter_name || "ไม่ระบุชื่อ")}
-                          </span>
-                        </div>
+                        <span 
+                          className="font-semibold text-slate-700 dark:text-slate-300 truncate block max-w-[120px]"
+                          title={report.users ? `${report.users.first_name} ${report.users.last_name}` : (report.reporter_name || "ไม่ระบุชื่อ")}
+                        >
+                          {report.users ? `${report.users.first_name} ${report.users.last_name}` : (report.reporter_name || "ไม่ระบุชื่อ")}
+                        </span>
                       </div>
                     </td>
-                    <td className="py-4 px-4">
-                      <span className="text-slate-700 dark:text-slate-300 font-medium truncate max-w-[150px] inline-block">
+                    <td className="py-4 px-4 max-w-[160px]">
+                      <span 
+                        className="text-slate-700 dark:text-slate-300 font-medium truncate block max-w-[140px]"
+                        title={report.categories?.departments?.name_th || "ไม่ระบุหน่วยงาน"}
+                      >
                         {report.categories?.departments?.name_th || "ไม่ระบุหน่วยงาน"}
                       </span>
                     </td>
                     <td className="py-4 px-4 text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">
                       {formatThaiDate(report.created_at)}
                     </td>
-                    <td className="py-4 px-4 text-center">
+                    <td className="py-4 px-4 text-center whitespace-nowrap">
                       <StatusBadge status={report.status} className="px-3 py-1 text-[11px] font-semibold shadow-sm" />
                     </td>
-                    <td className="py-4 px-6 text-center">
+                    <td className="py-4 px-6 text-center whitespace-nowrap">
                       <button
                         onClick={() => router.push(`/backoffice/reports/${report.public_id}`)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-750 dark:text-slate-300 dark:hover:text-slate-100 rounded-xl font-bold transition-all cursor-pointer text-xs"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-750 dark:text-slate-300 dark:hover:text-slate-100 rounded-xl font-bold transition-all cursor-pointer text-xs whitespace-nowrap"
                       >
-                        <Eye className="w-3.5 h-3.5" />
+                        <Eye className="w-3.5 h-3.5 shrink-0" />
                         <span>ดูรายละเอียด</span>
                       </button>
                     </td>

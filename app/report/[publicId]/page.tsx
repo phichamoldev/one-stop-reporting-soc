@@ -9,7 +9,7 @@ import { AppCard } from "@/components/design-system/AppCard";
 import { StatusBadge } from "@/components/design-system/StatusBadge";
 import { AppButton } from "@/components/design-system/AppButton";
 import { supabase } from "@/lib/supabase";
-import { Report, STATUS_DETAILS, getStatusLabel } from "@/types/report";
+import { Report, ReportStatus, STATUS_DETAILS, getStatusLabel } from "@/types/report";
 import { GlobalFooter } from "@/components/shared/GlobalFooter";
 import { usePublicStaffAuth } from "@/hooks/usePublicStaffAuth";
 import { getRoleDisplayName } from "@/lib/role-config";
@@ -32,7 +32,9 @@ import {
   Maximize2,
   X,
   LogOut,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Inbox,
+  AlertTriangle
 } from "lucide-react";
 
 
@@ -1021,46 +1023,44 @@ const [mounted, setMounted] = useState(false);
                     <p className="text-[13px] text-slate-400 pl-8">ยังไม่มีประวัติการดำเนินงาน</p>
                   ) : sortedLogs.map((log, idx) => {
                     const isActive = idx === 0;
-                    const statusInfo = log.action === 'transfer' ? { label: "โอนคำร้อง" } : (STATUS_DETAILS[log.new_status] || { label: getStatusLabel(log.new_status) });
+                    const config = log.action === 'transfer' 
+                      ? {
+                          label: 'โอนคำร้อง',
+                          colorClass: 'text-purple-700 dark:text-purple-400',
+                          bgClass: 'bg-purple-50 dark:bg-purple-950/20',
+                          borderClass: 'border-purple-200 dark:border-purple-900/50',
+                          dotClass: 'bg-purple-500',
+                          icon: 'ArrowRightLeft'
+                        }
+                      : STATUS_DETAILS[log.new_status as ReportStatus] || STATUS_DETAILS.pending;
+
+                    const statusLabel = log.action === 'transfer' 
+                      ? 'โอนคำร้อง' 
+                      : log.action === 'created' 
+                      ? 'ส่งเรื่องเข้าระบบ' 
+                      : (config?.label || getStatusLabel(log.new_status));
+
                     // Use the actual staff full_name if available
                     const staffName = log.staff_users?.full_name || "ระบบ";
 
                     let Icon = Clock;
-                    if (log.new_status === 'in_progress') Icon = RefreshCcw;
-                    if (log.new_status === 'completed') Icon = CheckCircle2;
-                    if (log.action === 'transfer') Icon = ArrowRightLeft;
-
-                    const isLogCompleted = log.new_status === 'completed';
-                    const isTransfer = log.action === 'transfer';
-
-                    let circleColorClass = 'border-slate-200 text-slate-400 bg-white';
-                    let titleColorClass = 'text-slate-600';
-                    let boxColorClass = 'bg-slate-50 text-slate-600 border border-transparent';
-
-                    if (isTransfer) {
-                      circleColorClass = 'border-purple-400 bg-purple-50 text-purple-600 shadow-[0_0_10px_rgba(168,85,247,0.15)]';
-                      titleColorClass = 'text-purple-700';
-                      boxColorClass = 'bg-purple-50 border border-purple-200 text-purple-800';
-                    } else if (isLogCompleted) {
-                      circleColorClass = 'border-emerald-400 bg-emerald-50 text-emerald-700 shadow-[0_0_10px_rgba(52,211,153,0.15)]';
-                      titleColorClass = 'text-emerald-700';
-                      boxColorClass = 'bg-emerald-50 border border-emerald-400 text-emerald-800';
-                    } else if (isActive) {
-                      circleColorClass = 'border-primary/40 text-primary shadow-[0_0_10px_rgba(209,53,15,0.1)] bg-white';
-                      titleColorClass = 'text-primary';
-                      boxColorClass = 'bg-primary/5 border border-primary/30 text-primary/90';
-                    }
+                    if (config.icon === 'Inbox') Icon = Inbox;
+                    else if (config.icon === 'Play') Icon = RefreshCcw;
+                    else if (config.icon === 'CheckCircle2') Icon = CheckCircle2;
+                    else if (config.icon === 'XCircle') Icon = X;
+                    else if (config.icon === 'AlertTriangle') Icon = AlertTriangle;
+                    else if (log.action === 'transfer') Icon = ArrowRightLeft;
 
                     return (
                       <div key={log.id} className="relative pl-10">
-                        {/* Circle Icon Indicator */}
-                        <div className={`absolute -left-[16px] top-0 w-8 h-8 rounded-full border flex items-center justify-center ${circleColorClass}`}>
+                        {/* Circle Icon Indicator styled with System Design System */}
+                        <div className={`absolute -left-[16px] top-0 w-8 h-8 rounded-full border-2 flex items-center justify-center ${config.bgClass} ${config.colorClass} ${config.borderClass}`}>
                           <Icon className={`w-3.5 h-3.5 ${isActive && log.new_status === 'in_progress' ? 'animate-spin-slow' : ''}`} />
                         </div>
 
                         <div className="flex flex-col pt-1">
-                          <h4 className={`text-[14px] font-bold mb-2 ${titleColorClass}`}>
-                            {statusInfo.label}
+                          <h4 className={`text-[14px] font-bold mb-2 ${config.colorClass}`}>
+                            {statusLabel}
                           </h4>
 
                           <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 text-[11px] text-slate-400 font-medium mb-3">
@@ -1074,9 +1074,15 @@ const [mounted, setMounted] = useState(false);
                             </span>
                           </div>
 
-                          <div className={`rounded-xl p-4 text-[13px] leading-relaxed ${boxColorClass}`}>
-                            {log.remark || <span className="italic opacity-70">ไม่มีหมายเหตุเพิ่มเติม</span>}
-                          </div>
+                          {log.remark ? (
+                            <div className={`rounded-xl p-4 text-[13px] leading-relaxed border ${config.bgClass} ${config.colorClass} ${config.borderClass}`}>
+                              {log.remark}
+                            </div>
+                          ) : (
+                            <div className="rounded-xl p-4 text-[13px] leading-relaxed bg-slate-50 text-slate-400 border border-slate-100">
+                              <span className="italic opacity-70">ไม่มีหมายเหตุเพิ่มเติม</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     );

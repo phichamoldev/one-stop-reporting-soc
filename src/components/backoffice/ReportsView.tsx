@@ -9,6 +9,10 @@ import {
   ChevronRight, 
   Download, 
   Inbox, 
+  Clock,
+  Play,
+  CheckCircle2,
+  XCircle,
   Eye
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -146,6 +150,34 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ reports, filterOptions
     return <StatusBadge status={status as any} />;
   };
 
+  // Summary Counts Calculation from filtered sorted reports
+  const summaryCounts = React.useMemo(() => {
+    let pending = 0;
+    let inProgress = 0;
+    let completed = 0;
+    let rejected = 0;
+
+    for (const r of sortedReports) {
+      if (r.status === 'pending' || r.status === 'received') {
+        pending++;
+      } else if (r.status === 'in_progress') {
+        inProgress++;
+      } else if (r.status === 'completed') {
+        completed++;
+      } else if (r.status === 'rejected' || r.status === 'cancelled') {
+        rejected++;
+      }
+    }
+
+    return {
+      total: sortedReports.length,
+      pending,
+      inProgress,
+      completed,
+      rejected
+    };
+  }, [sortedReports]);
+
   // Loading handled by parent
 
   return (
@@ -159,6 +191,74 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ reports, filterOptions
           <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
             สืบค้น ตรวจสอบรายละเอียด คัดกรอง
           </p>
+        </div>
+      </div>
+
+      {/* Summary Cards: 5 Status Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 sm:gap-5">
+        {/* Card 1: Total */}
+        <div className="bg-white dark:bg-slate-900 rounded-[20px] p-5 border border-slate-100 dark:border-slate-800/60 card-shadow transition-all hover:translate-y-[-2px] border-l-4 border-l-slate-800 dark:border-l-slate-400">
+          <div className="flex justify-between items-start">
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-bold mb-1">คำร้องทั้งหมด</p>
+            <div className="p-1.5 bg-slate-50 dark:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-400">
+              <Inbox className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <h3 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{summaryCounts.total}</h3>
+          </div>
+        </div>
+
+        {/* Card 2: Pending / Received */}
+        <div className={`bg-white dark:bg-slate-900 rounded-[20px] p-5 border border-slate-100 dark:border-slate-800/60 card-shadow transition-all hover:translate-y-[-2px] border-l-4 ${STATUS_DETAILS.pending.borderLeftClass}`}>
+          <div className="flex justify-between items-start">
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-bold mb-1">{STATUS_DETAILS.pending.label}</p>
+            <div className={`p-1.5 ${STATUS_DETAILS.pending.bgClass} rounded-lg ${STATUS_DETAILS.pending.colorClass}`}>
+              <Clock className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <h3 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{summaryCounts.pending}</h3>
+          </div>
+        </div>
+
+        {/* Card 3: In Progress */}
+        <div className={`bg-white dark:bg-slate-900 rounded-[20px] p-5 border border-slate-100 dark:border-slate-800/60 card-shadow transition-all hover:translate-y-[-2px] border-l-4 ${STATUS_DETAILS.in_progress.borderLeftClass}`}>
+          <div className="flex justify-between items-start">
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-bold mb-1">{STATUS_DETAILS.in_progress.label}</p>
+            <div className={`p-1.5 ${STATUS_DETAILS.in_progress.bgClass} rounded-lg ${STATUS_DETAILS.in_progress.colorClass}`}>
+              <Play className="w-4 h-4 rotate-90" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <h3 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{summaryCounts.inProgress}</h3>
+          </div>
+        </div>
+
+        {/* Card 4: Completed */}
+        <div className={`bg-white dark:bg-slate-900 rounded-[20px] p-5 border border-slate-100 dark:border-slate-800/60 card-shadow transition-all hover:translate-y-[-2px] border-l-4 ${STATUS_DETAILS.completed.borderLeftClass}`}>
+          <div className="flex justify-between items-start">
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-bold mb-1">{STATUS_DETAILS.completed.label}</p>
+            <div className={`p-1.5 ${STATUS_DETAILS.completed.bgClass} rounded-lg ${STATUS_DETAILS.completed.colorClass}`}>
+              <CheckCircle2 className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <h3 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{summaryCounts.completed}</h3>
+          </div>
+        </div>
+
+        {/* Card 5: Unresolvable / Rejected */}
+        <div className={`bg-white dark:bg-slate-900 rounded-[20px] p-5 border border-slate-100 dark:border-slate-800/60 card-shadow transition-all hover:translate-y-[-2px] border-l-4 ${STATUS_DETAILS.rejected.borderLeftClass}`}>
+          <div className="flex justify-between items-start">
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-bold mb-1">{STATUS_DETAILS.rejected.label}</p>
+            <div className={`p-1.5 ${STATUS_DETAILS.rejected.bgClass} rounded-lg ${STATUS_DETAILS.rejected.colorClass}`}>
+              <XCircle className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <h3 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{summaryCounts.rejected}</h3>
+          </div>
         </div>
       </div>
 

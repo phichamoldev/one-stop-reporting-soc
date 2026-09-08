@@ -17,11 +17,11 @@ const DashboardContext = createContext<DashboardContextType | undefined>(undefin
 
 export const DashboardProvider = ({ 
   children, 
-  dateRange,
+  dateRange = "30days",
   department
 }: { 
   children: React.ReactNode; 
-  dateRange: string;
+  dateRange?: string;
   department?: string;
 }) => {
   const { user, profile } = useStaffAuth();

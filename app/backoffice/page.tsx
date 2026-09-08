@@ -44,7 +44,7 @@ const ReportsSkeleton = () => (
 
 export default function BackofficeDashboard() {
   const { profile } = useStaffAuth();
-  const [dateRange, setDateRange] = useState("7days");
+  const [dateRange, setDateRange] = useState("30days");
   const [selectedDepartment, setSelectedDepartment] = useState("all");
   const [mounted, setMounted] = useState(false);
 
@@ -66,10 +66,17 @@ export default function BackofficeDashboard() {
             </p>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
-            <Suspense fallback={<div className="w-[180px] h-10 bg-slate-100 dark:bg-slate-800 animate-pulse rounded-2xl"></div>}>
+            <Suspense fallback={
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <div className="w-full sm:w-[180px] h-10 bg-slate-100 dark:bg-slate-800 animate-pulse rounded-2xl"></div>
+                <div className="w-full sm:w-[150px] h-10 bg-slate-100 dark:bg-slate-800 animate-pulse rounded-2xl"></div>
+              </div>
+            }>
               <DashboardHeaderControls 
                 selectedDepartment={selectedDepartment} 
                 setSelectedDepartment={setSelectedDepartment} 
+                dateRange={dateRange}
+                setDateRange={setDateRange}
               />
             </Suspense>
             <div className="flex items-center gap-2 text-xs font-semibold bg-white dark:bg-slate-900 px-4 py-2.5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm text-slate-500 dark:text-slate-400 h-10">

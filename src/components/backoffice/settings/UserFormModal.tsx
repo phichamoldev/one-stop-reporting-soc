@@ -253,6 +253,7 @@ export function UserFormModal({ isOpen, onClose, user, departments, onSuccess }:
                     { label: getRoleDisplayName("admin"), value: "admin" },
                     { label: getRoleDisplayName("super_admin"), value: "super_admin" },
                   ]}
+                  mobileUX={true}
                 />
                 <p className="mt-2 text-[11px] text-slate-500">
                   * Role ในระบบใช้สำหรับกำหนดสิทธิ์การใช้งาน ไม่ใช่ตำแหน่งงานตามโครงสร้างองค์กร
@@ -310,6 +311,7 @@ export function UserFormModal({ isOpen, onClose, user, departments, onSuccess }:
                     onChange={(val) => setFormData({ ...formData, department_id: val as string })}
                     options={deptOptions}
                     placeholder="— ไม่ระบุ —"
+                    mobileUX={true}
                   />
                 )}
               </div>
@@ -331,6 +333,7 @@ export function UserFormModal({ isOpen, onClose, user, departments, onSuccess }:
                     { label: "เปิดใช้งาน (Active)", value: "active" },
                     { label: "ระงับการใช้งาน (Disabled)", value: "disabled" },
                   ]}
+                  mobileUX={true}
                 />
               </div>
             </div>

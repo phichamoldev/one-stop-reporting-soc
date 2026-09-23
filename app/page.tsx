@@ -527,6 +527,7 @@ export default function Home() {
                       }}
                       placeholder="เลือกหมวดหมู่หลัก"
                       error={!!formErrors.categoryId}
+                      mobileUX={true}
                     />
                     {formErrors.categoryId && (
                       <p className="text-xs text-rose-500 font-medium mt-2">{formErrors.categoryId}</p>
@@ -552,6 +553,7 @@ export default function Home() {
                       placeholder="เลือกหมวดหมู่ย่อย"
                       disabled={!categoryId || subcategories.length === 0}
                       error={!!formErrors.subcategoryId}
+                      mobileUX={true}
                     />
                     {formErrors.subcategoryId && (
                       <p className="text-xs text-rose-500 font-medium mt-2">{formErrors.subcategoryId}</p>

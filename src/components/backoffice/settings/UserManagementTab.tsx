@@ -171,6 +171,7 @@ export default function UserManagementTab() {
                   { label: getRoleDisplayName("manager"), value: "manager" },
                   { label: getRoleDisplayName("staff"), value: "staff" },
                 ]}
+                mobileUX={true}
               />
             </div>
             {/* Search Box */}

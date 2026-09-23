@@ -17,6 +17,7 @@ export interface AppSelectProps {
   className?: string;
   disabled?: boolean;
   error?: boolean;
+  mobileUX?: boolean; // Added for new mobile behavior without affecting legacy usages
 }
 
 export const AppSelect: React.FC<AppSelectProps> = ({
@@ -26,7 +27,8 @@ export const AppSelect: React.FC<AppSelectProps> = ({
   placeholder = "Select...",
   className = "",
   disabled = false,
-  error = false
+  error = false,
+  mobileUX = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -59,7 +61,18 @@ export const AppSelect: React.FC<AppSelectProps> = ({
   };
 
   useEffect(() => {
-    const handleScroll = () => {
+    const handleScroll = (e: Event) => {
+      // If mobileUX is true, don't close the dropdown when scrolling.
+      // Exception: we might want to close it if the user scrolls the window heavily, 
+      // but the requirement says "scroll ต้องไม่ทำให้ Dropdown ปิด" (scroll must not close dropdown).
+      if (mobileUX) {
+        // We only update position so it stays attached, or we could just do nothing 
+        // if the container is fixed. But since it's absolute/fixed position, 
+        // scrolling the background might detach it from the input.
+        // Actually, if mobileUX is true, we skip closing on scroll.
+        updatePosition();
+        return;
+      }
       setIsOpen(false);
     };
 
@@ -71,10 +84,10 @@ export const AppSelect: React.FC<AppSelectProps> = ({
       window.removeEventListener("scroll", handleScroll, true);
       window.removeEventListener("resize", updatePosition);
     };
-  }, [isOpen, updatePosition]);
+  }, [isOpen, updatePosition, mobileUX]);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       const target = event.target as Node;
       if (
         containerRef.current &&
@@ -87,11 +100,17 @@ export const AppSelect: React.FC<AppSelectProps> = ({
 
     if (isOpen) {
       document.addEventListener("mousedown", handleClickOutside);
+      if (mobileUX) {
+        document.addEventListener("touchstart", handleClickOutside, { passive: true });
+      }
     }
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+      if (mobileUX) {
+        document.removeEventListener("touchstart", handleClickOutside);
+      }
     };
-  }, [isOpen]);
+  }, [isOpen, mobileUX]);
 
   return (
     <div className={`relative ${className} ${isOpen ? 'z-[9999]' : ''}`} ref={containerRef}>
@@ -115,7 +134,11 @@ export const AppSelect: React.FC<AppSelectProps> = ({
         <div
           ref={popupRef}
           className="fixed z-[99999] mt-2 bg-white dark:bg-slate-900 rounded-[16px] shadow-[0_16px_40px_-12px_rgba(0,0,0,0.15)] ring-1 ring-black/5 dark:ring-white/10 p-2.5 animate-in fade-in zoom-in-95 duration-150"
-          style={{ top: coords.top, left: coords.left, width: coords.width }}
+          style={{ 
+            top: coords.top, 
+            left: coords.left, 
+            width: coords.width
+          }}
         >
           <div className="flex flex-col gap-1.5 p-1">
             {options.map((option) => {
@@ -145,3 +168,4 @@ export const AppSelect: React.FC<AppSelectProps> = ({
     </div>
   );
 };
+

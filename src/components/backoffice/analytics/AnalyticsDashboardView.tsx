@@ -122,6 +122,7 @@ export const AnalyticsDashboardView: React.FC<AnalyticsDashboardViewProps> = ({ 
                 { label: "1 ปีล่าสุด", value: "year" },
                 { label: "ทั้งหมด", value: "all" },
               ]}
+              mobileUX={true}
             />
           </div>
           <div className="w-[160px]">
@@ -136,6 +137,7 @@ export const AnalyticsDashboardView: React.FC<AnalyticsDashboardViewProps> = ({ 
                 { label: STATUS_DETAILS.rejected.label, value: "rejected" },
                 { label: STATUS_DETAILS.cancelled.label, value: "cancelled" },
               ]}
+              mobileUX={true}
             />
           </div>
           {data?.filterOptions?.departments && data.filterOptions.departments.length > 0 && (
@@ -154,6 +156,7 @@ export const AnalyticsDashboardView: React.FC<AnalyticsDashboardViewProps> = ({ 
                     value: d.id.toString()
                   }))
                 ]}
+                mobileUX={true}
               />
             </div>
           )}

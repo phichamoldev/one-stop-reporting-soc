@@ -258,6 +258,7 @@ export default function StaffDashboardView() {
                   { label: "มีการดำเนินการ", value: "hasWork" },
                   { label: "ไม่มีการดำเนินการ", value: "noWork" }
                 ]}
+                mobileUX={true}
               />
             </div>
             <div className="w-[180px]">
@@ -268,6 +269,7 @@ export default function StaffDashboardView() {
                   { label: "ทุกหน่วยงาน", value: "all" },
                   ...departments.map((dept: any) => ({ label: dept, value: dept }))
                 ]}
+                mobileUX={true}
               />
             </div>
             <div className="relative">

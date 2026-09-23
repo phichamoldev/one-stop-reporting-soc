@@ -46,6 +46,7 @@ export const DashboardHeaderControls: React.FC<{
               { label: "ดูหน่วยงานทั้งหมด", value: "all" },
               ...departments.map((d: string) => ({ label: d, value: d }))
             ]}
+            mobileUX={true}
           />
         </div>
       )}
@@ -56,6 +57,7 @@ export const DashboardHeaderControls: React.FC<{
           value={dateRange}
           onChange={(val) => setDateRange(val as string)}
           options={DATE_RANGE_OPTIONS}
+          mobileUX={true}
         />
       </div>
     </div>

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppContainer } from "@/components/design-system/AppContainer";
 import { AppNavbar } from "@/components/shared/AppNavbar";
+import { PageShell } from "@/components/shared/PageShell";
 import { AppCard } from "@/components/design-system/AppCard";
 import { AppButton } from "@/components/design-system/AppButton";
 import { StatusBadge } from "@/components/design-system/StatusBadge";
@@ -116,11 +117,11 @@ export default function TrackLookupPage() {
     <AppContainer>
       <AppNavbar />
 
-      <main className="flex-1 flex flex-col p-5 sm:p-6 space-y-6 overflow-y-auto bg-slate-50 dark:bg-slate-950">
+      <PageShell className="space-y-6">
         
         {/* === STATE 1: SEARCH FORM === */}
         {pageState === "form" && (
-          <div className="space-y-6 animate-fade-in">
+          <div className="space-y-6 animate-fade-in max-w-2xl mx-auto w-full min-w-0">
             {/* Header Section */}
             <div className="text-center space-y-2.5 pt-4 sm:pt-6 pb-1">
               <h1 className="text-[18px] sm:text-[20px] font-extrabold text-slate-900 dark:text-white">
@@ -231,7 +232,7 @@ export default function TrackLookupPage() {
 
         {/* === STATE 2: RESULTS FOUND === */}
         {pageState === "results" && (
-          <div className="space-y-4 animate-fade-in">
+          <div className="space-y-4 animate-fade-in max-w-4xl mx-auto w-full min-w-0">
             {/* Header with Title & Back Button */}
             <div className="flex items-center justify-between pb-1">
               <div>
@@ -286,7 +287,7 @@ export default function TrackLookupPage() {
 
         {/* === STATE 3: EMPTY STATE (NO RESULTS) === */}
         {pageState === "empty" && (
-          <div className="space-y-6 animate-fade-in pt-4">
+          <div className="space-y-6 animate-fade-in pt-4 max-w-2xl mx-auto w-full min-w-0">
             <AppCard className="text-center py-10 px-6 sm:py-12 sm:px-8 space-y-4">
               <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-500">
                 <SearchX className="w-7 h-7 sm:w-8 sm:h-8 stroke-[1.5]" />
@@ -319,7 +320,7 @@ export default function TrackLookupPage() {
         <div className="mt-auto pt-6">
           <GlobalFooter />
         </div>
-      </main>
+      </PageShell>
     </AppContainer>
   );
 }

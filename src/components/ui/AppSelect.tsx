@@ -18,6 +18,8 @@ export interface AppSelectProps {
   disabled?: boolean;
   error?: boolean;
   mobileUX?: boolean; // Added for new mobile behavior without affecting legacy usages
+  id?: string;
+  buttonClassName?: string;
 }
 
 export const AppSelect: React.FC<AppSelectProps> = ({
@@ -29,6 +31,8 @@ export const AppSelect: React.FC<AppSelectProps> = ({
   disabled = false,
   error = false,
   mobileUX = false,
+  id,
+  buttonClassName = "",
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -116,9 +120,10 @@ export const AppSelect: React.FC<AppSelectProps> = ({
     <div className={`relative ${className} ${isOpen ? 'z-[9999]' : ''}`} ref={containerRef}>
       <button
         type="button"
+        id={id}
         disabled={disabled}
         onClick={handleToggle}
-        className={`w-full h-[44px] px-4 bg-white dark:bg-slate-900 border ${error ? 'border-rose-500' : 'border-[#E5E7EB] dark:border-slate-700/80'} rounded-[12px] flex items-center justify-between transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#D1350F] focus:border-transparent ${
+        className={`w-full ${buttonClassName || 'h-[44px] rounded-[12px]'} px-4 bg-white dark:bg-slate-900 border ${error ? 'border-rose-500' : 'border-[#E5E7EB] dark:border-slate-700/80'} ${buttonClassName && buttonClassName.includes('rounded') ? '' : 'rounded-[12px]'} flex items-center justify-between transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#D1350F] focus:border-transparent ${
           disabled 
             ? "opacity-50 cursor-not-allowed bg-slate-50 dark:bg-slate-800/50" 
             : "hover:bg-[#F8FAFC] dark:hover:bg-slate-800/50 cursor-pointer"

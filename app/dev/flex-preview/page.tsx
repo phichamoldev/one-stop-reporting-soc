@@ -25,7 +25,7 @@ export default function FlexPreviewPage() {
           <div className="flex-1 flex items-center">
             <span className="text-2xl mr-4 leading-none pb-1 font-light">&lsaquo;</span>
             <div className="flex flex-col">
-              <span className="font-semibold text-sm">ONE STOP SERVICE</span>
+              <span className="font-semibold text-sm">SOC STATION</span>
             </div>
           </div>
           <div className="flex space-x-4 text-xl">
@@ -47,7 +47,7 @@ export default function FlexPreviewPage() {
               <img src="/images/notification.svg" alt="bot" className="w-5 h-5 opacity-80" />
             </div>
             <div className="flex flex-col max-w-[calc(100%-3rem)]">
-              <span className="text-xs text-white/90 mb-1 ml-1 text-shadow-sm font-medium">ONE STOP SERVICE</span>
+              <span className="text-xs text-white/90 mb-1 ml-1 text-shadow-sm font-medium">SOC STATION</span>
               <div className="flex items-end">
                 <LineFlexPreview data={mockData} />
                 <span className="text-[10px] text-white/80 ml-2 mb-1 whitespace-nowrap">16:14</span>

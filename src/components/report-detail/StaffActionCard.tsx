@@ -2,8 +2,8 @@
 
 import React, { useRef, useState, useEffect } from "react";
 import { Report } from "@/types/report";
-import { ImageIcon, Lock, Check, ChevronDown } from "lucide-react";
-import { DetailCard } from "./ReportDetailBlocks";
+import { ImageIcon, Lock, Check, ChevronDown, FileText, Maximize2, Trash2, RefreshCw } from "lucide-react";
+import { DetailCard, formatThaiDateTime, getLatestStaffActionData } from "./ReportDetailBlocks";
 
 export interface StatusMeta {
   label: string;
@@ -221,6 +221,8 @@ export interface StaffActionCardProps {
   setCompletionImage: (file: File | null) => void;
   completionImagePreview: string | null;
   setCompletionImagePreview: (url: string | null) => void;
+  isImageRemoved?: boolean;
+  setIsImageRemoved?: (removed: boolean) => void;
   departments: { id: number; name_th: string }[];
   updateDepartmentId: number | "";
   setUpdateDepartmentId: (id: number | "") => void;
@@ -228,6 +230,8 @@ export interface StaffActionCardProps {
   saveMessage: { type: "success" | "error"; text: string } | null;
   onSave: () => Promise<void>;
   onCancel: () => void;
+  onStartEdit?: () => void;
+  onImageClick?: (url: string) => void;
   loginEmail: string;
   setLoginEmail: (email: string) => void;
   loginPassword: string;
@@ -251,6 +255,7 @@ export function StaffActionCard({
   setCompletionImage,
   completionImagePreview,
   setCompletionImagePreview,
+  setIsImageRemoved,
   departments,
   updateDepartmentId,
   setUpdateDepartmentId,
@@ -258,6 +263,8 @@ export function StaffActionCard({
   saveMessage,
   onSave,
   onCancel,
+  onStartEdit,
+  onImageClick,
   loginEmail,
   setLoginEmail,
   loginPassword,
@@ -268,6 +275,8 @@ export function StaffActionCard({
   isEditMode,
 }: StaffActionCardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const staffData = getLatestStaffActionData(report);
+  const currentStatusMeta = STATUS_META_MAP[report.status] || STATUS_META_MAP.pending;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -278,28 +287,37 @@ export function StaffActionCard({
       }
       setCompletionImage(file);
       setCompletionImagePreview(URL.createObjectURL(file));
+      setIsImageRemoved?.(false);
     }
   };
 
   const removeImage = () => {
     setCompletionImage(null);
     setCompletionImagePreview(null);
+    setIsImageRemoved?.(true);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
 
-  const isStatusChanged = updateStatus !== report.status;
-  const showImageUpload = updateStatus === "completed" || (!isStatusChanged && report.status === "completed");
-
   return (
     <DetailCard
       title="การดำเนินการ"
+      accent="blue"
       right={
-        isStaffActive && isEditMode ? (
-          <span className="text-[12px] font-semibold text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-100">
-            กำลังแก้ไข
-          </span>
+        isStaffActive && canManage ? (
+          isEditMode ? (
+            <span className="text-[12px] font-semibold text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-100">
+              กำลังแก้ไข
+            </span>
+          ) : (
+            <span
+              className={`inline-flex items-center gap-1.5 text-[12px] font-bold px-2.5 py-0.5 rounded-full border ${currentStatusMeta.badgeClass}`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${currentStatusMeta.dotClass}`} />
+              {currentStatusMeta.label}
+            </span>
+          )
         ) : null
       }
     >
@@ -371,8 +389,8 @@ export function StaffActionCard({
             </p>
           </div>
         </div>
-      ) : (
-        /* Staff Action Form */
+      ) : !isEditMode ? (
+        /* === VIEWING STATE (แสดงข้อมูลการดำเนินการที่บันทึกไว้ล่าสุด) === */
         <div className="space-y-4">
           {saveMessage && (
             <div
@@ -386,7 +404,100 @@ export function StaffActionCard({
             </div>
           )}
 
-          {/* Modern Status Selector Dropdown */}
+          {/* 1. หมายเหตุสรุปผล / ข้อความตอบกลับล่าสุด */}
+          <div>
+            <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+              หมายเหตุสรุปผล / ข้อความตอบกลับ
+            </span>
+            {staffData.latestRemark.trim() ? (
+              <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-[14px] text-slate-800 whitespace-pre-wrap break-words [overflow-wrap:anywhere] leading-[1.8]">
+                {staffData.latestRemark}
+              </div>
+            ) : (
+              <div className="p-3.5 rounded-2xl bg-slate-50/70 border border-dashed border-slate-200 text-xs text-slate-400 italic">
+                ยังไม่มีข้อความหมายเหตุสรุปผล
+              </div>
+            )}
+
+            {/* ข้อความกำกับขนาดเล็กใต้ข้อความ เมื่อมีการอัปเดตหมายเหตุหรือรูปภาพเพิ่มเติม (Requirement 9.2) */}
+            {staffData.updateCaption && (
+              <p className="text-[11px] text-slate-400 font-medium mt-1.5">
+                {staffData.updateCaption}
+              </p>
+            )}
+          </div>
+
+          {/* 2. ภาพประกอบการทำงาน (หากเคยแนบไว้) */}
+          {staffData.currentActionImage && (
+            <div>
+              <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                ภาพประกอบการทำงาน
+              </span>
+              <div
+                onClick={() => onImageClick?.(staffData.currentActionImage as string)}
+                className="relative group rounded-xl overflow-hidden border border-slate-200 bg-slate-50 max-h-56 flex items-center justify-center cursor-pointer"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={staffData.currentActionImage}
+                  alt="ภาพประกอบการทำงาน"
+                  className="w-full h-auto max-h-56 object-contain"
+                />
+                <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <span className="inline-flex items-center gap-1.5 bg-black/75 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-md">
+                    <Maximize2 className="w-3.5 h-3.5" />
+                    ขยายภาพขนาดเต็ม
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 3. ข้อมูลผู้ดำเนินการและเวลาสถานะ */}
+          <div className="pt-3 border-t border-slate-100 space-y-1.5 text-xs">
+            <div className="flex items-start justify-between gap-2">
+              <span className="text-slate-400 font-medium">ดำเนินการโดย</span>
+              <div className="text-right">
+                <span className="font-bold text-slate-700 block leading-tight">{staffData.actorName}</span>
+                {staffData.actorPosition && (
+                  <span className="text-[11px] text-slate-400 font-normal block mt-0.5 leading-snug">
+                    {staffData.actorPosition}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-slate-400 font-medium">เวลาสถานะล่าสุด</span>
+              <span className="font-semibold text-slate-600">{formatThaiDateTime(staffData.statusUpdatedAt)}</span>
+            </div>
+          </div>
+
+          {/* 4. ปุ่มแก้ไขเพื่อเข้าสู่ Edit State */}
+          <button
+            type="button"
+            onClick={onStartEdit}
+            className="w-full py-2.5 px-4 rounded-xl bg-[#FFF1E8] hover:bg-[#C2410C] text-[#B4360A] hover:text-white border border-[#F5C4A8] hover:border-[#C2410C] font-bold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+          >
+            <FileText className="w-4 h-4" />
+            <span>แก้ไขข้อมูลการดำเนินการ</span>
+          </button>
+        </div>
+      ) : (
+        /* === EDIT STATE (ฟอร์มแก้ไขและบันทึกข้อมูลแบบ Partial Update) === */
+        <div className="space-y-4">
+          {saveMessage && (
+            <div
+              className={`p-3 rounded-xl text-xs font-medium border ${
+                saveMessage.type === "success"
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  : "bg-rose-50 text-rose-700 border-rose-200"
+              }`}
+            >
+              {saveMessage.text}
+            </div>
+          )}
+
+          {/* 1. Modern Status Selector Dropdown */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-xs font-semibold text-slate-700">
@@ -399,16 +510,12 @@ export function StaffActionCard({
               selectedStatus={updateStatus}
               onChange={(newStatus) => {
                 setUpdateStatus(newStatus);
-                if (newStatus !== "completed" && report.status !== "completed") {
-                  setCompletionImage(null);
-                  setCompletionImagePreview(null);
-                }
               }}
               disabled={isSaving}
               allowTransfer={userRole !== "staff"}
             />
             <p className="text-[11px] text-slate-400 mt-1.5">
-              เลือกสถานะใหม่ หรือคงสถานะเดิมเพื่อบันทึกเฉพาะข้อความตอบกลับ
+              เลือกสถานะใหม่ หรือคงสถานะเดิมเพื่อบันทึกเฉพาะข้อความตอบกลับ/รูปภาพ
             </p>
           </div>
 
@@ -442,60 +549,71 @@ export function StaffActionCard({
             </div>
           )}
 
-          {/* Optional work image (when completed or completing) */}
-          {showImageUpload && (
-            <div className="animate-fade-in">
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                ภาพประกอบการทำงาน (ไม่บังคับ)
-              </label>
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                disabled={isSaving}
-              />
+          {/* 2. ภาพประกอบการทำงาน (ไม่บังคับ) */}
+          <div className="animate-fade-in">
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              ภาพประกอบการทำงาน (ไม่บังคับ)
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              disabled={isSaving}
+            />
 
-              {!completionImagePreview ? (
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isSaving}
-                  className="w-full border border-dashed border-slate-300 rounded-xl py-6 px-4 flex flex-col items-center justify-center gap-1.5 hover:bg-slate-50 transition-colors cursor-pointer group"
+            {!completionImagePreview ? (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isSaving}
+                className="w-full border border-dashed border-slate-300 rounded-xl py-6 px-4 flex flex-col items-center justify-center gap-1.5 hover:bg-slate-50 transition-colors cursor-pointer group"
+              >
+                <ImageIcon className="w-5 h-5 text-slate-400 group-hover:text-slate-600 transition-colors" />
+                <span className="text-xs font-bold text-slate-700">คลิกเพื่ออัปโหลดรูปภาพ</span>
+                <span className="text-[11px] text-slate-400">รองรับ JPG, PNG สูงสุด 5MB</span>
+              </button>
+            ) : (
+              <div className="space-y-2">
+                <div
+                  onClick={() => onImageClick?.(completionImagePreview)}
+                  className="relative group rounded-xl overflow-hidden border border-slate-200 bg-slate-50 max-h-56 flex items-center justify-center cursor-pointer"
                 >
-                  <ImageIcon className="w-5 h-5 text-slate-400 group-hover:text-slate-600 transition-colors" />
-                  <span className="text-xs font-bold text-slate-700">คลิกเพื่ออัปโหลดรูปภาพ</span>
-                  <span className="text-[11px] text-slate-400">รองรับ JPG, PNG สูงสุด 5MB (ไม่บังคับ)</span>
-                </button>
-              ) : (
-                <div className="relative group rounded-xl overflow-hidden border border-slate-200 bg-slate-50 max-h-56 flex items-center justify-center">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={completionImagePreview} alt="Preview" className="w-full h-auto max-h-56 object-contain" />
-                  {!isSaving && (
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="px-3 py-1 bg-white text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 shadow-sm cursor-pointer"
-                      >
-                        เปลี่ยนรูป
-                      </button>
-                      <button
-                        type="button"
-                        onClick={removeImage}
-                        className="px-3 py-1 bg-rose-500 text-white text-xs font-bold rounded-lg hover:bg-rose-600 shadow-sm cursor-pointer"
-                      >
-                        ลบรูป
-                      </button>
-                    </div>
-                  )}
+                  <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <span className="inline-flex items-center gap-1 bg-black/75 text-white text-[11px] font-bold px-2.5 py-1 rounded-full">
+                      <Maximize2 className="w-3 h-3" /> ขยายภาพ
+                    </span>
+                  </div>
                 </div>
-              )}
-            </div>
-          )}
 
-          {/* Remark / Reply notes with enhanced height and readability */}
+                {!isSaving && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex-1 py-1.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>เปลี่ยนรูปภาพ</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={removeImage}
+                      className="py-1.5 px-3 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>ลบรูปภาพ</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* 3. หมายเหตุสรุปผล / ข้อความตอบกลับ */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label htmlFor="staff-remark-text" className="block text-xs font-semibold text-slate-700">
@@ -514,13 +632,13 @@ export function StaffActionCard({
             />
           </div>
 
-          {/* Action buttons */}
+          {/* 4. Action buttons */}
           <div className="pt-2 flex items-center gap-3">
             <button
               type="button"
               onClick={onCancel}
               disabled={isSaving}
-              className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-50 transition-colors cursor-pointer text-center"
+              className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-50 transition-colors cursor-pointer text-center disabled:opacity-50"
             >
               ยกเลิก
             </button>

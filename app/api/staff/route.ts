@@ -69,7 +69,8 @@ export async function GET(req: Request) {
 
       return {
         id: s.id,
-        name: s.first_name && s.last_name ? `${s.first_name} ${s.last_name}` : (s.email || "Unknown"),
+        name: s.full_name || (s.first_name && s.last_name ? `${s.first_name} ${s.last_name}` : (s.email || "Unknown")),
+        position: s.position || null,
         email: s.email,
         role: getRoleDisplayName(s.role),
         department: s.departments?.name_th || "ไม่ระบุฝ่าย",

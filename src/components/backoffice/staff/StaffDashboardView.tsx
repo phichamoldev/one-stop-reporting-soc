@@ -329,7 +329,12 @@ export default function StaffDashboardView() {
                         idx === 2 ? "bg-orange-100 text-orange-700" : "text-slate-400"
                       }`}>{idx + 1}</span>
                     </td>
-                    <td className="px-4 py-3 font-bold text-slate-700 dark:text-slate-200 truncate max-w-[120px]">{staff.full_name}</td>
+                    <td className="px-4 py-3 max-w-[160px]">
+                      <div className="font-bold text-slate-700 dark:text-slate-200 truncate">{staff.full_name}</div>
+                      {staff.position && (
+                        <div className="text-[11px] font-normal text-slate-400 truncate mt-0.5">{staff.position}</div>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-right font-extrabold text-green-600">{staff.stats.completed}</td>
                     <td className="px-4 py-3 text-right font-bold text-slate-500">{staff.stats.completionRate}%</td>
                   </tr>
@@ -412,8 +417,11 @@ export default function StaffDashboardView() {
                   <td className="px-5 py-4 text-xs font-medium text-slate-500 whitespace-nowrap">
                     {new Date(log.created_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}
                   </td>
-                  <td className="px-5 py-4 font-bold text-slate-700 dark:text-slate-200">
-                    {log.staff_users?.full_name || "-"}
+                  <td className="px-5 py-4">
+                    <div className="font-bold text-slate-700 dark:text-slate-200">{log.staff_users?.full_name || "-"}</div>
+                    {log.staff_users?.position && (
+                      <div className="text-[11px] font-normal text-slate-400 mt-0.5">{log.staff_users.position}</div>
+                    )}
                   </td>
                   <td className="px-5 py-4 font-bold text-primary whitespace-nowrap">
                     {log.reports?.public_id || "-"}

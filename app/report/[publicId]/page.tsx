@@ -17,6 +17,7 @@ import {
   ActivityTimelineCard,
   ReporterInfoCard,
   buildTimelineEntries,
+  getLatestStaffActionData,
 } from "@/components/report-detail/ReportDetailBlocks";
 import { StaffActionCard } from "@/components/report-detail/StaffActionCard";
 import { FileText, X } from "lucide-react";
@@ -53,8 +54,21 @@ export default function ReportDetailPage({ params }: ReportDetailPageProps) {
 
   const [completionImage, setCompletionImage] = useState<File | null>(null);
   const [completionImagePreview, setCompletionImagePreview] = useState<string | null>(null);
+  const [isImageRemoved, setIsImageRemoved] = useState(false);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
-  const [isEditMode, setIsEditMode] = useState(true);
+  const [isEditMode, setIsEditMode] = useState(false);
+
+  const syncFormWithReport = useCallback((reportData: Report, resetEditMode: boolean) => {
+    const staffData = getLatestStaffActionData(reportData);
+    setUpdateStatus(reportData.status);
+    setUpdateRemark(staffData.latestRemark);
+    setCompletionImage(null);
+    setCompletionImagePreview(staffData.currentActionImage);
+    setIsImageRemoved(false);
+    if (resetEditMode) {
+      setIsEditMode(!staffData.hasExistingReply);
+    }
+  }, []);
 
   const fetchReport = useCallback(async (isSilent = false) => {
     try {
@@ -83,15 +97,17 @@ export default function ReportDetailPage({ params }: ReportDetailPageProps) {
         return;
       }
 
-      setReport(data as Report);
+      const fetchedReport = data as Report;
+      setReport(fetchedReport);
       setCanManage(result.canManage || false);
+      syncFormWithReport(fetchedReport, !isSilent);
     } catch (err: any) {
       console.error("เกิดข้อผิดพลาดในการดึงข้อมูล:", err);
       setError("การเชื่อมต่อฐานข้อมูลล้มเหลว กรุณาลองใหม่อีกครั้ง");
     } finally {
       if (!isSilent) setLoading(false);
     }
-  }, [publicId]);
+  }, [publicId, syncFormWithReport]);
 
   useEffect(() => {
     if (publicId) {
@@ -116,14 +132,6 @@ export default function ReportDetailPage({ params }: ReportDetailPageProps) {
     }
   }, [profile, departments.length]);
 
-  useEffect(() => {
-    if (report) {
-      setUpdateStatus(report.status);
-      setUpdateRemark("");
-      setIsEditMode(true);
-    }
-  }, [report?.id]);
-
   const handleLogin = async () => {
     setLoginError(null);
     if (!loginEmail || !loginPassword) {
@@ -139,7 +147,7 @@ export default function ReportDetailPage({ params }: ReportDetailPageProps) {
       if (error) throw error;
       setIsStaffModeDismissed(false);
       setLoginPassword("");
-      await fetchReport(true);
+      await fetchReport(false);
     } catch (err: any) {
       setLoginError(err.message || "อีเมลหรือรหัสผ่านไม่ถูกต้อง");
     } finally {
@@ -147,13 +155,25 @@ export default function ReportDetailPage({ params }: ReportDetailPageProps) {
     }
   };
 
+  const staffData = report ? getLatestStaffActionData(report) : null;
+
   const isStatusChanged = Boolean(
     report && updateStatus && updateStatus !== "" && (updateStatus === "transfer" || updateStatus !== report.status)
   );
-  const isRemarkChanged = Boolean(report && (updateRemark || "").trim() !== (report.admin_remark || "").trim());
-  const hasImageChange = Boolean(completionImage);
-  const hasRemark = Boolean((updateRemark || "").trim().length > 0);
-  const hasAnyChange = isStatusChanged || isRemarkChanged || hasRemark || hasImageChange;
+  const isRemarkChanged = Boolean(
+    report && (updateRemark || "").trim() !== (staffData?.latestRemark || "").trim()
+  );
+  const isImageAddedOrReplaced = Boolean(completionImage);
+  const isImageDeleted = Boolean(isImageRemoved && staffData?.currentActionImage && !completionImage);
+  const isImageChanged = isImageAddedOrReplaced || isImageDeleted;
+  const hasAnyChange = isStatusChanged || isRemarkChanged || isImageChanged;
+
+  const handleStartEdit = () => {
+    if (!report) return;
+    syncFormWithReport(report, false);
+    setSaveMessage(null);
+    setIsEditMode(true);
+  };
 
   const handleSave = async () => {
     if (!report) return;
@@ -166,7 +186,7 @@ export default function ReportDetailPage({ params }: ReportDetailPageProps) {
     }
 
     if (!hasAnyChange) {
-      setSaveMessage({ type: "error", text: "กรุณาเลือกสถานะใหม่ หรือพิมพ์ข้อความตอบกลับ" });
+      setSaveMessage({ type: "error", text: "ไม่มีข้อมูลเปลี่ยนแปลง กรุณาแก้ไขสถานะ หมายเหตุ หรือรูปภาพก่อนบันทึก" });
       return;
     }
 
@@ -182,28 +202,41 @@ export default function ReportDetailPage({ params }: ReportDetailPageProps) {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("No active session");
 
-      let publicUrl: string | null = null;
-      if (updateStatus === "completed") {
-        if (!completionImage && completionImagePreview && completionImagePreview.startsWith("http")) {
-          publicUrl = completionImagePreview;
-        }
+      let uploadedImageUrl: string | null | undefined = undefined;
+      if (isImageAddedOrReplaced && completionImage) {
+        const fileExt = completionImage.name.split(".").pop();
+        const randomFileToken = Math.random().toString(36).substring(2, 12);
+        const fileName = `${Date.now()}-${randomFileToken}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from("report-images")
+          .upload(fileName, completionImage, { cacheControl: "3600", upsert: false });
 
-        if (completionImage) {
-          const fileExt = completionImage.name.split(".").pop();
-          const randomFileToken = Math.random().toString(36).substring(2, 12);
-          const fileName = `${Date.now()}-${randomFileToken}.${fileExt}`;
-          const { error: uploadError } = await supabase.storage
-            .from("report-images")
-            .upload(fileName, completionImage, { cacheControl: "3600", upsert: false });
+        if (uploadError) throw new Error("อัปโหลดรูปภาพไม่สำเร็จ: " + uploadError.message);
 
-          if (uploadError) throw new Error("อัปโหลดรูปภาพไม่สำเร็จ: " + uploadError.message);
+        const { data: { publicUrl: url } } = supabase.storage
+          .from("report-images")
+          .getPublicUrl(fileName);
 
-          const { data: { publicUrl: url } } = supabase.storage
-            .from("report-images")
-            .getPublicUrl(fileName);
+        uploadedImageUrl = url;
+      } else if (isImageDeleted) {
+        uploadedImageUrl = null;
+      }
 
-          publicUrl = url;
-        }
+      const patchPayload: Record<string, unknown> = {
+        reportId: report.id,
+        oldStatus: report.status,
+      };
+      if (isStatusChanged || (updateStatus as string) === "transfer") {
+        patchPayload.status = updateStatus;
+      }
+      if ((updateStatus as string) === "transfer") {
+        patchPayload.departmentId = updateDepartmentId;
+      }
+      if (isRemarkChanged || (updateStatus as string) === "transfer") {
+        patchPayload.remark = updateRemark;
+      }
+      if (uploadedImageUrl !== undefined) {
+        patchPayload.imageUrl = uploadedImageUrl;
       }
 
       const res = await fetch(`/api/reports/${publicId}/status`, {
@@ -212,14 +245,7 @@ export default function ReportDetailPage({ params }: ReportDetailPageProps) {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({
-          reportId: report.id,
-          status: isStatusChanged || (updateStatus as string) === "transfer" ? updateStatus : undefined,
-          remark: updateRemark,
-          oldStatus: report.status,
-          departmentId: (updateStatus as string) === "transfer" ? updateDepartmentId : undefined,
-          imageUrl: updateStatus === "completed" ? publicUrl : undefined,
-        }),
+        body: JSON.stringify(patchPayload),
       });
 
       if (!res.ok) {
@@ -227,14 +253,10 @@ export default function ReportDetailPage({ params }: ReportDetailPageProps) {
         throw new Error(errorData.error || "Failed to update report");
       }
 
-      setSaveMessage({ type: "success", text: "บันทึกข้อมูลเรียบร้อยแล้ว" });
       setUpdateDepartmentId("");
-      setUpdateRemark("");
-      if (updateStatus !== "completed") {
-        setCompletionImage(null);
-        setCompletionImagePreview(null);
-      }
       await fetchReport(true);
+      setIsEditMode(false);
+      setSaveMessage({ type: "success", text: "บันทึกข้อมูลเรียบร้อยแล้ว" });
 
       setTimeout(() => {
         setSaveMessage(null);
@@ -252,11 +274,12 @@ export default function ReportDetailPage({ params }: ReportDetailPageProps) {
 
   const handleCancel = () => {
     if (report) {
-      setUpdateStatus(report.status);
-      setUpdateRemark("");
-      setCompletionImage(null);
-      setCompletionImagePreview(null);
+      const currentStaffData = getLatestStaffActionData(report);
+      syncFormWithReport(report, false);
       setSaveMessage(null);
+      if (currentStaffData.hasExistingReply) {
+        setIsEditMode(false);
+      }
     }
   };
 
@@ -300,7 +323,7 @@ export default function ReportDetailPage({ params }: ReportDetailPageProps) {
     );
   }
 
-  const timelineEntries = buildTimelineEntries(report, { includeInternal: true });
+  const timelineEntries = buildTimelineEntries(report, { includeInternal: false });
 
   const staffTopBar = isStaffActive ? (
     <div className="flex items-center justify-between">
@@ -313,7 +336,7 @@ export default function ReportDetailPage({ params }: ReportDetailPageProps) {
             {profile?.full_name || "ผู้ดูแลระบบสูงสุด"}
           </span>
           <span className="text-[11px] sm:text-[12px] text-slate-400 font-medium">
-            โหมดเจ้าหน้าที่
+            {profile?.position ? `${profile.position} · โหมดเจ้าหน้าที่` : "โหมดเจ้าหน้าที่"}
           </span>
         </div>
       </div>
@@ -384,6 +407,8 @@ export default function ReportDetailPage({ params }: ReportDetailPageProps) {
               setCompletionImage={setCompletionImage}
               completionImagePreview={completionImagePreview}
               setCompletionImagePreview={setCompletionImagePreview}
+              isImageRemoved={isImageRemoved}
+              setIsImageRemoved={setIsImageRemoved}
               departments={departments}
               updateDepartmentId={updateDepartmentId}
               setUpdateDepartmentId={setUpdateDepartmentId}
@@ -391,6 +416,8 @@ export default function ReportDetailPage({ params }: ReportDetailPageProps) {
               saveMessage={saveMessage}
               onSave={handleSave}
               onCancel={handleCancel}
+              onStartEdit={handleStartEdit}
+              onImageClick={setFullscreenImage}
               loginEmail={loginEmail}
               setLoginEmail={setLoginEmail}
               loginPassword={loginPassword}

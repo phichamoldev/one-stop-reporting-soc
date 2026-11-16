@@ -415,9 +415,16 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ reports, filterOptions
                         <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 shrink-0">
                           {report.reporter_name?.charAt(0) || '?'}
                         </div>
-                        <span className="font-semibold text-slate-700 dark:text-slate-300 text-xs truncate max-w-[100px]">
-                          {report.reporter_name || 'ไม่ระบุ'}
-                        </span>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-semibold text-slate-700 dark:text-slate-300 text-xs truncate max-w-[120px]">
+                            {report.reporter_name || 'ไม่ระบุ'}
+                          </span>
+                          {report.reporter_type && (
+                            <span className="text-[10px] text-primary font-medium">
+                              {report.reporter_type}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="py-4 px-4 text-xs font-medium text-slate-500 dark:text-slate-400">

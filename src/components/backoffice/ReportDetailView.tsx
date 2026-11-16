@@ -21,7 +21,8 @@ import {
   AlertCircle,
   Send,
   Check,
-  ImageOff
+  ImageOff,
+  Tag
 } from 'lucide-react';
 import { AppSelect } from "@/components/ui/AppSelect";
 import useSWR, { mutate as globalMutate } from 'swr';
@@ -496,7 +497,7 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
         <span>ข้อมูลผู้แจ้งเรื่อง</span>
       </h4>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm font-medium">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm font-medium">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 shrink-0">
             <User className="w-4 h-4" />
@@ -504,6 +505,21 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
           <div className="min-w-0">
             <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">ชื่อ-นามสกุล</p>
             <p className="text-slate-800 dark:text-slate-200 font-semibold truncate">{data.reporter_name || "ไม่ระบุ"}</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 shrink-0">
+            <Tag className="w-4 h-4 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">ประเภทผู้แจ้ง</p>
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20">
+              {data.reporter_type === 'อาจารย์' && '👨‍🏫 อาจารย์'}
+              {data.reporter_type === 'บุคลากร' && '💼 บุคลากร'}
+              {data.reporter_type === 'นิสิต' && '🎓 นิสิต'}
+              {!['อาจารย์', 'บุคลากร', 'นิสิต'].includes(data.reporter_type || '') && (data.reporter_type || 'ทั่วไป')}
+            </span>
           </div>
         </div>
 
@@ -614,11 +630,18 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
 
             {/* Metadata: ดำเนินการโดย และ เวลา */}
             <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 space-y-1.5 text-xs">
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-start gap-2">
                 <span className="text-slate-500 font-medium">ดำเนินการโดย</span>
-                <span className="font-bold text-slate-800 dark:text-slate-200">
-                  {latestLog?.staff_users?.full_name || 'ระบบ'}
-                </span>
+                <div className="text-right">
+                  <span className="font-bold text-slate-800 dark:text-slate-200 block leading-tight">
+                    {latestLog?.staff_users?.full_name || 'ระบบ'}
+                  </span>
+                  {latestLog?.staff_users?.position && (
+                    <span className="text-[11px] text-slate-400 font-normal block mt-0.5 leading-snug">
+                      {latestLog.staff_users.position}
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-500 font-medium">เวลา</span>
@@ -669,22 +692,26 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
 
             {/* 1. Status Dropdown */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                สถานะคำร้อง
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  สถานะคำร้อง
+                </label>
+                <span className="text-[11px] text-slate-400 font-medium">ไม่จำเป็นต้องเปลี่ยนสถานะ หากต้องการบันทึกเฉพาะข้อความตอบกลับ</span>
+              </div>
               <AppSelect
                 value={selectedStatus}
                 onChange={(val) => handleStatusChange(val as string)}
                 disabled={isSaving}
                 options={[
-                  { label: STATUS_DETAILS.pending.label, value: 'pending' },
-                  { label: STATUS_DETAILS.received.label, value: 'received' },
-                  { label: STATUS_DETAILS.in_progress.label, value: 'in_progress' },
-                  { label: STATUS_DETAILS.completed.label, value: 'completed' },
-                  { label: STATUS_DETAILS.rejected.label, value: 'rejected' },
-                  { label: STATUS_DETAILS.cancelled.label, value: 'cancelled' },
+                  { label: `คงสถานะเดิม (${STATUS_DETAILS[data.status as ReportStatus]?.label || data.status})`, value: data.status },
+                  { label: `เปลี่ยนเป็น: ${STATUS_DETAILS.pending.label}`, value: 'pending' },
+                  { label: `เปลี่ยนเป็น: ${STATUS_DETAILS.received.label}`, value: 'received' },
+                  { label: `เปลี่ยนเป็น: ${STATUS_DETAILS.in_progress.label}`, value: 'in_progress' },
+                  { label: `เปลี่ยนเป็น: ${STATUS_DETAILS.completed.label}`, value: 'completed' },
+                  { label: `เปลี่ยนเป็น: ${STATUS_DETAILS.rejected.label}`, value: 'rejected' },
+                  { label: `เปลี่ยนเป็น: ${STATUS_DETAILS.cancelled.label}`, value: 'cancelled' },
                   ...(userRole !== 'staff' ? [{ label: 'โอนคำร้องไปยังหน่วยงานอื่น', value: 'transfer' }] : [])
-                ]}
+                ].filter((opt, idx) => idx === 0 || opt.value !== data.status)}
               />
             </div>
 

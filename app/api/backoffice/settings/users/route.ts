@@ -53,6 +53,7 @@ export async function GET(req: Request) {
       .select(`
         id,
         full_name,
+        position,
         role,
         department_id,
         status,

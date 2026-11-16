@@ -518,7 +518,7 @@ export async function notifyLine(
       const isEmerg = event === 'periodic_update' || /ฉุกเฉิน|ไฟไหม้|ควัน/i.test(message);
       payload = {
         publicId: options.reportId || "SOC-ALERT",
-        categoryName: "ระบบแจ้งเหตุ ONE STOP SERVICE",
+        categoryName: "ระบบแจ้งเหตุ SOC STATION",
         subcategoryName: event === 'periodic_update' ? "อัปเดตสถานการณ์" : "แจ้งเตือนคำร้อง",
         description: message,
         location: "-",
@@ -565,28 +565,28 @@ export async function notifyLine(
     const isNeedsReview = payload.priority === 'needs_review';
 
     let headerColor = "#D1350F";
-    let headerText = "ONE STOP SERVICE";
+    let headerText = "SOC STATION";
     let altText = `🔔 มีคำร้องใหม่: ${payload.publicId}`;
 
     if (isPeriodicUpdate) {
       headerColor = "#DC2626";
-      headerText = "📢 [อัปเดตเหตุการณ์] ONE STOP SERVICE";
+      headerText = "📢 [อัปเดตเหตุการณ์] SOC STATION";
       altText = `📢 [อัปเดตเหตุการณ์] ${payload.eventCode || payload.publicId}: ${payload.subcategoryName || payload.categoryName}`;
     } else if (isEmergency) {
       headerColor = "#DC2626";
-      headerText = "🚨 [เหตุฉุกเฉินเร่งด่วน] ONE STOP SERVICE";
+      headerText = "🚨 [เหตุฉุกเฉินเร่งด่วน] SOC STATION";
       altText = `🚨 [ฉุกเฉิน] มีคำร้องใหม่: ${payload.publicId}`;
     } else if (isTransfer) {
       headerColor = "#9333EA";
-      headerText = "🔄 แจ้งโอนคำร้อง (ONE STOP SERVICE)";
+      headerText = "🔄 แจ้งโอนคำร้อง (SOC STATION)";
       altText = `🔄 มีการโอนคำร้อง: ${payload.publicId}`;
     } else if (isNeedsReview) {
       headerColor = "#D97706";
-      headerText = "⚠️ [รอตรวจสอบความเร่งด่วน] ONE STOP SERVICE";
+      headerText = "⚠️ [รอตรวจสอบความเร่งด่วน] SOC STATION";
       altText = `⚠️ [รอตรวจสอบ] มีคำร้องใหม่: ${payload.publicId}`;
     } else {
       headerColor = "#D1350F";
-      headerText = "🔔 [แจ้งเตือนคำร้องใหม่] ONE STOP SERVICE";
+      headerText = "🔔 [แจ้งเตือนคำร้องใหม่] SOC STATION";
       altText = `🔔 มีคำร้องใหม่: ${payload.publicId}`;
     }
 

@@ -75,7 +75,7 @@ export const LineFlexPreview: React.FC<LineFlexPreviewProps> = ({ data }) => {
               lineHeight: '1.2'
             }}
           >
-            ONE STOP SERVICE
+            SOC STATION
           </span>
           <span
             style={{

@@ -234,7 +234,7 @@ export async function processReportForEventNotification(params: {
   // Phase 3.8 Policy: Normal alert must NOT show related counts, cumulative counts, or update text
   const payload: LineNotificationPayload = {
     publicId: report.public_id,
-    categoryName: report.category_name || "ระบบแจ้งเหตุ ONE STOP SERVICE",
+    categoryName: report.category_name || "ระบบแจ้งเหตุ SOC STATION",
     subcategoryName: report.subcategory_name || newTracker.title,
     description: report.description || '-',
     location: report.location || '-',

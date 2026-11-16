@@ -42,9 +42,10 @@ export async function GET(req: Request) {
       .select(`
         id,
         full_name,
+        position,
         email,
         role,
-        is_active,
+        status,
         created_at,
         departments (
           id,
@@ -147,7 +148,8 @@ export async function GET(req: Request) {
         remark,
         created_at,
         staff_users (
-          full_name
+          full_name,
+          position
         ),
         reports:${reportsTable}!inner (
           public_id,

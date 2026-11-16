@@ -9,7 +9,7 @@ export default function SystemSettingsTab() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [settings, setSettings] = useState({
-    systemName: "One Stop Reporting System",
+    systemName: "SOC STATION",
     organizationName: "SOC",
     supportEmail: "support@soc.example.com"
   });

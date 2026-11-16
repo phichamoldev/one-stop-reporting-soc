@@ -38,6 +38,11 @@ export async function POST(req: Request) {
       body.tracking_token = crypto.randomUUID();
     }
 
+    // Normalize optional location
+    body.location = (typeof body.location === "string" && body.location.trim().length > 0)
+      ? body.location.trim()
+      : null;
+
     // Taxonomy Guard: Strictly prevent fire/emergency reports from ever being classified as Category 3 (บริหารงานบุคคล)
     if (
       (body.category_id === 3 || !body.category_id) &&
@@ -65,7 +70,7 @@ export async function POST(req: Request) {
 
     console.log("INSERT BODY (Table: " + dataSource.reportsTable + ", Priority: " + body.priority + ")", body);
 
-    const { data, error } = await supabaseAdmin
+    let insertResult = await supabaseAdmin
       .from(dataSource.reportsTable)
       .insert(body)
       .select(`
@@ -80,6 +85,29 @@ export async function POST(req: Request) {
         )
       `)
       .single();
+
+    if (insertResult.error && (insertResult.error.message?.includes('reporter_type') || insertResult.error.details?.includes('reporter_type'))) {
+      console.warn('[Schema Guard] Table missing reporter_type column. Retrying insert without reporter_type...');
+      const fallbackBody = { ...body };
+      delete fallbackBody.reporter_type;
+      insertResult = await supabaseAdmin
+        .from(dataSource.reportsTable)
+        .insert(fallbackBody)
+        .select(`
+          *,
+          categories (
+            id,
+            name_th
+          ),
+          subcategories (
+            id,
+            name_th
+          )
+        `)
+        .single();
+    }
+
+    const { data, error } = insertResult;
 
     console.log("SUPABASE ERROR =", error);
 

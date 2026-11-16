@@ -13,7 +13,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
     const { data, error } = await supabaseAdmin
       .from("staff_users")
-      .select("full_name, departments(name_th)")
+      .select("full_name, position, departments(name_th)")
       .eq("id", id)
       .maybeSingle();
 

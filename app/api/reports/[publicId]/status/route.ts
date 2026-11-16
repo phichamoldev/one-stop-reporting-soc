@@ -74,32 +74,61 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ public
       );
     }
 
+    // Load existing logs to determine current remark & image for partial updates
+    const { data: existingLogs } = await supabaseAdmin
+      .from(dataSource.reportLogsTable)
+      .select("id, action, old_status, new_status, remark, image_url, created_at")
+      .eq("report_id", reportId)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false });
+
+    const STAFF_REPLY_ACTIONS = new Set([
+      "status_updated",
+      "note_updated",
+      "image_updated",
+      "note_and_image_updated",
+      "transfer",
+    ]);
+    const staffLogs = (existingLogs || []).filter((l) => STAFF_REPLY_ACTIONS.has(l.action));
+    const latestStaffLog = staffLogs[0] || null;
+
+    let currentStaffImage: string | null = null;
+    if (latestStaffLog) {
+      if (latestStaffLog.action === "image_updated" || latestStaffLog.action === "note_and_image_updated") {
+        currentStaffImage = latestStaffLog.image_url || null;
+      } else {
+        currentStaffImage =
+          latestStaffLog.image_url ||
+          staffLogs.find((l) => l.action === "status_updated" && l.new_status === currentReport.status)?.image_url ||
+          null;
+      }
+    }
+
     const isStatusProvided = Boolean(status && typeof status === "string" && status.trim() !== "");
     const isStatusChanged = isStatusProvided && (status === "transfer" || status !== currentReport.status);
+
+    const currentRemark = (currentReport.admin_remark ?? latestStaffLog?.remark ?? "").trim();
     const isRemarkProvided = remark !== undefined;
-    const isRemarkChanged = isRemarkProvided && (remark || "").trim() !== (currentReport.admin_remark || "").trim();
-    const isImageProvided = Boolean(imageUrl);
+    const isRemarkChanged = isRemarkProvided && (remark || "").trim() !== currentRemark;
+    const effectiveRemark = isRemarkProvided
+      ? remark
+      : (currentReport.admin_remark ?? latestStaffLog?.remark ?? null);
+
+    // Distinguish imageUrl === undefined (unchanged) vs null/"" (explicitly removed) vs string URL (added/replaced)
+    const isImageFieldSent = Object.prototype.hasOwnProperty.call(body, "imageUrl") && imageUrl !== undefined;
+    const normalizedIncomingImage = isImageFieldSent
+      ? typeof imageUrl === "string" && imageUrl.trim() !== ""
+        ? imageUrl.trim()
+        : null
+      : currentStaffImage;
+    const isImageChanged = isImageFieldSent && (normalizedIncomingImage || null) !== (currentStaffImage || null);
+    const effectiveImageUrl = isImageFieldSent ? normalizedIncomingImage : currentStaffImage;
+
     const isAssigneeProvided = assigned_to !== undefined;
 
-    // Rule: Must have at least 1 change (status, remark, image, or assignment)
-    if (!isStatusChanged && !isRemarkChanged && !isImageProvided && !isAssigneeProvided) {
-      return NextResponse.json({ error: "กรุณาเลือกสถานะใหม่ หรือเพิ่มหมายเหตุ" }, { status: 400 });
-    }
-
-    // Rule: Image attachment is permitted ONLY when status is 'completed'
-    const effectiveStatus = (status && status !== "transfer") ? status : currentReport.status;
-    if (isImageProvided && effectiveStatus !== "completed") {
-      return NextResponse.json(
-        {
-          error: "สามารถแนบรูปภาพได้เมื่อเลือกสถานะ 'เสร็จสิ้น' เท่านั้น",
-          code: "IMAGE_ATTACHMENT_NOT_ALLOWED",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (currentReport.status === 'completed' && !['admin', 'super_admin', 'manager'].includes(staffProfile.role)) {
-      return NextResponse.json({ error: "Forbidden: Cannot edit a completed report" }, { status: 403 });
+    // Rule: Must have at least 1 actual change (status, remark, image, or assignment)
+    if (!isStatusChanged && !isRemarkChanged && !isImageChanged && !isAssigneeProvided) {
+      return NextResponse.json({ error: "กรุณาเลือกสถานะใหม่ หรือแก้ไขข้อมูลก่อนบันทึก" }, { status: 400 });
     }
 
     const currentDeptObj = Array.isArray(currentReport.categories)
@@ -179,7 +208,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ public
         }
       }
       
-      if (isRemarkChanged || (remark !== undefined && isStatusChanged)) {
+      if (isRemarkChanged || (isRemarkProvided && isStatusChanged)) {
         updatePayload.admin_remark = remark;
       }
       if (isAssigneeProvided) {
@@ -199,21 +228,65 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ public
       return NextResponse.json({ success: false, message: "Internal Server Error" }, { status: 500 });
     }
 
-    // Create the log
+    // If image was deleted or replaced, clean up old image from storage (best-effort) and sync previous logs
+    if (isImageChanged) {
+      if (currentStaffImage && currentStaffImage !== effectiveImageUrl) {
+        const marker = "/storage/v1/object/public/report-images/";
+        const markerIdx = currentStaffImage.indexOf(marker);
+        if (markerIdx !== -1) {
+          const oldStoragePath = decodeURIComponent(currentStaffImage.slice(markerIdx + marker.length));
+          if (oldStoragePath) {
+            await supabaseAdmin.storage.from("report-images").remove([oldStoragePath]).catch(() => {});
+          }
+        }
+      }
+
+      if (effectiveImageUrl === null) {
+        // Clear image_url on previous logs of this report so deleted image is never resurrected
+        await supabaseAdmin
+          .from(dataSource.reportLogsTable)
+          .update({ image_url: null })
+          .eq("report_id", reportId)
+          .not("image_url", "is", null);
+      }
+    }
+
+    // When updating note and/or image without changing status, also keep the latest status_updated log for this status in sync
+    if (!isStatusChanged && (isRemarkChanged || isImageChanged)) {
+      const targetStatusLog = staffLogs.find(
+        (l) => l.action === "status_updated" && l.new_status === currentReport.status
+      );
+      if (targetStatusLog) {
+        await supabaseAdmin
+          .from(dataSource.reportLogsTable)
+          .update({
+            remark: effectiveRemark,
+            image_url: effectiveImageUrl,
+          })
+          .eq("id", targetStatusLog.id);
+      }
+    }
+
+    // Create the activity / status log
     let actionName = "อัปเดตข้อมูล";
-    let logRemark = remark || null;
+    let logRemark = effectiveRemark || null;
     
     if (status === "transfer") {
       actionName = "transfer";
-      logRemark = updatePayload.admin_remark as string; // Use the formatted remark with old/new category names
-    } else if (isAssigneeProvided && !isStatusChanged && !isRemarkChanged) {
+      logRemark = updatePayload.admin_remark as string;
+    } else if (isAssigneeProvided && !isStatusChanged && !isRemarkChanged && !isImageChanged) {
       actionName = "task_assigned";
-    } else if (isStatusChanged && !isRemarkChanged) {
+    } else if (isStatusChanged) {
       actionName = "status_updated";
-    } else if (isRemarkChanged && !isStatusChanged) {
+      // Only include remark on the status_updated log if remark was provided or exists
+      logRemark = isRemarkProvided ? (remark || null) : (effectiveRemark || null);
+    } else if (isRemarkChanged && isImageChanged) {
+      actionName = "note_and_image_updated";
+    } else if (isRemarkChanged && !isImageChanged) {
       actionName = "note_updated";
-    } else if (isStatusChanged && isRemarkChanged) {
-      actionName = "status_updated";
+    } else if (!isRemarkChanged && isImageChanged) {
+      actionName = "image_updated";
+      logRemark = effectiveImageUrl ? "อัปเดตรูปภาพประกอบการดำเนินงาน" : "ลบรูปภาพประกอบการดำเนินงาน";
     }
 
     const { error: logError } = await supabaseAdmin
@@ -225,7 +298,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ public
         old_status: currentReport.status,
         new_status: status === "transfer" ? "pending" : (isStatusChanged ? status : currentReport.status),
         remark: logRemark,
-        image_url: imageUrl || null,
+        image_url: effectiveImageUrl,
         created_at: now
       });
 

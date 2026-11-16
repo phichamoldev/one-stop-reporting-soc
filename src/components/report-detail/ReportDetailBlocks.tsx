@@ -31,26 +31,212 @@ export function formatThaiDateTime(dateString?: string | null): string {
   );
 }
 
-const INTERNAL_ACTIONS = new Set([
+export const INTERNAL_ACTIONS = new Set([
   "priority_classified",
   "priority_updated",
   "incident_detection_completed",
   "incident_detection_failed",
   "incident_group_added",
   "incident_group_removed",
+  "add_report",
+  "remove_report",
+  "move_report",
+  "create_group",
   "draft_created",
   "draft_rejected",
+  "task_assigned",
+  "suppressed_duplicate",
+  "normal_alert_sent",
+  "update_sent",
+  "window_extended_no_reports",
 ]);
 
-function isInternalRemark(text: string | null | undefined): boolean {
+const ACTIVITY_ONLY_ACTIONS = new Set([
+  "note_updated",
+  "image_updated",
+  "note_and_image_updated",
+  "admin_note_added",
+  "task_assigned",
+]);
+
+const STAFF_REPLY_ACTIONS = new Set([
+  "status_updated",
+  "note_updated",
+  "image_updated",
+  "note_and_image_updated",
+  "admin_note_added",
+  "transfer",
+  "bulk_reply",
+]);
+
+const PUBLIC_STAFF_ACTIONS = new Set([
+  "status_updated",
+  "note_updated",
+  "image_updated",
+  "note_and_image_updated",
+  "admin_note_added",
+  "transfer",
+  "bulk_reply",
+]);
+
+export function isSystemDiagnosticMetadata(text: string | null | undefined): boolean {
   if (!text) return false;
+  const trimmed = text.trim();
+  if (
+    trimmed.startsWith("SIM_RUN:") ||
+    trimmed.startsWith('{"simulation_run_id"') ||
+    trimmed.startsWith("จัดประเภทความเร่งด่วนเป็น") ||
+    trimmed.startsWith("จัดเตรียมร่างกลุ่มเหตุการณ์อัตโนมัติ") ||
+    trimmed.startsWith("ยังไม่พบความสัมพันธ์ชัดเจนกับกลุ่มเหตุการณ์") ||
+    trimmed.startsWith("พบคำร้องใหม่ที่มีความคล้ายคลึงกัน")
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function isSystemGeneratedLog(log: Partial<ReportLog> | null | undefined): boolean {
+  if (!log) return true;
+
+  // 1. Primary structured check: action is an internal/system/AI/grouping audit event
+  if (log.action && INTERNAL_ACTIONS.has(log.action)) {
+    return true;
+  }
+
+  // 2. Initial submission milestone is from reporter, not an internal system note
+  if (log.action === "created") {
+    return false;
+  }
+
+  // 3. Only known staff operational/reply actions belong on reporter/staff-facing timelines
+  if (!log.action || !PUBLIC_STAFF_ACTIONS.has(log.action)) {
+    return true;
+  }
+
+  // 4. Safeguard for legacy logs without a staff operator that contain automated diagnostic text
+  const hasStaffActor = Boolean(log.user_id || log.staff_users?.full_name);
+  if (!hasStaffActor && isSystemDiagnosticMetadata(log.remark)) {
+    return true;
+  }
+
+  return false;
+}
+
+export function formatCaptionDateTime(dateString?: string | null): string {
+  if (!dateString) return "-";
+  const d = new Date(dateString);
+  if (Number.isNaN(d.getTime())) return "-";
   return (
-    text.includes("ความสัมพันธ์") ||
-    text.includes("กลุ่มเหตุการณ์") ||
-    text.includes("จัดประเภทความเร่งด่วน") ||
-    text.includes("ตรวจจับเหตุการณ์") ||
-    text.includes("คำร้องอื่น")
+    d.toLocaleDateString("th-TH", { day: "2-digit", month: "short", year: "numeric" }) +
+    " เวลา " +
+    d.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }) +
+    " น."
   );
+}
+
+export interface LatestStaffActionData {
+  hasExistingReply: boolean;
+  latestRemark: string;
+  currentActionImage: string | null;
+  actorName: string;
+  actorPosition: string | null;
+  statusUpdatedAt: string | null;
+  latestActionAt: string | null;
+  latestActionType: string | null;
+  updateCaption: string | null;
+}
+
+export function getLatestStaffActionData(report: Report): LatestStaffActionData {
+  const sortedLogs = [...(report.report_logs || [])]
+    .filter((l): l is ReportLog => Boolean(l))
+    .sort((a, b) => {
+      const timeDiff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      if (timeDiff !== 0) return timeDiff;
+      return (b.id || 0) - (a.id || 0);
+    });
+
+  const staffLogs = sortedLogs.filter((l) => STAFF_REPLY_ACTIONS.has(l.action) && !isSystemGeneratedLog(l));
+  const latestStaffLog = staffLogs[0] || null;
+  const latestStatusLog =
+    staffLogs.find((l) => l.action === "status_updated" || l.action === "transfer") || null;
+  const latestNoteLog =
+    staffLogs.find(
+      (l) =>
+        l.action === "note_updated" ||
+        l.action === "note_and_image_updated" ||
+        l.action === "admin_note_added" ||
+        l.action === "status_updated" ||
+        l.action === "transfer" ||
+        l.action === "bulk_reply"
+    ) || null;
+
+  const cleanAdminRemark =
+    report.admin_remark !== undefined &&
+    report.admin_remark !== null &&
+    !isSystemDiagnosticMetadata(report.admin_remark)
+      ? report.admin_remark
+      : null;
+
+  const latestRemark =
+    cleanAdminRemark !== null
+      ? cleanAdminRemark
+      : latestNoteLog?.remark && !isSystemDiagnosticMetadata(latestNoteLog.remark)
+      ? latestNoteLog.remark
+      : "";
+
+  let currentActionImage: string | null = null;
+  const latestImageBearingLog = staffLogs.find(
+    (l) =>
+      l.action === "image_updated" ||
+      l.action === "note_and_image_updated" ||
+      l.action === "status_updated" ||
+      Boolean(l.image_url)
+  );
+  if (latestImageBearingLog) {
+    currentActionImage = latestImageBearingLog.image_url || null;
+  }
+
+  const isTerminalStatus =
+    report.status === "completed" ||
+    report.status === "rejected" ||
+    report.status === "cancelled";
+
+  const hasExistingReply = Boolean(
+    isTerminalStatus ||
+      latestRemark.trim().length > 0 ||
+      currentActionImage ||
+      latestStaffLog
+  );
+
+  const actorName = latestStaffLog?.staff_users?.full_name || "เจ้าหน้าที่";
+  const actorPosition = latestStaffLog?.staff_users?.position || null;
+  const statusUpdatedAt =
+    latestStatusLog?.created_at ||
+    (report.status === "completed" ? report.completed_at || report.updated_at : report.updated_at);
+
+  let updateCaption: string | null = null;
+  if (latestStaffLog) {
+    if (latestStaffLog.action === "note_updated") {
+      updateCaption = `อัปเดตหมายเหตุล่าสุด · ${formatCaptionDateTime(latestStaffLog.created_at)}`;
+    } else if (
+      latestStaffLog.action === "image_updated" ||
+      latestStaffLog.action === "note_and_image_updated"
+    ) {
+      updateCaption = `อัปเดตข้อมูลการดำเนินการล่าสุด · ${formatCaptionDateTime(latestStaffLog.created_at)}`;
+    }
+  }
+
+  return {
+    hasExistingReply,
+    latestRemark,
+    currentActionImage,
+    actorName,
+    actorPosition,
+    statusUpdatedAt,
+    latestActionAt: latestStaffLog?.created_at || null,
+    latestActionType: latestStaffLog?.action || null,
+    updateCaption,
+  };
 }
 
 export const REPORTER_TYPE_LABELS: Record<string, string> = {
@@ -71,25 +257,43 @@ export interface TimelineEntry {
   remark: string | null;
   image_url?: string | null;
   actorName: string;
+  actorPosition?: string | null;
   source: "staff" | "system" | "reporter";
   isNote?: boolean;
 }
 
 /**
- * Builds one timeline entry per log (newest first) so every staff reply is shown,
- * not only the latest one. Public mode hides internal/system audit entries.
+ * Builds one timeline entry per status milestone (newest first) without duplicating
+ * statuses when staff perform note-only or image-only updates.
+ * Public and reporter-facing timelines hide internal/system audit entries.
  */
-export function buildTimelineEntries(report: Report, opts: { includeInternal: boolean }): TimelineEntry[] {
-  const logs = [...(report.report_logs || [])].filter((l): l is ReportLog => Boolean(l));
-  const visible = opts.includeInternal
-    ? logs
-    : logs.filter((l) => !INTERNAL_ACTIONS.has(l.action) && !isInternalRemark(l.remark));
+export function buildTimelineEntries(
+  report: Report,
+  opts: { includeInternal?: boolean } = { includeInternal: false }
+): TimelineEntry[] {
+  const allLogs = [...(report.report_logs || [])]
+    .filter((l): l is ReportLog => Boolean(l) && (!isSystemGeneratedLog(l) || Boolean(opts?.includeInternal)))
+    .sort((a, b) => {
+      const timeDiff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      if (timeDiff !== 0) return timeDiff;
+      return (b.id || 0) - (a.id || 0);
+    });
 
-  const entries: TimelineEntry[] = visible.map((log) => {
+  // Separate activity-only logs (note_updated, image_updated, etc.) from status milestone logs
+  const statusMilestoneLogs = allLogs.filter((l) => {
+    if (ACTIVITY_ONLY_ACTIONS.has(l.action)) return false;
+    if (!opts?.includeInternal && isSystemGeneratedLog(l)) {
+      return false;
+    }
+    return true;
+  });
+
+  const entries: TimelineEntry[] = statusMilestoneLogs.map((log) => {
     const isTransfer = log.action === "transfer";
     const isCreated = log.action === "created";
-    const isNote = log.action === "note_updated" || log.action === "admin_note_added";
+    const isSystem = isSystemGeneratedLog(log);
     const staffName = log.staff_users?.full_name;
+    const staffPosition = log.staff_users?.position || null;
     return {
       key: `log-${log.id}`,
       status: isTransfer ? "transfer" : log.new_status || "pending",
@@ -101,14 +305,15 @@ export function buildTimelineEntries(report: Report, opts: { includeInternal: bo
       created_at: log.created_at,
       remark: log.remark,
       image_url: log.image_url || null,
-      actorName: staffName || (isCreated ? "ผู้แจ้ง" : "ระบบ"),
-      source: staffName ? "staff" : isCreated ? "reporter" : "system",
-      isNote,
+      actorName: staffName || (isCreated ? "ผู้แจ้ง" : isSystem ? "ระบบ" : "เจ้าหน้าที่"),
+      actorPosition: staffName ? staffPosition : null,
+      source: staffName ? "staff" : isCreated ? "reporter" : isSystem ? "system" : "staff",
+      isNote: false,
     };
   });
 
   // Always show the submission milestone, even when no 'created' log exists.
-  if (!visible.some((l) => l.action === "created")) {
+  if (!statusMilestoneLogs.some((l) => l.action === "created")) {
     entries.push({
       key: "submitted",
       status: "pending",
@@ -117,6 +322,82 @@ export function buildTimelineEntries(report: Report, opts: { includeInternal: bo
       remark: null,
       actorName: "ผู้แจ้ง",
       source: "reporter",
+    });
+  }
+
+  // Sort newest first so we can overlay any note_updated / image_updated onto the latest entry for each status
+  entries.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  // Overlay latest note_updated / image_updated / note_and_image_updated onto the most recent non-reporter status entry of that status
+  const updatedStatuses = new Set<string>();
+  for (const entry of entries) {
+    if (entry.source === "reporter" || entry.status === "transfer" || updatedStatuses.has(entry.status)) continue;
+    updatedStatuses.add(entry.status);
+
+    const activityLogsForStatus = allLogs.filter(
+      (l) =>
+        ACTIVITY_ONLY_ACTIONS.has(l.action) &&
+        l.action !== "task_assigned" &&
+        (l.new_status || "pending") === entry.status &&
+        new Date(l.created_at).getTime() >= new Date(entry.created_at).getTime()
+    );
+
+    if (activityLogsForStatus.length > 0) {
+      const latestNoteActivity = activityLogsForStatus.find(
+        (l) => l.action === "note_updated" || l.action === "note_and_image_updated" || l.action === "admin_note_added"
+      );
+      if (latestNoteActivity) {
+        entry.remark = latestNoteActivity.remark;
+        if (latestNoteActivity.staff_users?.full_name) {
+          entry.actorName = latestNoteActivity.staff_users.full_name;
+          entry.actorPosition = latestNoteActivity.staff_users.position || null;
+          entry.source = "staff";
+        }
+      }
+
+      const latestImageActivity = activityLogsForStatus.find(
+        (l) => l.action === "image_updated" || l.action === "note_and_image_updated"
+      );
+      if (latestImageActivity) {
+        entry.image_url = latestImageActivity.image_url || null;
+      }
+    }
+  }
+
+  // If staff added note/image on a status that has no status_updated milestone entry yet, synthesize 1 single entry for that status
+  const orphanActivityStatuses = Array.from(
+    new Set(
+      allLogs
+        .filter((l) => ACTIVITY_ONLY_ACTIONS.has(l.action) && l.action !== "task_assigned")
+        .map((l) => l.new_status || "pending")
+    )
+  ).filter((st) => !updatedStatuses.has(st));
+
+  for (const st of orphanActivityStatuses) {
+    const logsForSt = allLogs.filter(
+      (l) => ACTIVITY_ONLY_ACTIONS.has(l.action) && l.action !== "task_assigned" && (l.new_status || "pending") === st
+    );
+    if (logsForSt.length === 0) continue;
+    const earliest = logsForSt[logsForSt.length - 1];
+    const latestNote = logsForSt.find(
+      (l) => l.action === "note_updated" || l.action === "note_and_image_updated" || l.action === "admin_note_added"
+    );
+    const latestImg = logsForSt.find(
+      (l) => l.action === "image_updated" || l.action === "note_and_image_updated"
+    );
+    const actorLog = latestNote || logsForSt[0];
+    const staffName = actorLog.staff_users?.full_name;
+    entries.push({
+      key: `status-activity-${st}-${earliest.id}`,
+      status: st,
+      label: STATUS_DETAILS[st as ReportStatus]?.label || getStatusLabel(st),
+      created_at: earliest.created_at,
+      remark: latestNote?.remark || null,
+      image_url: latestImg ? latestImg.image_url || null : null,
+      actorName: staffName || "เจ้าหน้าที่",
+      actorPosition: staffName ? actorLog.staff_users?.position || null : null,
+      source: "staff",
+      isNote: false,
     });
   }
 
@@ -153,7 +434,7 @@ function StatusStepper({ report, step1Label }: { report: Report; step1Label?: st
   const reachedAt = (status: ReportStatus): string | null => {
     if (status === "pending") return report.created_at;
     const hit = [...logs]
-      .filter((l) => l && l.new_status === status && l.action !== "note_updated")
+      .filter((l) => l && l.new_status === status && !ACTIVITY_ONLY_ACTIONS.has(l.action) && !isSystemGeneratedLog(l))
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0];
     return hit?.created_at || (status === report.status ? (status === "completed" ? (report.completed_at || report.updated_at) : report.updated_at) : null);
   };
@@ -364,20 +645,38 @@ export function ExpandableTimelineNote({
   const [canExpand, setCanExpand] = React.useState(false);
   const textRef = React.useRef<HTMLParagraphElement>(null);
 
-  React.useEffect(() => {
-    const checkOverflow = () => {
-      const el = textRef.current;
-      if (!el) return;
-      const lineBreaks = (remark.match(/\n/g) || []).length;
-      const isLongChars = remark.trim().length > 130;
-      const isHeightOverflow = el.scrollHeight > 90;
-      setCanExpand(lineBreaks >= 2 || isLongChars || isHeightOverflow);
-    };
+  const checkOverflow = React.useCallback(() => {
+    const el = textRef.current;
+    if (!el) return;
 
+    if (!isExpanded) {
+      // When clamped with line-clamp-3, scrollHeight > clientHeight only if content actually exceeds 3 rendered lines
+      setCanExpand(el.scrollHeight - el.clientHeight > 2);
+    } else {
+      // When expanded, compare full height against 3 lines of computed line-height
+      const computed = window.getComputedStyle(el);
+      const lineHeight = parseFloat(computed.lineHeight) || 25.2;
+      const maxThreeLinesHeight = lineHeight * 3;
+      setCanExpand(el.scrollHeight - maxThreeLinesHeight > 4);
+    }
+  }, [isExpanded]);
+
+  React.useEffect(() => {
     checkOverflow();
+    const el = textRef.current;
+    let observer: ResizeObserver | null = null;
+    if (el && typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(() => {
+        checkOverflow();
+      });
+      observer.observe(el);
+    }
     window.addEventListener("resize", checkOverflow);
-    return () => window.removeEventListener("resize", checkOverflow);
-  }, [remark]);
+    return () => {
+      if (observer) observer.disconnect();
+      window.removeEventListener("resize", checkOverflow);
+    };
+  }, [remark, isExpanded, checkOverflow]);
 
   return (
     <div className={`mt-2 rounded-xl border p-3.5 sm:p-4 ${bgClass} ${borderClass} transition-colors w-full min-w-0`}>
@@ -386,28 +685,24 @@ export function ExpandableTimelineNote({
       <div className="relative w-full min-w-0">
         <p
           ref={textRef}
-          className={`w-full text-[14px] text-slate-700 leading-[1.8] whitespace-pre-wrap break-words [overflow-wrap:anywhere] min-w-0 transition-all duration-300 ${
-            canExpand && !isExpanded ? "line-clamp-3 overflow-hidden" : ""
+          className={`w-full text-[14px] text-slate-700 leading-[1.8] whitespace-pre-wrap break-words [overflow-wrap:anywhere] min-w-0 ${
+            !isExpanded ? "line-clamp-3 overflow-hidden" : ""
           }`}
         >
           {remark}
         </p>
-
-        {canExpand && !isExpanded && (
-          <div className="absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-white/70 to-transparent pointer-events-none" />
-        )}
       </div>
 
       {canExpand && (
         <button
           type="button"
           onClick={() => setIsExpanded((prev) => !prev)}
-          className="mt-2.5 inline-flex items-center gap-1 text-[12px] font-bold text-[#C2410C] hover:text-[#9A3412] transition-colors cursor-pointer select-none group focus:outline-none"
+          className="mt-2 inline-flex items-center gap-1 text-[12px] font-medium text-slate-500 hover:text-slate-700 transition-colors cursor-pointer select-none group focus:outline-none"
         >
           <span>{isExpanded ? "ย่อข้อความ" : "อ่านเพิ่มเติม"}</span>
           <ChevronDown
-            className={`w-3.5 h-3.5 transition-transform duration-200 ${
-              isExpanded ? "rotate-180" : "group-hover:translate-y-0.5"
+            className={`w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-transform duration-200 ${
+              isExpanded ? "rotate-180" : ""
             }`}
           />
         </button>
@@ -481,8 +776,14 @@ export function ActivityTimelineCard({
                 {entry.isNote && (
                   <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">บันทึกเพิ่มเติม</span>
                 )}
-                <span className="text-[12px] text-slate-400">
-                  {formatThaiDateTime(entry.created_at)} · โดย {entry.actorName}
+                <span className="text-[12px] text-slate-400 break-words">
+                  {formatThaiDateTime(entry.created_at)} · โดย{" "}
+                  <span className="text-[12px] font-medium text-slate-600">{entry.actorName}</span>
+                  {entry.actorPosition?.trim() ? (
+                    <span className="text-[12px] font-normal text-slate-500">
+                      {" "}({entry.actorPosition.trim()})
+                    </span>
+                  ) : null}
                 </span>
               </div>
 

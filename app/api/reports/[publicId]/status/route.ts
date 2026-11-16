@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { notifyLine } from "@/lib/line";
 import { getAccessibleDepartmentIds } from "@/lib/auth-helpers";
+import { getReportDataSource } from "@/lib/dataSource";
 
 export const dynamic = "force-dynamic";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ publicId: string }> }) {
   try {
-    const { publicId } = await params;
+    const dataSource = getReportDataSource();
+    const { publicId: _publicId } = await params;
+    void _publicId;
     const authHeader = req.headers.get("authorization");
     if (!authHeader) {
       return NextResponse.json({ error: "Missing authorization header" }, { status: 401 });
@@ -22,21 +24,21 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ public
     }
 
     const body = await req.json();
-    const { status, remark, reportId, oldStatus, departmentId, imageUrl } = body;
+    const { status, remark, reportId, departmentId, imageUrl, oldStatus, assigned_to } = body;
 
     if (!reportId) {
       return NextResponse.json({ error: "Missing reportId" }, { status: 400 });
     }
 
-    // Verify staff exists and is active (optional, depending on business rules)
+    // Verify staff exists and is active
     const { data: staffProfile } = await supabaseAdmin
       .from("staff_users")
-      .select("id, role, department_id")
+      .select("id, role, department_id, status")
       .eq("id", user.id)
       .single();
 
-    if (!staffProfile) {
-      return NextResponse.json({ error: "Staff profile not found" }, { status: 403 });
+    if (!staffProfile || staffProfile.status !== "active") {
+      return NextResponse.json({ error: "Staff profile not found or inactive", code: "FORBIDDEN" }, { status: 403 });
     }
 
     if (staffProfile.role === "staff" && status === "transfer") {
@@ -45,7 +47,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ public
 
     // 2. Load report information
     const { data: currentReport, error: fetchError } = await supabaseAdmin
-      .from("reports")
+      .from(dataSource.reportsTable)
       .select(`
         id,
         category_id,
@@ -60,22 +62,50 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ public
       return NextResponse.json({ error: "Report not found" }, { status: 404 });
     }
 
+    // Concurrent modification check if oldStatus was provided
+    if (oldStatus && currentReport.status !== oldStatus) {
+      return NextResponse.json(
+        {
+          error: "สถานะคำร้องถูกเปลี่ยนแปลงโดยผู้ใช้อื่นแล้ว กรุณารีเฟรชข้อมูลล่าสุดก่อนดำเนินการ",
+          code: "CONCURRENT_MODIFICATION",
+          currentStatus: currentReport.status,
+        },
+        { status: 409 }
+      );
+    }
+
     const isStatusProvided = Boolean(status && typeof status === "string" && status.trim() !== "");
     const isStatusChanged = isStatusProvided && (status === "transfer" || status !== currentReport.status);
     const isRemarkProvided = remark !== undefined;
     const isRemarkChanged = isRemarkProvided && (remark || "").trim() !== (currentReport.admin_remark || "").trim();
     const isImageProvided = Boolean(imageUrl);
+    const isAssigneeProvided = assigned_to !== undefined;
 
-    // Rule: Must have at least 1 change (status, remark, or image)
-    if (!isStatusChanged && !isRemarkChanged && !isImageProvided) {
+    // Rule: Must have at least 1 change (status, remark, image, or assignment)
+    if (!isStatusChanged && !isRemarkChanged && !isImageProvided && !isAssigneeProvided) {
       return NextResponse.json({ error: "กรุณาเลือกสถานะใหม่ หรือเพิ่มหมายเหตุ" }, { status: 400 });
+    }
+
+    // Rule: Image attachment is permitted ONLY when status is 'completed'
+    const effectiveStatus = (status && status !== "transfer") ? status : currentReport.status;
+    if (isImageProvided && effectiveStatus !== "completed") {
+      return NextResponse.json(
+        {
+          error: "สามารถแนบรูปภาพได้เมื่อเลือกสถานะ 'เสร็จสิ้น' เท่านั้น",
+          code: "IMAGE_ATTACHMENT_NOT_ALLOWED",
+        },
+        { status: 400 }
+      );
     }
 
     if (currentReport.status === 'completed' && !['admin', 'super_admin', 'manager'].includes(staffProfile.role)) {
       return NextResponse.json({ error: "Forbidden: Cannot edit a completed report" }, { status: 403 });
     }
 
-    const currentDepartmentId = (currentReport.categories as any)?.department_id;
+    const currentDeptObj = Array.isArray(currentReport.categories)
+      ? (currentReport.categories[0] as { department_id: number | null } | undefined)
+      : (currentReport.categories as unknown as { department_id: number | null } | null);
+    const currentDepartmentId = currentDeptObj?.department_id;
 
     // 3. Resolve accessible departments
     const accessibleDepartmentIds = await getAccessibleDepartmentIds(
@@ -92,7 +122,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ public
     }
 
     const now = new Date().toISOString();
-    const updatePayload: any = { updated_at: now };
+    const updatePayload: Record<string, unknown> = { updated_at: now };
+    let oldDeptName = "ไม่ระบุ";
     
     if (status === "transfer") {
       if (!departmentId) {
@@ -116,7 +147,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ public
         return NextResponse.json({ error: "Invalid department or no mapped category" }, { status: 400 });
       }
       
-      let oldDeptName = "ไม่ระบุ";
       if (currentDepartmentId) {
         const { data: oldDept } = await supabaseAdmin
           .from("departments")
@@ -126,16 +156,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ public
         if (oldDept) oldDeptName = oldDept.name_th;
       }
         
-      // Get new department name and line group
+      // Get new department name
       const { data: newDept } = await supabaseAdmin
         .from("departments")
-        .select("name_th, line_group_id")
+        .select("name_th")
         .eq("id", departmentId)
         .single();
         
       const newDeptName = newDept?.name_th || "ไม่ระบุ";
-      (req as any).targetLineGroupId = newDept?.line_group_id || null;
-      (req as any).oldDeptName = oldDeptName;
 
       updatePayload.status = "pending";
       updatePayload.category_id = targetCategory.id;
@@ -154,18 +182,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ public
       if (isRemarkChanged || (remark !== undefined && isStatusChanged)) {
         updatePayload.admin_remark = remark;
       }
+      if (isAssigneeProvided) {
+        updatePayload.assigned_to = assigned_to;
+      }
     }
 
     // Update the report
-    const { data: updatedReport, error: updateError } = await supabaseAdmin
-      .from("reports")
+    const { error: updateError } = await supabaseAdmin
+      .from(dataSource.reportsTable)
       .update(updatePayload)
       .eq("id", reportId)
-      .select(`
-        *,
-        categories(name_th),
-        subcategories(name_th)
-      `)
+      .select("id")
       .single();
 
     if (updateError) {
@@ -178,7 +205,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ public
     
     if (status === "transfer") {
       actionName = "transfer";
-      logRemark = updatePayload.admin_remark; // Use the formatted remark with old/new category names
+      logRemark = updatePayload.admin_remark as string; // Use the formatted remark with old/new category names
+    } else if (isAssigneeProvided && !isStatusChanged && !isRemarkChanged) {
+      actionName = "task_assigned";
     } else if (isStatusChanged && !isRemarkChanged) {
       actionName = "status_updated";
     } else if (isRemarkChanged && !isStatusChanged) {
@@ -188,7 +217,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ public
     }
 
     const { error: logError } = await supabaseAdmin
-      .from("report_logs")
+      .from(dataSource.reportLogsTable)
       .insert({
         report_id: reportId,
         user_id: user.id,
@@ -205,40 +234,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ public
       // We don't fail the whole request if log fails, but it's bad
     }
 
-    // Trigger LINE notification if it's a transfer
-    if (status === "transfer" && (req as any).targetLineGroupId) {
-      try {
-        const createdAt = new Date(updatedReport.created_at).toLocaleString('th-TH', {
-          timeZone: 'Asia/Bangkok',
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        }) + ' น.';
-
-        const payload = {
-          publicId: updatedReport.public_id,
-          categoryName: (updatedReport.categories as any)?.name_th || "-",
-          subcategoryName: (updatedReport.subcategories as any)?.name_th || "-",
-          description: updatedReport.description,
-          location: updatedReport.location,
-          date: createdAt,
-          statusText: "pending",
-          reporterName: updatedReport.reporter_name,
-          isTransfer: true,
-          oldDepartmentName: (req as any).oldDeptName,
-          transferRemark: remark
-        };
-
-        await notifyLine(payload, (req as any).targetLineGroupId);
-      } catch (err) {
-        console.error("Failed to send LINE notification for transfer:", err);
-      }
-    }
+    // Event Policy: Status changes and transfers never send LINE notifications (Localhost & Production)
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error updating report:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },

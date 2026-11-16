@@ -11,6 +11,7 @@ import { fetcherWithAuth } from "@/lib/fetcher";
 import { 
   LayoutDashboard, 
   ClipboardList, 
+  Layers,
   Users, 
   BarChart3, 
   Settings, 
@@ -62,9 +63,9 @@ export const BackofficeSidebar: React.FC = () => {
         key = '/api/backoffice/analytics?dateRange=all&status=all&department=all';
       }
 
-      // Skip preload if SWR already has fresh cached data
-      if (key && !cache.get(key)) {
-        preload(key, fetcherWithAuth);
+      // Skip preload if not authenticated or SWR already has fresh cached data
+      if (user && key && !cache.get(key)) {
+        preload(key, fetcherWithAuth).catch(() => {});
       }
     }, 200); // 200ms hover delay
   };
@@ -76,6 +77,7 @@ export const BackofficeSidebar: React.FC = () => {
   const menuItems = [
     { href: '/backoffice', label: 'แดชบอร์ด', icon: LayoutDashboard },
     { href: '/backoffice/reports', label: 'จัดการคำร้อง', icon: ClipboardList },
+    { href: '/backoffice/incidents', label: 'กลุ่มเหตุการณ์', icon: Layers },
     { href: '/backoffice/analytics', label: 'สถิติเชิงลึก', icon: BarChart3 },
     { href: '/backoffice/staff', label: 'เจ้าหน้าที่', icon: Users },
     { href: '/backoffice/settings', label: 'ตั้งค่าระบบ', icon: Settings },

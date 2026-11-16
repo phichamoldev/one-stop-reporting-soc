@@ -46,9 +46,32 @@ export interface PublicTimelineMilestone {
 export function extractPublicMilestones(report?: Report | null): PublicTimelineMilestone[] {
   if (!report) return [];
 
-  const rawLogs = [...(report.report_logs || [])].sort(
-    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-  );
+  // Internal log actions that are for staff/system audit and must NEVER be shown to public
+  const INTERNAL_ACTIONS = new Set([
+    'priority_classified',
+    'priority_updated',
+    'incident_detection_completed',
+    'incident_detection_failed',
+    'incident_group_added',
+    'incident_group_removed',
+    'draft_created',
+    'draft_rejected',
+  ]);
+
+  const isInternalRemark = (text: string | null | undefined): boolean => {
+    if (!text) return false;
+    return (
+      text.includes('ความสัมพันธ์') ||
+      text.includes('กลุ่มเหตุการณ์') ||
+      text.includes('จัดประเภทความเร่งด่วน') ||
+      text.includes('ตรวจจับเหตุการณ์') ||
+      text.includes('คำร้องอื่น')
+    );
+  };
+
+  const rawLogs = [...(report.report_logs || [])]
+    .filter(l => l && !INTERNAL_ACTIONS.has(l.action) && !isInternalRemark(l.remark))
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
   const milestones: PublicTimelineMilestone[] = [];
 
@@ -59,7 +82,7 @@ export function extractPublicMilestones(report?: Report | null): PublicTimelineM
     status: 'pending',
     label: 'ส่งเรื่องเข้าระบบแล้ว',
     created_at: createdLog?.created_at || report.created_at,
-    remark: createdLog?.remark || null,
+    remark: createdLog?.remark && !isInternalRemark(createdLog.remark) ? createdLog.remark : null,
     image_url: createdLog?.image_url || null,
     staff_users: createdLog?.staff_users || null
   });
@@ -70,10 +93,10 @@ export function extractPublicMilestones(report?: Report | null): PublicTimelineM
   for (const log of rawLogs) {
     if (log.action === 'created') continue;
 
-    // Note-only updates (without status change) are internal logs -> do not create duplicate public milestone
-    if (log.action === 'note_updated') {
+    // Staff note updates intended for public viewing
+    if (log.action === 'note_updated' || log.action === 'admin_note_added') {
       const existing = milestones.find(m => m.status === log.new_status);
-      if (existing && log.remark) {
+      if (existing && log.remark && !isInternalRemark(log.remark)) {
         existing.remark = log.remark;
       }
       if (existing && log.staff_users) {
@@ -88,7 +111,7 @@ export function extractPublicMilestones(report?: Report | null): PublicTimelineM
         status: 'transfer',
         label: 'โอนคำร้อง',
         created_at: log.created_at,
-        remark: log.remark || null,
+        remark: log.remark && !isInternalRemark(log.remark) ? log.remark : null,
         image_url: log.image_url || null,
         staff_users: log.staff_users || null
       });
@@ -102,7 +125,7 @@ export function extractPublicMilestones(report?: Report | null): PublicTimelineM
     // Prevent duplicate milestone if the status hasn't changed or has already been recorded
     if (seenStatuses.has(targetStatus)) {
       const existing = milestones.find(m => m.status === targetStatus);
-      if (existing && log.remark) {
+      if (existing && log.remark && !isInternalRemark(log.remark)) {
         existing.remark = log.remark;
       }
       if (existing && log.staff_users) {
@@ -118,7 +141,7 @@ export function extractPublicMilestones(report?: Report | null): PublicTimelineM
       status: targetStatus,
       label: statusConfig?.label || getStatusLabel(targetStatus),
       created_at: log.created_at,
-      remark: log.remark || null,
+      remark: log.remark && !isInternalRemark(log.remark) ? log.remark : null,
       image_url: log.image_url || null,
       staff_users: log.staff_users || null
     });

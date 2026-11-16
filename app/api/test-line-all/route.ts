@@ -1,10 +1,30 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { notifyLine } from "@/lib/line";
+import { notifyLine, isLineNotificationEnabled } from "@/lib/line";
+import { getReportDataSource } from "@/lib/dataSource";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  if (!isLineNotificationEnabled('test_endpoint')) {
+    console.log("LINE notification skipped: disabled by environment");
+    return NextResponse.json({
+      success: false,
+      message: "LINE notification skipped: disabled by environment",
+      skipped: true,
+    });
+  }
+
+  const dataSource = getReportDataSource();
+  if (dataSource.isTest) {
+    console.warn("LINE notification blocked: Broadcasting to all departments is prohibited in test environment");
+    return NextResponse.json({
+      success: false,
+      message: "Broadcasting to all departments is prohibited in test environment",
+      skipped: true,
+    }, { status: 403 });
+  }
+
   try {
     const { data: departments, error } = await supabaseAdmin
       .from("departments")
@@ -45,7 +65,8 @@ export async function GET() {
       try {
         const result = await notifyLine(
           payload,
-          dept.line_group_id
+          dept.line_group_id,
+          { event: 'test_endpoint' }
         );
 
         results.push({
@@ -56,7 +77,7 @@ export async function GET() {
           error: result.error || null,
         });
 
-      } catch (err) {
+      } catch {
         results.push({
           departmentId: dept.id,
           departmentName: dept.name_th,
@@ -73,7 +94,7 @@ export async function GET() {
       results,
     });
 
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       {
         success: false,

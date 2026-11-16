@@ -8,10 +8,65 @@ export type ReportStatus =
   | 'rejected'
   | 'cancelled';
 
-type ReportPriority = 
+export type ReportPriority = 
+  | 'emergency'
+  | 'normal'
+  | 'needs_review'
   | 'low' 
   | 'medium' 
   | 'high';
+
+export interface PriorityConfig {
+  label: string;
+  badgeClass: string;
+  dotClass: string;
+  iconName: string;
+}
+
+export const PRIORITY_DETAILS: Record<string, PriorityConfig> = {
+  emergency: {
+    label: 'ฉุกเฉิน (Emergency)',
+    badgeClass: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900',
+    dotClass: 'bg-red-500 animate-pulse',
+    iconName: 'AlertTriangle',
+  },
+  needs_review: {
+    label: 'รอตรวจสอบ (Needs Review)',
+    badgeClass: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900',
+    dotClass: 'bg-amber-500',
+    iconName: 'HelpCircle',
+  },
+  normal: {
+    label: 'ปกติ (Normal)',
+    badgeClass: 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
+    dotClass: 'bg-slate-400',
+    iconName: 'CheckCircle',
+  },
+  low: {
+    label: 'ปกติ (Normal)',
+    badgeClass: 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
+    dotClass: 'bg-slate-400',
+    iconName: 'CheckCircle',
+  },
+  medium: {
+    label: 'ปานกลาง (Medium)',
+    badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900',
+    dotClass: 'bg-blue-500',
+    iconName: 'Info',
+  },
+  high: {
+    label: 'สูง (High)',
+    badgeClass: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-900',
+    dotClass: 'bg-orange-500',
+    iconName: 'AlertCircle',
+  },
+};
+
+export function getPriorityLabel(priority: string | null | undefined): string {
+  if (!priority) return 'ปกติ (Normal)';
+  const clean = priority.toLowerCase().trim();
+  return PRIORITY_DETAILS[clean]?.label || priority;
+}
 
 export type SearchMethod = 'soc' | 'phone';
 

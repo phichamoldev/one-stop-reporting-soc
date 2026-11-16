@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
 import { getAccessibleDepartmentIds, verifyAuthToken } from "@/lib/auth-helpers";
+import { getReportDataSource } from "@/lib/dataSource";
 
 export const dynamic = "force-dynamic";
 
@@ -32,9 +33,11 @@ export async function GET(req: Request) {
     // date could be 'today', 'week', 'month', 'all'
     const dateRange = searchParams.get("dateRange");
 
+    const { reportsTable } = getReportDataSource();
+
     // Build base query for reports
     let query = supabaseAdmin
-      .from("reports")
+      .from(reportsTable)
       .select(`
         *,
         categories (
@@ -119,7 +122,7 @@ export async function GET(req: Request) {
       query = query.eq("category_id", parseInt(category, 10));
     }
     if (search) {
-      query = query.or(`title.ilike.%${search}%,public_id.ilike.%${search}%`);
+      query = query.or(`description.ilike.%${search}%,public_id.ilike.%${search}%`);
     }
 
     if (dateRange && dateRange !== "all") {

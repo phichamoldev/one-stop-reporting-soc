@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 ALTER TABLE system_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
--- Optional policies to secure them
+-- Policies to secure system_settings and audit_logs
 CREATE POLICY "Super Admins can manage system settings" 
 ON system_settings 
 FOR ALL USING (
@@ -38,6 +38,15 @@ FOR ALL USING (
     SELECT 1 FROM staff_users 
     WHERE staff_users.id = auth.uid() 
     AND staff_users.role = 'super_admin'
+    AND staff_users.status = 'active'
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM staff_users 
+    WHERE staff_users.id = auth.uid() 
+    AND staff_users.role = 'super_admin'
+    AND staff_users.status = 'active'
   )
 );
 
@@ -47,6 +56,7 @@ FOR SELECT USING (
   EXISTS (
     SELECT 1 FROM staff_users 
     WHERE staff_users.id = auth.uid() 
+    AND staff_users.status = 'active'
   )
 );
 
@@ -57,6 +67,7 @@ FOR SELECT USING (
     SELECT 1 FROM staff_users 
     WHERE staff_users.id = auth.uid() 
     AND staff_users.role = 'super_admin'
+    AND staff_users.status = 'active'
   )
 );
 
@@ -67,5 +78,6 @@ FOR INSERT WITH CHECK (
     SELECT 1 FROM staff_users 
     WHERE staff_users.id = auth.uid() 
     AND staff_users.role = 'super_admin'
+    AND staff_users.status = 'active'
   )
 );

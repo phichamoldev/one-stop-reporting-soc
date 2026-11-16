@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { getReportDataSource } from "@/lib/dataSource";
 
 export const dynamic = "force-dynamic";
 
@@ -73,8 +74,9 @@ export async function POST(req: Request) {
       possibleFormats.push(`${digitsOnly.slice(0, 2)}-${digitsOnly.slice(2)}`);
     }
 
+    const { reportsTable } = getReportDataSource();
     const { data: reports, error } = await supabaseAdmin
-      .from("reports")
+      .from(reportsTable)
       .select(`
         id,
         public_id,

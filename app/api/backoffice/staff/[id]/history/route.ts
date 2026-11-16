@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getAccessibleDepartmentIds } from "@/lib/auth-helpers";
+import { getReportDataSource } from "@/lib/dataSource";
 
 export const dynamic = "force-dynamic";
 
@@ -67,9 +68,11 @@ export async function GET(
     // Fetch Completed Reports for this user
     // Requirements: completed_by = staffId, status = 'completed', ordered by completed_at DESC
     
+    const { reportsTable } = getReportDataSource();
+
     // Query count
     const { count, error: countError } = await supabaseAdmin
-      .from("reports")
+      .from(reportsTable)
       .select("*", { count: "exact", head: true })
       .eq("completed_by", staffId)
       .eq("status", "completed");
@@ -80,8 +83,8 @@ export async function GET(
 
     // Query data
     const { data: history, error: historyError } = await supabaseAdmin
-      .from("reports")
-      .select("id, public_id, title, completed_at, admin_remark")
+      .from(reportsTable)
+      .select("id, public_id, title:description, completed_at, admin_remark")
       .eq("completed_by", staffId)
       .eq("status", "completed")
       .order("completed_at", { ascending: false })

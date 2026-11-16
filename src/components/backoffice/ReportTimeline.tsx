@@ -44,11 +44,12 @@ const getTimelineIcon = (status: string) => {
 
 interface ReportTimelineProps {
   logs: any[];
+  isDrawer?: boolean;
 }
 
-export const ReportTimeline: React.FC<ReportTimelineProps> = ({ logs }) => {
+export const ReportTimeline: React.FC<ReportTimelineProps> = ({ logs, isDrawer = false }) => {
   return (
-    <div className="bg-white dark:bg-slate-900 p-6 rounded-[20px] border border-slate-100 dark:border-slate-800/60 card-shadow">
+    <div className={isDrawer ? "space-y-4 pt-1" : "bg-white dark:bg-slate-900 p-6 rounded-[20px] border border-slate-100 dark:border-slate-800/60 card-shadow"}>
       <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 border-b border-slate-50 dark:border-slate-800/40 pb-4 mb-5 flex items-center gap-2">
         <History className="w-5 h-5 text-primary" />
         บันทึกประวัติการดำเนินงาน (Logs)

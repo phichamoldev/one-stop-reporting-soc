@@ -1,0 +1,933 @@
+-- ============================================================================
+-- MIGRATION: 0007_event_notifications.sql (SQL ARCHITECTURE CORRECTION)
+-- PURPOSE: Event-Based LINE Notification, 15-Minute Rolling Digest & Durable Outbox
+-- 
+-- CORRECTIONS IMPLEMENTED:
+--   1. Drop Partial Unique Index on cluster_signature -> Converted to Regular Index.
+--      Domain signature is candidate search key only; semantic matching determines event binding.
+--   2. State Machine Separation: UNCERTAIN_DELIVERY is an Outbox state, NOT a Tracker state.
+--      Trackers remain in AGGREGATING to prevent blocking report collection upon delivery hiccups.
+--   3. Atomic Escalation RPCs: escalate_event_priority() and test_escalate_event_priority()
+--      executed in a single ACID transaction with escalation_version idempotency.
+--   4. Full Test/Production Parity: Parity across all tables, constraints, indexes, and RPCs:
+--      claim_and_snapshot_digest, link_tracker_to_incident_group, escalate_event_priority.
+--   5. Incident Group Linkage Guards: Verifies staff role, prevents overwriting existing links,
+--      ensures idempotency when linking to the same group.
+--   6. Hardened RPC Security: SECURITY DEFINER with explicit SET search_path = public,
+--      authorization checks, REVOKE FROM PUBLIC, and GRANT TO service_role, authenticated.
+--   7. Safe Migration Rerun: Explicit DROP of previous unique indexes before regular index creation.
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- 1. TEST TABLES (Isolated for Localhost / Development / CI)
+-- ----------------------------------------------------------------------------
+
+-- 1.1 Test Event Trackers (State Machine & Window Management)
+CREATE TABLE IF NOT EXISTS test_event_notification_trackers (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_code text NOT NULL UNIQUE,                             -- e.g. 'EVT-T-20261102-0001'
+  cluster_signature text NOT NULL,                             -- Candidate Search Key: `cat_${catId}_anchor_${spatialKey}`
+  canonical_group_id uuid REFERENCES test_incident_groups(id) ON DELETE SET NULL, -- Linked Incident Group
+  category_id integer REFERENCES categories(id) ON DELETE SET NULL,
+  title text NOT NULL,
+  location text,
+  priority text NOT NULL DEFAULT 'normal' CHECK (priority IN ('emergency', 'normal', 'needs_review')),
+  escalation_version integer NOT NULL DEFAULT 1,               -- Incremented upon priority escalation
+  state text NOT NULL DEFAULT 'NEW' CHECK (
+    state IN (
+      'NEW',
+      'FIRST_ALERT_PENDING',
+      'FIRST_ALERT_SENT',
+      'AGGREGATING',
+      'DIGEST_PENDING',
+      'DIGEST_SENT',
+      'EMERGENCY_ALERT_PENDING',
+      'EMERGENCY_ALERT_SENT',
+      'ESCALATION_ALERT_PENDING',
+      'ESCALATION_ALERT_SENT',
+      'CLOSED'
+    )
+  ),
+  initial_report_id uuid REFERENCES test_reports(id) ON DELETE SET NULL,
+  initial_report_public_id text,                               -- Stores 'SOC-xxxxx' safely
+  destination text NOT NULL,                                   -- Target LINE Group ID (Masked in logs)
+  environment text NOT NULL CHECK (environment IN ('test', 'production')),
+  window_started_at timestamp with time zone DEFAULT now(),
+  window_expires_at timestamp with time zone NOT NULL,         -- Rolling 15-minute window expiration
+  total_report_count integer NOT NULL DEFAULT 1,
+  last_notified_count integer NOT NULL DEFAULT 1,
+  digest_sequence integer NOT NULL DEFAULT 0,
+  digest_claimed_by text,                                      -- Worker ID holding atomic digest claim
+  digest_claimed_at timestamp with time zone,                  -- Timestamp of atomic digest claim
+  last_notified_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+-- Drop previous unique index if exists, and replace with Non-Unique candidate lookup index
+DROP INDEX IF EXISTS idx_test_evt_trackers_active_sig;
+CREATE INDEX IF NOT EXISTS idx_test_evt_trackers_sig 
+  ON test_event_notification_trackers(cluster_signature) 
+  WHERE state NOT IN ('CLOSED');
+
+CREATE INDEX IF NOT EXISTS idx_test_evt_trackers_state ON test_event_notification_trackers(state);
+CREATE INDEX IF NOT EXISTS idx_test_evt_trackers_window ON test_event_notification_trackers(window_expires_at);
+CREATE INDEX IF NOT EXISTS idx_test_evt_trackers_group ON test_event_notification_trackers(canonical_group_id);
+CREATE INDEX IF NOT EXISTS idx_test_evt_trackers_claim ON test_event_notification_trackers(digest_claimed_at) WHERE digest_claimed_at IS NOT NULL;
+
+-- 1.2 Test Event Reports (Mapping reports to event clusters and digest sequence)
+CREATE TABLE IF NOT EXISTS test_event_notification_reports (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tracker_id uuid NOT NULL REFERENCES test_event_notification_trackers(id) ON DELETE CASCADE,
+  report_id uuid NOT NULL REFERENCES test_reports(id) ON DELETE CASCADE,
+  public_id text NOT NULL,
+  digest_sequence integer,                                     -- NULL if not yet included in any sent digest; N once sent
+  added_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT uq_test_evt_reports_report_id UNIQUE (report_id), -- Strict Rule: 1 Report can belong to at most ONE Event
+  CONSTRAINT uq_test_evt_reports_tracker_report UNIQUE (tracker_id, report_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_test_evt_reports_pending 
+  ON test_event_notification_reports(tracker_id) 
+  WHERE digest_sequence IS NULL;
+
+-- 1.3 Test Durable Outbox (Atomic claims, Idempotency, and Delivery Tracking)
+CREATE TABLE IF NOT EXISTS test_event_notification_outbox (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  idempotency_key text NOT NULL UNIQUE,                        -- e.g. 'evt_first_alert_EVT-001' or 'evt_digest_EVT-001_seq1'
+  tracker_id uuid NOT NULL REFERENCES test_event_notification_trackers(id) ON DELETE CASCADE,
+  notification_type text NOT NULL CHECK (
+    notification_type IN ('first_alert', 'digest', 'emergency_alert', 'escalation_alert')
+  ),
+  digest_sequence integer NOT NULL DEFAULT 0,
+  payload jsonb NOT NULL,                                      -- Complete Flex Message payload
+  destination text NOT NULL,
+  environment text NOT NULL CHECK (environment IN ('test', 'production')),
+  status text NOT NULL DEFAULT 'queued' CHECK (
+    status IN ('queued', 'claiming', 'sent', 'failed', 'uncertain_delivery', 'skipped')
+  ),
+  claim_token text,
+  claimed_at timestamp with time zone,
+  lease_timeout_at timestamp with time zone,                   -- Expiry of worker claim lease (default 30s)
+  attempt_count integer NOT NULL DEFAULT 0,
+  max_attempts integer NOT NULL DEFAULT 1,                     -- Strict bounded attempt: 1 attempt max
+  error_code text,
+  error_message text,
+  sent_at timestamp with time zone,                            -- Timestamp when LINE API returned 200 OK
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_test_evt_outbox_status ON test_event_notification_outbox(status);
+CREATE INDEX IF NOT EXISTS idx_test_evt_outbox_lease ON test_event_notification_outbox(status, lease_timeout_at);
+
+
+-- ----------------------------------------------------------------------------
+-- 2. PRODUCTION TABLES (Mirrored structure for Production)
+-- ----------------------------------------------------------------------------
+
+-- 2.1 Production Event Trackers
+CREATE TABLE IF NOT EXISTS event_notification_trackers (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_code text NOT NULL UNIQUE,                             -- e.g. 'EVT-20261102-0001'
+  cluster_signature text NOT NULL,                             -- Candidate Search Key: `cat_${catId}_anchor_${spatialKey}`
+  canonical_group_id uuid REFERENCES incident_groups(id) ON DELETE SET NULL, -- Linked Incident Group
+  category_id integer REFERENCES categories(id) ON DELETE SET NULL,
+  title text NOT NULL,
+  location text,
+  priority text NOT NULL DEFAULT 'normal' CHECK (priority IN ('emergency', 'normal', 'needs_review')),
+  escalation_version integer NOT NULL DEFAULT 1,               -- Incremented upon priority escalation
+  state text NOT NULL DEFAULT 'NEW' CHECK (
+    state IN (
+      'NEW',
+      'FIRST_ALERT_PENDING',
+      'FIRST_ALERT_SENT',
+      'AGGREGATING',
+      'DIGEST_PENDING',
+      'DIGEST_SENT',
+      'EMERGENCY_ALERT_PENDING',
+      'EMERGENCY_ALERT_SENT',
+      'ESCALATION_ALERT_PENDING',
+      'ESCALATION_ALERT_SENT',
+      'CLOSED'
+    )
+  ),
+  initial_report_id uuid REFERENCES reports(id) ON DELETE SET NULL,
+  initial_report_public_id text,                               -- Stores 'SOC-xxxxx' safely
+  destination text NOT NULL,                                   -- Target LINE Group ID (Masked in logs)
+  environment text NOT NULL CHECK (environment IN ('test', 'production')),
+  window_started_at timestamp with time zone DEFAULT now(),
+  window_expires_at timestamp with time zone NOT NULL,         -- Rolling 15-minute window expiration
+  total_report_count integer NOT NULL DEFAULT 1,
+  last_notified_count integer NOT NULL DEFAULT 1,
+  digest_sequence integer NOT NULL DEFAULT 0,
+  digest_claimed_by text,                                      -- Worker ID holding atomic digest claim
+  digest_claimed_at timestamp with time zone,                  -- Timestamp of atomic digest claim
+  last_notified_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+-- Drop previous unique index if exists, and replace with Non-Unique candidate lookup index
+DROP INDEX IF EXISTS idx_evt_trackers_active_sig;
+CREATE INDEX IF NOT EXISTS idx_evt_trackers_sig 
+  ON event_notification_trackers(cluster_signature) 
+  WHERE state NOT IN ('CLOSED');
+
+CREATE INDEX IF NOT EXISTS idx_evt_trackers_state ON event_notification_trackers(state);
+CREATE INDEX IF NOT EXISTS idx_evt_trackers_window ON event_notification_trackers(window_expires_at);
+CREATE INDEX IF NOT EXISTS idx_evt_trackers_group ON event_notification_trackers(canonical_group_id);
+CREATE INDEX IF NOT EXISTS idx_evt_trackers_claim ON event_notification_trackers(digest_claimed_at) WHERE digest_claimed_at IS NOT NULL;
+
+-- 2.2 Production Event Reports
+CREATE TABLE IF NOT EXISTS event_notification_reports (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tracker_id uuid NOT NULL REFERENCES event_notification_trackers(id) ON DELETE CASCADE,
+  report_id uuid NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
+  public_id text NOT NULL,
+  digest_sequence integer,                                     -- NULL if not yet included in any sent digest; N once sent
+  added_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT uq_evt_reports_report_id UNIQUE (report_id),      -- Strict Rule: 1 Report can belong to at most ONE Event
+  CONSTRAINT uq_evt_reports_tracker_report UNIQUE (tracker_id, report_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_evt_reports_pending 
+  ON event_notification_reports(tracker_id) 
+  WHERE digest_sequence IS NULL;
+
+-- 2.3 Production Durable Outbox
+CREATE TABLE IF NOT EXISTS event_notification_outbox (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  idempotency_key text NOT NULL UNIQUE,                        -- e.g. 'evt_first_alert_EVT-001' or 'evt_digest_EVT-001_seq1'
+  tracker_id uuid NOT NULL REFERENCES event_notification_trackers(id) ON DELETE CASCADE,
+  notification_type text NOT NULL CHECK (
+    notification_type IN ('first_alert', 'digest', 'emergency_alert', 'escalation_alert')
+  ),
+  digest_sequence integer NOT NULL DEFAULT 0,
+  payload jsonb NOT NULL,                                      -- Complete Flex Message payload
+  destination text NOT NULL,
+  environment text NOT NULL CHECK (environment IN ('test', 'production')),
+  status text NOT NULL DEFAULT 'queued' CHECK (
+    status IN ('queued', 'claiming', 'sent', 'failed', 'uncertain_delivery', 'skipped')
+  ),
+  claim_token text,
+  claimed_at timestamp with time zone,
+  lease_timeout_at timestamp with time zone,                   -- Expiry of worker claim lease (default 30s)
+  attempt_count integer NOT NULL DEFAULT 0,
+  max_attempts integer NOT NULL DEFAULT 1,                     -- Strict bounded attempt: 1 attempt max
+  error_code text,
+  error_message text,
+  sent_at timestamp with time zone,                            -- Timestamp when LINE API returned 200 OK
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_evt_outbox_status ON event_notification_outbox(status);
+CREATE INDEX IF NOT EXISTS idx_evt_outbox_lease ON event_notification_outbox(status, lease_timeout_at);
+
+
+-- ----------------------------------------------------------------------------
+-- 3. ATOMIC TRANSACTION PROCEDURES (RPC Functions for ACID Operations)
+-- ----------------------------------------------------------------------------
+
+-- 3.1 Production Atomic Digest Claim, Snapshot & Outbox Job Creation
+CREATE OR REPLACE FUNCTION claim_and_snapshot_digest(
+  p_tracker_id uuid,
+  p_worker_id text,
+  p_lease_seconds integer DEFAULT 30
+) RETURNS jsonb 
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_tracker record;
+  v_next_seq integer;
+  v_snapshotted_count integer;
+  v_outbox_id uuid;
+  v_idempotency_key text;
+BEGIN
+  -- 1. Lock and claim tracker row atomically
+  SELECT * INTO v_tracker
+  FROM event_notification_trackers
+  WHERE id = p_tracker_id
+    AND state IN ('AGGREGATING', 'DIGEST_PENDING')
+    AND window_expires_at <= now()
+    AND (digest_claimed_at IS NULL OR digest_claimed_at < now() - interval '60 seconds')
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'reason', 'tracker_not_claimable');
+  END IF;
+
+  v_next_seq := v_tracker.digest_sequence + 1;
+
+  -- 2. Atomically snapshot pending reports for this digest sequence
+  WITH snapshotted AS (
+    UPDATE event_notification_reports
+    SET digest_sequence = v_next_seq
+    WHERE tracker_id = p_tracker_id
+      AND digest_sequence IS NULL
+    RETURNING id
+  )
+  SELECT count(*) INTO v_snapshotted_count FROM snapshotted;
+
+  -- 3. If no new reports, roll window forward without sending empty digest
+  IF v_snapshotted_count = 0 THEN
+    UPDATE event_notification_trackers
+    SET 
+      window_expires_at = now() + interval '15 minutes',
+      digest_claimed_by = NULL,
+      digest_claimed_at = NULL,
+      updated_at = now()
+    WHERE id = p_tracker_id;
+
+    RETURN jsonb_build_object('success', true, 'action', 'window_rolled_no_reports');
+  END IF;
+
+  -- 4. Create Durable Outbox Job
+  v_idempotency_key := 'evt_digest_' || v_tracker.event_code || '_seq' || v_next_seq;
+  
+  INSERT INTO event_notification_outbox (
+    idempotency_key,
+    tracker_id,
+    notification_type,
+    digest_sequence,
+    payload,
+    destination,
+    environment,
+    status,
+    claim_token,
+    claimed_at,
+    lease_timeout_at
+  ) VALUES (
+    v_idempotency_key,
+    p_tracker_id,
+    'digest',
+    v_next_seq,
+    jsonb_build_object(
+      'event_code', v_tracker.event_code,
+      'title', v_tracker.title,
+      'location', v_tracker.location,
+      'new_report_count', v_snapshotted_count,
+      'total_report_count', v_tracker.total_report_count,
+      'canonical_group_id', v_tracker.canonical_group_id
+    ),
+    v_tracker.destination,
+    v_tracker.environment,
+    'claiming',
+    p_worker_id,
+    now(),
+    now() + (p_lease_seconds || ' seconds')::interval
+  ) RETURNING id INTO v_outbox_id;
+
+  -- 5. Advance tracker state
+  UPDATE event_notification_trackers
+  SET 
+    state = 'DIGEST_PENDING',
+    digest_sequence = v_next_seq,
+    digest_claimed_by = p_worker_id,
+    digest_claimed_at = now(),
+    updated_at = now()
+  WHERE id = p_tracker_id;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'action', 'digest_job_created',
+    'outbox_id', v_outbox_id,
+    'idempotency_key', v_idempotency_key,
+    'snapshotted_count', v_snapshotted_count,
+    'digest_sequence', v_next_seq
+  );
+END;
+$$ LANGUAGE plpgsql;
+
+-- 3.2 Test Atomic Digest Claim, Snapshot & Outbox Job Creation (Parity Mirror)
+CREATE OR REPLACE FUNCTION test_claim_and_snapshot_digest(
+  p_tracker_id uuid,
+  p_worker_id text,
+  p_lease_seconds integer DEFAULT 30
+) RETURNS jsonb 
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_tracker record;
+  v_next_seq integer;
+  v_snapshotted_count integer;
+  v_outbox_id uuid;
+  v_idempotency_key text;
+BEGIN
+  -- 1. Lock and claim tracker row atomically
+  SELECT * INTO v_tracker
+  FROM test_event_notification_trackers
+  WHERE id = p_tracker_id
+    AND state IN ('AGGREGATING', 'DIGEST_PENDING')
+    AND window_expires_at <= now()
+    AND (digest_claimed_at IS NULL OR digest_claimed_at < now() - interval '60 seconds')
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'reason', 'tracker_not_claimable');
+  END IF;
+
+  v_next_seq := v_tracker.digest_sequence + 1;
+
+  -- 2. Atomically snapshot pending reports for this digest sequence
+  WITH snapshotted AS (
+    UPDATE test_event_notification_reports
+    SET digest_sequence = v_next_seq
+    WHERE tracker_id = p_tracker_id
+      AND digest_sequence IS NULL
+    RETURNING id
+  )
+  SELECT count(*) INTO v_snapshotted_count FROM snapshotted;
+
+  -- 3. If no new reports, roll window forward without sending empty digest
+  IF v_snapshotted_count = 0 THEN
+    UPDATE test_event_notification_trackers
+    SET 
+      window_expires_at = now() + interval '15 minutes',
+      digest_claimed_by = NULL,
+      digest_claimed_at = NULL,
+      updated_at = now()
+    WHERE id = p_tracker_id;
+
+    RETURN jsonb_build_object('success', true, 'action', 'window_rolled_no_reports');
+  END IF;
+
+  -- 4. Create Durable Outbox Job
+  v_idempotency_key := 'evt_digest_' || v_tracker.event_code || '_seq' || v_next_seq;
+  
+  INSERT INTO test_event_notification_outbox (
+    idempotency_key,
+    tracker_id,
+    notification_type,
+    digest_sequence,
+    payload,
+    destination,
+    environment,
+    status,
+    claim_token,
+    claimed_at,
+    lease_timeout_at
+  ) VALUES (
+    v_idempotency_key,
+    p_tracker_id,
+    'digest',
+    v_next_seq,
+    jsonb_build_object(
+      'event_code', v_tracker.event_code,
+      'title', v_tracker.title,
+      'location', v_tracker.location,
+      'new_report_count', v_snapshotted_count,
+      'total_report_count', v_tracker.total_report_count,
+      'canonical_group_id', v_tracker.canonical_group_id
+    ),
+    v_tracker.destination,
+    v_tracker.environment,
+    'claiming',
+    p_worker_id,
+    now(),
+    now() + (p_lease_seconds || ' seconds')::interval
+  ) RETURNING id INTO v_outbox_id;
+
+  -- 5. Advance tracker state
+  UPDATE test_event_notification_trackers
+  SET 
+    state = 'DIGEST_PENDING',
+    digest_sequence = v_next_seq,
+    digest_claimed_by = p_worker_id,
+    digest_claimed_at = now(),
+    updated_at = now()
+  WHERE id = p_tracker_id;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'action', 'digest_job_created',
+    'outbox_id', v_outbox_id,
+    'idempotency_key', v_idempotency_key,
+    'snapshotted_count', v_snapshotted_count,
+    'digest_sequence', v_next_seq
+  );
+END;
+$$ LANGUAGE plpgsql;
+
+-- 3.3 Production Atomic Priority Escalation RPC
+CREATE OR REPLACE FUNCTION escalate_event_priority(
+  p_tracker_id uuid,
+  p_report_id uuid,
+  p_public_id text,
+  p_worker_id text,
+  p_lease_seconds integer DEFAULT 30
+) RETURNS jsonb 
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_tracker record;
+  v_new_version integer;
+  v_idempotency_key text;
+  v_outbox_id uuid;
+BEGIN
+  -- 1. Lock and inspect tracker
+  SELECT * INTO v_tracker
+  FROM event_notification_trackers
+  WHERE id = p_tracker_id AND state != 'CLOSED'
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'reason', 'tracker_not_found_or_closed');
+  END IF;
+
+  -- 2. If tracker is already 'emergency', do NOT trigger duplicate escalation alert
+  IF v_tracker.priority = 'emergency' THEN
+    -- Simply append report to tracker
+    INSERT INTO event_notification_reports (tracker_id, report_id, public_id)
+    VALUES (p_tracker_id, p_report_id, p_public_id)
+    ON CONFLICT (report_id) DO NOTHING;
+
+    UPDATE event_notification_trackers
+    SET 
+      total_report_count = total_report_count + 1,
+      updated_at = now()
+    WHERE id = p_tracker_id;
+
+    RETURN jsonb_build_object(
+      'success', true,
+      'escalated', false,
+      'reason', 'already_emergency_aggregated',
+      'tracker_id', p_tracker_id
+    );
+  END IF;
+
+  -- 3. Perform Atomic Escalation
+  v_new_version := v_tracker.escalation_version + 1;
+  v_idempotency_key := 'evt_escalation_' || v_tracker.event_code || '_v' || v_new_version;
+
+  -- Map report
+  INSERT INTO event_notification_reports (tracker_id, report_id, public_id)
+  VALUES (p_tracker_id, p_report_id, p_public_id)
+  ON CONFLICT (report_id) DO NOTHING;
+
+  -- Create Escalation Outbox Job
+  INSERT INTO event_notification_outbox (
+    idempotency_key,
+    tracker_id,
+    notification_type,
+    digest_sequence,
+    payload,
+    destination,
+    environment,
+    status,
+    claim_token,
+    claimed_at,
+    lease_timeout_at
+  ) VALUES (
+    v_idempotency_key,
+    p_tracker_id,
+    'escalation_alert',
+    0,
+    jsonb_build_object(
+      'event_code', v_tracker.event_code,
+      'title', v_tracker.title,
+      'location', v_tracker.location,
+      'escalation_report_public_id', p_public_id,
+      'escalation_version', v_new_version,
+      'total_report_count', v_tracker.total_report_count + 1,
+      'canonical_group_id', v_tracker.canonical_group_id
+    ),
+    v_tracker.destination,
+    v_tracker.environment,
+    'claiming',
+    p_worker_id,
+    now(),
+    now() + (p_lease_seconds || ' seconds')::interval
+  ) RETURNING id INTO v_outbox_id;
+
+  -- Advance tracker to ESCALATION_ALERT_PENDING with priority='emergency'
+  UPDATE event_notification_trackers
+  SET 
+    priority = 'emergency',
+    escalation_version = v_new_version,
+    state = 'ESCALATION_ALERT_PENDING',
+    total_report_count = total_report_count + 1,
+    updated_at = now()
+  WHERE id = p_tracker_id;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'escalated', true,
+    'outbox_id', v_outbox_id,
+    'idempotency_key', v_idempotency_key,
+    'escalation_version', v_new_version
+  );
+END;
+$$ LANGUAGE plpgsql;
+
+-- 3.4 Test Atomic Priority Escalation RPC (Parity Mirror)
+CREATE OR REPLACE FUNCTION test_escalate_event_priority(
+  p_tracker_id uuid,
+  p_report_id uuid,
+  p_public_id text,
+  p_worker_id text,
+  p_lease_seconds integer DEFAULT 30
+) RETURNS jsonb 
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_tracker record;
+  v_new_version integer;
+  v_idempotency_key text;
+  v_outbox_id uuid;
+BEGIN
+  -- 1. Lock and inspect tracker
+  SELECT * INTO v_tracker
+  FROM test_event_notification_trackers
+  WHERE id = p_tracker_id AND state != 'CLOSED'
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'reason', 'tracker_not_found_or_closed');
+  END IF;
+
+  -- 2. If tracker is already 'emergency', do NOT trigger duplicate escalation alert
+  IF v_tracker.priority = 'emergency' THEN
+    INSERT INTO test_event_notification_reports (tracker_id, report_id, public_id)
+    VALUES (p_tracker_id, p_report_id, p_public_id)
+    ON CONFLICT (report_id) DO NOTHING;
+
+    UPDATE test_event_notification_trackers
+    SET 
+      total_report_count = total_report_count + 1,
+      updated_at = now()
+    WHERE id = p_tracker_id;
+
+    RETURN jsonb_build_object(
+      'success', true,
+      'escalated', false,
+      'reason', 'already_emergency_aggregated',
+      'tracker_id', p_tracker_id
+    );
+  END IF;
+
+  -- 3. Perform Atomic Escalation
+  v_new_version := v_tracker.escalation_version + 1;
+  v_idempotency_key := 'evt_escalation_' || v_tracker.event_code || '_v' || v_new_version;
+
+  INSERT INTO test_event_notification_reports (tracker_id, report_id, public_id)
+  VALUES (p_tracker_id, p_report_id, p_public_id)
+  ON CONFLICT (report_id) DO NOTHING;
+
+  INSERT INTO test_event_notification_outbox (
+    idempotency_key,
+    tracker_id,
+    notification_type,
+    digest_sequence,
+    payload,
+    destination,
+    environment,
+    status,
+    claim_token,
+    claimed_at,
+    lease_timeout_at
+  ) VALUES (
+    v_idempotency_key,
+    p_tracker_id,
+    'escalation_alert',
+    0,
+    jsonb_build_object(
+      'event_code', v_tracker.event_code,
+      'title', v_tracker.title,
+      'location', v_tracker.location,
+      'escalation_report_public_id', p_public_id,
+      'escalation_version', v_new_version,
+      'total_report_count', v_tracker.total_report_count + 1,
+      'canonical_group_id', v_tracker.canonical_group_id
+    ),
+    v_tracker.destination,
+    v_tracker.environment,
+    'claiming',
+    p_worker_id,
+    now(),
+    now() + (p_lease_seconds || ' seconds')::interval
+  ) RETURNING id INTO v_outbox_id;
+
+  UPDATE test_event_notification_trackers
+  SET 
+    priority = 'emergency',
+    escalation_version = v_new_version,
+    state = 'ESCALATION_ALERT_PENDING',
+    total_report_count = total_report_count + 1,
+    updated_at = now()
+  WHERE id = p_tracker_id;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'escalated', true,
+    'outbox_id', v_outbox_id,
+    'idempotency_key', v_idempotency_key,
+    'escalation_version', v_new_version
+  );
+END;
+$$ LANGUAGE plpgsql;
+
+-- 3.5 Production Atomic Incident Group Linkage with Strict Guards
+CREATE OR REPLACE FUNCTION link_tracker_to_incident_group(
+  p_tracker_id uuid,
+  p_group_id uuid,
+  p_staff_id uuid
+) RETURNS jsonb 
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_staff record;
+  v_group record;
+  v_tracker record;
+BEGIN
+  -- 1. Authorization Guard: caller staff must exist and possess admin or super_admin role
+  SELECT id, role INTO v_staff
+  FROM staff_users
+  WHERE id = p_staff_id AND role IN ('admin', 'super_admin');
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'reason', 'unauthorized_staff_role');
+  END IF;
+
+  -- 2. Lock & check target incident group
+  SELECT id, group_code, status INTO v_group
+  FROM incident_groups
+  WHERE id = p_group_id AND status != 'closed'
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'reason', 'incident_group_invalid_or_closed');
+  END IF;
+
+  -- 3. Lock & check tracker
+  SELECT id, canonical_group_id INTO v_tracker
+  FROM event_notification_trackers
+  WHERE id = p_tracker_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'reason', 'tracker_not_found');
+  END IF;
+
+  -- 4. Idempotency Check & Link Overwrite Prevention
+  IF v_tracker.canonical_group_id = p_group_id THEN
+    -- Already linked to this exact group -> Idempotent success
+    RETURN jsonb_build_object(
+      'success', true,
+      'already_linked', true,
+      'group_code', v_group.group_code
+    );
+  END IF;
+
+  IF v_tracker.canonical_group_id IS NOT NULL AND v_tracker.canonical_group_id != p_group_id THEN
+    -- Safety Guard: Tracker is already bound to a different group! Prevent accidental overwrite
+    RETURN jsonb_build_object(
+      'success', false,
+      'reason', 'tracker_already_linked_to_different_group',
+      'existing_group_id', v_tracker.canonical_group_id
+    );
+  END IF;
+
+  -- 5. Atomically link tracker
+  UPDATE event_notification_trackers
+  SET 
+    canonical_group_id = p_group_id,
+    updated_at = now()
+  WHERE id = p_tracker_id;
+
+  -- 6. Audit in incident_group_history
+  INSERT INTO incident_group_history (group_id, action, actor_id, details)
+  VALUES (
+    p_group_id,
+    'link_event_tracker',
+    p_staff_id,
+    jsonb_build_object('tracker_id', p_tracker_id, 'linked_at', now())
+  );
+
+  RETURN jsonb_build_object('success', true, 'group_code', v_group.group_code);
+END;
+$$ LANGUAGE plpgsql;
+
+-- 3.6 Test Atomic Incident Group Linkage with Strict Guards (Parity Mirror)
+CREATE OR REPLACE FUNCTION test_link_tracker_to_incident_group(
+  p_tracker_id uuid,
+  p_group_id uuid,
+  p_staff_id uuid
+) RETURNS jsonb 
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_staff record;
+  v_group record;
+  v_tracker record;
+BEGIN
+  -- 1. Authorization Guard
+  SELECT id, role INTO v_staff
+  FROM staff_users
+  WHERE id = p_staff_id AND role IN ('admin', 'super_admin');
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'reason', 'unauthorized_staff_role');
+  END IF;
+
+  -- 2. Lock & check target test incident group
+  SELECT id, group_code, status INTO v_group
+  FROM test_incident_groups
+  WHERE id = p_group_id AND status != 'closed'
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'reason', 'incident_group_invalid_or_closed');
+  END IF;
+
+  -- 3. Lock & check test tracker
+  SELECT id, canonical_group_id INTO v_tracker
+  FROM test_event_notification_trackers
+  WHERE id = p_tracker_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'reason', 'tracker_not_found');
+  END IF;
+
+  -- 4. Idempotency Check & Link Overwrite Prevention
+  IF v_tracker.canonical_group_id = p_group_id THEN
+    RETURN jsonb_build_object(
+      'success', true,
+      'already_linked', true,
+      'group_code', v_group.group_code
+    );
+  END IF;
+
+  IF v_tracker.canonical_group_id IS NOT NULL AND v_tracker.canonical_group_id != p_group_id THEN
+    RETURN jsonb_build_object(
+      'success', false,
+      'reason', 'tracker_already_linked_to_different_group',
+      'existing_group_id', v_tracker.canonical_group_id
+    );
+  END IF;
+
+  -- 5. Atomically link test tracker
+  UPDATE test_event_notification_trackers
+  SET 
+    canonical_group_id = p_group_id,
+    updated_at = now()
+  WHERE id = p_tracker_id;
+
+  -- 6. Audit in test_incident_group_history
+  INSERT INTO test_incident_group_history (group_id, action, actor_id, details)
+  VALUES (
+    p_group_id,
+    'link_event_tracker',
+    p_staff_id,
+    jsonb_build_object('tracker_id', p_tracker_id, 'linked_at', now())
+  );
+
+  RETURN jsonb_build_object('success', true, 'group_code', v_group.group_code);
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- ----------------------------------------------------------------------------
+-- 4. ROW LEVEL SECURITY (RLS) POLICIES & FUNCTION SECURITY PERMISSIONS
+-- ----------------------------------------------------------------------------
+
+ALTER TABLE test_event_notification_trackers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE test_event_notification_reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE test_event_notification_outbox ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE event_notification_trackers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE event_notification_reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE event_notification_outbox ENABLE ROW LEVEL SECURITY;
+
+-- 4.1 RLS Policies for Staff Inspection
+DO $$
+BEGIN
+  -- Test Tables
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'test_event_notification_trackers' AND policyname = 'admin_select_test_evt_trackers') THEN
+    CREATE POLICY "admin_select_test_evt_trackers" ON test_event_notification_trackers FOR SELECT TO authenticated USING (
+      EXISTS (SELECT 1 FROM staff_users su WHERE su.auth_user_id = auth.uid() AND (su.role)::text = ANY (ARRAY['admin'::text, 'super_admin'::text]))
+    );
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'test_event_notification_trackers' AND policyname = 'deny_public_test_evt_trackers') THEN
+    CREATE POLICY "deny_public_test_evt_trackers" ON test_event_notification_trackers FOR ALL TO public USING (false);
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'test_event_notification_reports' AND policyname = 'admin_select_test_evt_reports') THEN
+    CREATE POLICY "admin_select_test_evt_reports" ON test_event_notification_reports FOR SELECT TO authenticated USING (
+      EXISTS (SELECT 1 FROM staff_users su WHERE su.auth_user_id = auth.uid() AND (su.role)::text = ANY (ARRAY['admin'::text, 'super_admin'::text]))
+    );
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'test_event_notification_reports' AND policyname = 'deny_public_test_evt_reports') THEN
+    CREATE POLICY "deny_public_test_evt_reports" ON test_event_notification_reports FOR ALL TO public USING (false);
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'test_event_notification_outbox' AND policyname = 'admin_select_test_evt_outbox') THEN
+    CREATE POLICY "admin_select_test_evt_outbox" ON test_event_notification_outbox FOR SELECT TO authenticated USING (
+      EXISTS (SELECT 1 FROM staff_users su WHERE su.auth_user_id = auth.uid() AND (su.role)::text = ANY (ARRAY['admin'::text, 'super_admin'::text]))
+    );
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'test_event_notification_outbox' AND policyname = 'deny_public_test_evt_outbox') THEN
+    CREATE POLICY "deny_public_test_evt_outbox" ON test_event_notification_outbox FOR ALL TO public USING (false);
+  END IF;
+
+  -- Production Tables
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'event_notification_trackers' AND policyname = 'admin_select_evt_trackers') THEN
+    CREATE POLICY "admin_select_evt_trackers" ON event_notification_trackers FOR SELECT TO authenticated USING (
+      EXISTS (SELECT 1 FROM staff_users su WHERE su.auth_user_id = auth.uid() AND (su.role)::text = ANY (ARRAY['admin'::text, 'super_admin'::text]))
+    );
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'event_notification_trackers' AND policyname = 'deny_public_evt_trackers') THEN
+    CREATE POLICY "deny_public_evt_trackers" ON event_notification_trackers FOR ALL TO public USING (false);
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'event_notification_reports' AND policyname = 'admin_select_evt_reports') THEN
+    CREATE POLICY "admin_select_evt_reports" ON event_notification_reports FOR SELECT TO authenticated USING (
+      EXISTS (SELECT 1 FROM staff_users su WHERE su.auth_user_id = auth.uid() AND (su.role)::text = ANY (ARRAY['admin'::text, 'super_admin'::text]))
+    );
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'event_notification_reports' AND policyname = 'deny_public_evt_reports') THEN
+    CREATE POLICY "deny_public_evt_reports" ON event_notification_reports FOR ALL TO public USING (false);
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'event_notification_outbox' AND policyname = 'admin_select_evt_outbox') THEN
+    CREATE POLICY "admin_select_evt_outbox" ON event_notification_outbox FOR SELECT TO authenticated USING (
+      EXISTS (SELECT 1 FROM staff_users su WHERE su.auth_user_id = auth.uid() AND (su.role)::text = ANY (ARRAY['admin'::text, 'super_admin'::text]))
+    );
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'event_notification_outbox' AND policyname = 'deny_public_evt_outbox') THEN
+    CREATE POLICY "deny_public_evt_outbox" ON event_notification_outbox FOR ALL TO public USING (false);
+  END IF;
+END $$;
+
+-- 4.2 Function Security Hardening (REVOKE FROM PUBLIC & GRANT TO PRIVILEGED ROLES)
+REVOKE EXECUTE ON FUNCTION claim_and_snapshot_digest(uuid, text, integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION claim_and_snapshot_digest(uuid, text, integer) TO service_role, authenticated;
+
+REVOKE EXECUTE ON FUNCTION test_claim_and_snapshot_digest(uuid, text, integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION test_claim_and_snapshot_digest(uuid, text, integer) TO service_role, authenticated;
+
+REVOKE EXECUTE ON FUNCTION escalate_event_priority(uuid, uuid, text, text, integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION escalate_event_priority(uuid, uuid, text, text, integer) TO service_role, authenticated;
+
+REVOKE EXECUTE ON FUNCTION test_escalate_event_priority(uuid, uuid, text, text, integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION test_escalate_event_priority(uuid, uuid, text, text, integer) TO service_role, authenticated;
+
+REVOKE EXECUTE ON FUNCTION link_tracker_to_incident_group(uuid, uuid, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION link_tracker_to_incident_group(uuid, uuid, uuid) TO service_role, authenticated;
+
+REVOKE EXECUTE ON FUNCTION test_link_tracker_to_incident_group(uuid, uuid, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION test_link_tracker_to_incident_group(uuid, uuid, uuid) TO service_role, authenticated;

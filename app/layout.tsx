@@ -9,8 +9,8 @@ const sarabun = Sarabun({
 });
 
 export const metadata: Metadata = {
-  title: "ระบบรับแจ้งปัญหา One Stop Service คณะสังคมศาสตร์ มก.",
-  description: "ระบบรับแจ้งซ่อมและรายงานปัญหาออนไลน์ คณะสังคมศาสตร์ มหาวิทยาลัยเกษตรศาสตร์",
+  title: "ระบบรับแจ้งปัญหา SOC STATION คณะสังคมศาสตร์ มก.",
+  description: "SOC STATION ศูนย์กลางการแจ้งปัญหาและติดตามสถานะการดำเนินงานของคณะสังคมศาสตร์ มหาวิทยาลัยเกษตรศาสตร์",
 };
 
 export default function RootLayout({

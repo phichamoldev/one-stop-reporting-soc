@@ -99,6 +99,7 @@ export interface Report {
   description: string;
   image_url: string | null;
   reporter_name: string;
+  reporter_type?: 'อาจารย์' | 'บุคลากร' | 'นิสิต' | string | null;
   email: string;
   phone?: string;
   reporter_phone?: string;

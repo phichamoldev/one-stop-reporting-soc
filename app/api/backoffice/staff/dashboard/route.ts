@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getAccessibleDepartmentIds } from "@/lib/auth-helpers";
+import { getReportDataSource } from "@/lib/dataSource";
 
 export const dynamic = "force-dynamic";
 
@@ -58,9 +59,11 @@ export async function GET(req: Request) {
       `)
       .order("created_at", { ascending: false });
 
+    const { reportsTable, reportLogsTable } = getReportDataSource();
+
     // 2. Fetch Report Logs for workloads
     let logsForWorkloadQuery = supabaseAdmin
-      .from("report_logs")
+      .from(reportLogsTable)
       .select("report_id, user_id, new_status, created_at")
       .order("created_at", { ascending: false });
     // Enforce permissions
@@ -133,7 +136,7 @@ export async function GET(req: Request) {
 
     // 3. Fetch Recent Activities (Logs)
     let logsQuery = supabaseAdmin
-      .from("report_logs")
+      .from(reportLogsTable)
       .select(`
         id,
         report_id,
@@ -146,7 +149,7 @@ export async function GET(req: Request) {
         staff_users (
           full_name
         ),
-        reports!inner (
+        reports:${reportsTable}!inner (
           public_id,
           category_id
         )

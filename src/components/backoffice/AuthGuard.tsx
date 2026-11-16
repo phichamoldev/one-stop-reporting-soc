@@ -26,7 +26,9 @@ export const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children })
     }
 
     if (status === 'forbidden') {
-      router.replace("/backoffice/unauthorized");
+      if (pathname !== "/backoffice/unauthorized") {
+        router.replace("/backoffice/unauthorized");
+      }
       return;
     }
 

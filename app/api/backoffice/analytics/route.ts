@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getAccessibleDepartmentIds } from "@/lib/auth-helpers";
+import { getReportDataSource } from "@/lib/dataSource";
 
 export const dynamic = "force-dynamic";
 
@@ -42,8 +43,9 @@ export async function GET(req: Request) {
     const category = searchParams.get("category");
     const deptId = searchParams.get("department");
 
+    const { reportsTable } = getReportDataSource();
     let query = supabaseAdmin
-      .from("reports")
+      .from(reportsTable)
       .select(`
         *,
         categories (

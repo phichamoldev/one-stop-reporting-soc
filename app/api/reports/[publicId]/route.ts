@@ -3,11 +3,13 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { createClient } from "@supabase/supabase-js";
 import { getAccessibleDepartmentIds } from "@/lib/auth-helpers";
 import { normalizePublicId } from "@/lib/utils";
+import { getReportDataSource } from "@/lib/dataSource";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request, { params }: { params: Promise<{ publicId: string }> }) {
   try {
+    const { reportsTable, reportLogsTable } = getReportDataSource();
     const { publicId } = await params;
 
     if (!publicId) {
@@ -39,7 +41,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ publicId
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalizedPublicId);
 
     let query = supabaseAdmin
-      .from("reports")
+      .from(reportsTable)
       .select(`
         *,
         categories (
@@ -51,7 +53,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ publicId
           id,
           name_th
         ),
-        report_logs (
+        report_logs:${reportLogsTable} (
           id,
           action,
           new_status,
@@ -101,13 +103,41 @@ export async function GET(req: Request, { params }: { params: Promise<{ publicId
       // Security Requirement: If staff is authenticated but unauthorized, they can only view as public
     }
 
-    // PII filtering for public access or unauthorized staff
+    // PII & internal audit filtering for public access or unauthorized staff
     if (!isAuthenticated || !canManage) {
       delete data.tracking_token;
       delete data.admin_remark;
       delete data.assigned_to;
       delete data.reporter_contact;
       delete data.completed_by;
+
+      if (Array.isArray(data.report_logs)) {
+        const INTERNAL_LOG_ACTIONS = new Set([
+          'priority_classified',
+          'priority_updated',
+          'incident_detection_completed',
+          'incident_detection_failed',
+          'incident_group_added',
+          'incident_group_removed',
+          'draft_created',
+          'draft_rejected',
+        ]);
+
+        data.report_logs = data.report_logs.filter((log: { action?: string; remark?: string | null }) => {
+          if (!log) return false;
+          if (log.action && INTERNAL_LOG_ACTIONS.has(log.action)) return false;
+          if (typeof log.remark === 'string') {
+            if (
+              log.remark.includes('ความสัมพันธ์') ||
+              log.remark.includes('กลุ่มเหตุการณ์') ||
+              log.remark.includes('จัดประเภทความเร่งด่วน')
+            ) {
+              return false;
+            }
+          }
+          return true;
+        });
+      }
     }
 
     return NextResponse.json({ report: data, canManage });

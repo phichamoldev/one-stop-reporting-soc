@@ -18,6 +18,7 @@ import {
   X,
   LayoutDashboard,
   ClipboardList,
+  Layers,
   BarChart3,
   Users,
   Settings
@@ -96,6 +97,7 @@ export const BackofficeNavbar: React.FC = () => {
   const menuItems = [
     { href: '/backoffice', label: 'แดชบอร์ด', icon: LayoutDashboard },
     { href: '/backoffice/reports', label: 'จัดการคำร้อง', icon: ClipboardList },
+    { href: '/backoffice/incidents', label: 'กลุ่มเหตุการณ์', icon: Layers },
     { href: '/backoffice/analytics', label: 'สถิติเชิงลึก', icon: BarChart3 },
     { href: '/backoffice/staff', label: 'เจ้าหน้าที่', icon: Users },
     { href: '/backoffice/settings', label: 'ตั้งค่าระบบ', icon: Settings },

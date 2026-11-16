@@ -190,7 +190,9 @@ export default function Home() {
         setSubmitStep("กำลังอัปโหลดรูปภาพหลักฐาน...");
         const fileExt = imageFile.name.split(".").pop();
         const randomFileToken = Math.random().toString(36).substring(2, 12);
-        const fileName = `${Date.now()}-${randomFileToken}.${fileExt}`;
+        const isTestEnv = process.env.NEXT_PUBLIC_REPORT_DATA_SOURCE === "test";
+        const folderPrefix = isTestEnv ? "test/" : "";
+        const fileName = `${folderPrefix}${Date.now()}-${randomFileToken}.${fileExt}`;
 
         const { error: uploadError } = await supabase.storage
           .from("report-images")

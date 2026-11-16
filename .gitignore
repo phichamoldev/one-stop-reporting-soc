@@ -48,8 +48,12 @@ next-env.d.ts
 *.bak
 *.patch
 *.mjs
+!eslint.config.mjs
 scratch/
 .git-audit/
+artifacts/
+docs-generator/
+test_phase2_closure_suite.sql
 *.json
 !package.json
 !package-lock.json

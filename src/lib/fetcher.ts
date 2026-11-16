@@ -1,15 +1,17 @@
 import { supabase } from "@/lib/supabase";
 
-export const fetcherWithAuth = async (url: string) => {
+export const fetcherWithAuth = async (url: string, init?: RequestInit) => {
   const { data: { session } } = await supabase.auth.getSession();
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = {
+    ...((init?.headers as Record<string, string>) || {}),
+  };
   let finalUrl = url;
   
   if (session) {
     headers['Authorization'] = `Bearer ${session.access_token}`;
   }
 
-  const res = await fetch(finalUrl, { headers });
+  const res = await fetch(finalUrl, { ...init, headers });
   
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));

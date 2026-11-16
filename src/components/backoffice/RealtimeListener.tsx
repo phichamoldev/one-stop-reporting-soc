@@ -40,11 +40,12 @@ export const RealtimeListener = () => {
   }, [data, addNotification]);
 
   useEffect(() => {
+    const targetTable = process.env.NEXT_PUBLIC_REPORT_DATA_SOURCE === "test" ? "test_reports" : "reports";
     const channel = supabase
-      .channel('public:reports')
+      .channel(`public:${targetTable}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'reports' },
+        { event: 'INSERT', schema: 'public', table: targetTable },
         (payload) => {
           // Invalidate all dashboard caches when new report arrives
           mutate(
@@ -63,7 +64,7 @@ export const RealtimeListener = () => {
       )
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'reports' },
+        { event: 'UPDATE', schema: 'public', table: targetTable },
         (payload) => {
           // Invalidate all dashboard caches when report is updated
           mutate(

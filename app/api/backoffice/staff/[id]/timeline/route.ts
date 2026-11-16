@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getAccessibleDepartmentIds } from "@/lib/auth-helpers";
+import { getReportDataSource } from "@/lib/dataSource";
 
 export const dynamic = "force-dynamic";
 
@@ -58,9 +59,11 @@ export async function GET(
       }
     }
 
+    const { reportsTable, reportLogsTable } = getReportDataSource();
+
     // Fetch Timeline Activities (Logs) for this user
     const { data: timeline, error: logsError } = await supabaseAdmin
-      .from("report_logs")
+      .from(reportLogsTable)
       .select(`
         id,
         report_id,
@@ -69,9 +72,9 @@ export async function GET(
         new_status,
         remark,
         created_at,
-        reports (
+        reports:${reportsTable} (
           public_id,
-          title
+          title:description
         )
       `)
       .eq("user_id", staffId)
@@ -106,8 +109,8 @@ export async function GET(
     if (reportIds.length > 0) {
       // Fetch the full report details for these distinct reports
       const { data: reportsData, error: reportsError } = await supabaseAdmin
-        .from("reports")
-        .select("id, public_id, title, status, created_at, updated_at, categories (department_id, name)")
+        .from(reportsTable)
+        .select("id, public_id, title:description, status, created_at, updated_at, categories (department_id, name_th)")
         .in("id", reportIds);
         
       if (reportsError) throw reportsError;

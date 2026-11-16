@@ -29,6 +29,18 @@ export function normalizePublicId(input?: string | null): string {
   // แปลงเป็นตัวพิมพ์ใหญ่
   const upper = trimmed.toUpperCase();
 
+  // กรณีเป็น test id เช่น "SOCT00001" หรือ "SOCT-00001" -> "SOC-T-00001"
+  if (/^SOCT-?\d+$/i.test(upper)) {
+    const digits = upper.replace(/^SOCT-?/i, "");
+    return `SOC-T-${digits}`;
+  }
+
+  // กรณีเป็น "T-00001" หรือ "T00001" -> "SOC-T-00001"
+  if (/^T-?\d+$/i.test(upper)) {
+    const digits = upper.replace(/^T-?/i, "");
+    return `SOC-T-${digits}`;
+  }
+
   // กรณีเป็นตัวเลขล้วน เช่น "80397" หรือ "1234" -> เติม "SOC-"
   if (/^\d+$/.test(upper)) {
     return `SOC-${upper}`;

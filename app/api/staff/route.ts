@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getRoleDisplayName } from "@/lib/role-config";
+import { getReportDataSource } from "@/lib/dataSource";
 
 export const dynamic = "force-dynamic";
 
@@ -35,14 +36,16 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: false, message: "Internal Server Error" }, { status: 500 });
     }
 
+    const { reportsTable, reportLogsTable } = getReportDataSource();
+
     // Fetch report logs to calculate stats
     const { data: logs } = await supabaseAdmin
-      .from("report_logs")
+      .from(reportLogsTable)
       .select(`
         user_id,
         new_status,
         report_id,
-        reports (
+        reports:${reportsTable} (
           status
         )
       `);

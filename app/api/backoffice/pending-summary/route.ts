@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getAccessibleDepartmentIds, verifyAuthToken } from "@/lib/auth-helpers";
+import { getReportDataSource } from "@/lib/dataSource";
 
 export const dynamic = "force-dynamic";
 
@@ -29,8 +30,9 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "No permission", code: "NO_PERMISSION" }, { status: 403 });
     }
 
+    const { reportsTable } = getReportDataSource();
     let query = supabaseAdmin
-      .from("reports")
+      .from(reportsTable)
       .select("id, public_id, description, category_id, status, created_at")
       .eq("status", "pending")
       .order("created_at", { ascending: false });

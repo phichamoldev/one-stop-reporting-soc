@@ -239,9 +239,6 @@ const [mounted, setMounted] = useState(false);
         setIsSaving(false);
         return;
       }
-    } else if (updateStatus === 'completed' && (!isCompleted || isStatusChanged) && !completionImage && !completionImagePreview) {
-      setSaveMessage({ type: 'error', text: 'กรุณาแนบรูปภาพตอบกลับเมื่อเลือกสถานะเสร็จสิ้น' });
-      return;
     }
 
     setSaveMessage(null);
@@ -396,7 +393,33 @@ const [mounted, setMounted] = useState(false);
 
   const isCompleted = report.status === 'completed';
 
-  const sortedLogs = [...(report.report_logs || [])].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const INTERNAL_LOG_ACTIONS = new Set([
+    'priority_classified',
+    'priority_updated',
+    'incident_detection_completed',
+    'incident_detection_failed',
+    'incident_group_added',
+    'incident_group_removed',
+    'draft_created',
+    'draft_rejected',
+  ]);
+
+  const publicFilteredLogs = (report.report_logs || []).filter((log) => {
+    if (canManage) return true;
+    if (!log) return false;
+    if (INTERNAL_LOG_ACTIONS.has(log.action)) return false;
+    if (
+      typeof log.remark === 'string' &&
+      (log.remark.includes('ความสัมพันธ์') ||
+        log.remark.includes('กลุ่มเหตุการณ์') ||
+        log.remark.includes('จัดประเภทความเร่งด่วน'))
+    ) {
+      return false;
+    }
+    return true;
+  });
+
+  const sortedLogs = [...publicFilteredLogs].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   const completionLog = sortedLogs.find(log => log.new_status === 'completed');
   const staffActionImage = isCompleted ? (completionLog?.image_url || sortedLogs[0]?.image_url || null) : null;
 
@@ -903,7 +926,7 @@ const [mounted, setMounted] = useState(false);
                       {updateStatus === 'completed' && (
                         <div>
                           <label className="text-[12px] sm:text-[13px] text-slate-500 font-medium block mb-1.5">
-                            ภาพประกอบการทำงาน <span className="text-rose-500">*</span>
+                            ภาพประกอบการทำงาน <span className="text-slate-400 font-normal text-[11px] sm:text-[12px]">(ไม่บังคับ)</span>
                           </label>
                           <input 
                             type="file" 
@@ -925,7 +948,7 @@ const [mounted, setMounted] = useState(false);
                               </div>
                               <div className="text-center">
                                 <span className="text-[13px] font-bold text-slate-700 block">คลิกเพื่ออัปโหลดรูปภาพ</span>
-                                <span className="text-[11px] text-slate-500">รองรับ JPG, PNG สูงสุด 5MB</span>
+                                <span className="text-[11px] text-slate-500">รองรับ JPG, PNG สูงสุด 5MB (ไม่บังคับ)</span>
                               </div>
                             </button>
                           ) : (
@@ -944,10 +967,14 @@ const [mounted, setMounted] = useState(false);
                       )}
                       
                       <div>
-                        <label className="text-[12px] sm:text-[13px] text-slate-500 font-medium block mb-1.5">หมายเหตุสรุปผล</label>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="text-[12px] sm:text-[13px] text-slate-500 font-medium block">หมายเหตุสรุปผล / ข้อความตอบกลับ</label>
+                          <span className="text-[11px] text-slate-400 font-medium">รองรับข้อความยาวหลายบรรทัด</span>
+                        </div>
                         <textarea
-                          className="w-full border border-slate-200 rounded-xl px-3.5 sm:px-4 py-2.5 sm:py-3 text-[13px] sm:text-[14px] bg-white focus:ring-2 focus:ring-primary/20 outline-none min-h-[90px] sm:min-h-[100px] resize-y disabled:opacity-50 text-slate-800 font-medium"
-                          placeholder="ระบุรายละเอียดการดำเนินงานหรือผลการแก้ไข..."
+                          rows={5}
+                          className="w-full border border-slate-200 rounded-xl px-3.5 sm:px-4 py-3 sm:py-3.5 text-[13px] sm:text-[14px] leading-relaxed bg-white focus:ring-2 focus:ring-primary/20 outline-none min-h-[140px] sm:min-h-[160px] resize-y disabled:opacity-50 text-slate-800 font-medium placeholder-slate-400"
+                          placeholder="ระบุรายละเอียดการดำเนินงานหรือข้อความตอบกลับ เช่น ผลการแก้ไข ขั้นตอนที่ดำเนินการ..."
                           value={updateRemark}
                           onChange={(e) => setUpdateRemark(e.target.value)}
                           disabled={isSaving}

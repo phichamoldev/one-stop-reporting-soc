@@ -50,10 +50,11 @@ const InnerLayout = ({ children, isLoginPage }: { children: React.ReactNode, isL
 export const BackofficeLayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const pathname = usePathname();
   const isLoginPage = pathname === "/backoffice/login";
+  const isUnauthorizedPage = pathname === "/backoffice/unauthorized";
 
   return (
     <StaffAuthProvider>
-      <InnerLayout isLoginPage={isLoginPage}>
+      <InnerLayout isLoginPage={isLoginPage || isUnauthorizedPage}>
         {children}
       </InnerLayout>
     </StaffAuthProvider>

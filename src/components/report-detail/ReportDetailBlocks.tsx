@@ -139,7 +139,6 @@ export interface LatestStaffActionData {
   latestRemark: string;
   currentActionImage: string | null;
   actorName: string;
-  actorPosition: string | null;
   statusUpdatedAt: string | null;
   latestActionAt: string | null;
   latestActionType: string | null;
@@ -209,7 +208,6 @@ export function getLatestStaffActionData(report: Report): LatestStaffActionData 
   );
 
   const actorName = latestStaffLog?.staff_users?.full_name || "เจ้าหน้าที่";
-  const actorPosition = latestStaffLog?.staff_users?.position || null;
   const statusUpdatedAt =
     latestStatusLog?.created_at ||
     (report.status === "completed" ? report.completed_at || report.updated_at : report.updated_at);
@@ -231,7 +229,6 @@ export function getLatestStaffActionData(report: Report): LatestStaffActionData 
     latestRemark,
     currentActionImage,
     actorName,
-    actorPosition,
     statusUpdatedAt,
     latestActionAt: latestStaffLog?.created_at || null,
     latestActionType: latestStaffLog?.action || null,
@@ -257,7 +254,6 @@ export interface TimelineEntry {
   remark: string | null;
   image_url?: string | null;
   actorName: string;
-  actorPosition?: string | null;
   source: "staff" | "system" | "reporter";
   isNote?: boolean;
 }
@@ -293,7 +289,6 @@ export function buildTimelineEntries(
     const isCreated = log.action === "created";
     const isSystem = isSystemGeneratedLog(log);
     const staffName = log.staff_users?.full_name;
-    const staffPosition = log.staff_users?.position || null;
     return {
       key: `log-${log.id}`,
       status: isTransfer ? "transfer" : log.new_status || "pending",
@@ -306,7 +301,6 @@ export function buildTimelineEntries(
       remark: log.remark,
       image_url: log.image_url || null,
       actorName: staffName || (isCreated ? "ผู้แจ้ง" : isSystem ? "ระบบ" : "เจ้าหน้าที่"),
-      actorPosition: staffName ? staffPosition : null,
       source: staffName ? "staff" : isCreated ? "reporter" : isSystem ? "system" : "staff",
       isNote: false,
     };
@@ -350,7 +344,6 @@ export function buildTimelineEntries(
         entry.remark = latestNoteActivity.remark;
         if (latestNoteActivity.staff_users?.full_name) {
           entry.actorName = latestNoteActivity.staff_users.full_name;
-          entry.actorPosition = latestNoteActivity.staff_users.position || null;
           entry.source = "staff";
         }
       }
@@ -395,7 +388,6 @@ export function buildTimelineEntries(
       remark: latestNote?.remark || null,
       image_url: latestImg ? latestImg.image_url || null : null,
       actorName: staffName || "เจ้าหน้าที่",
-      actorPosition: staffName ? actorLog.staff_users?.position || null : null,
       source: "staff",
       isNote: false,
     });
@@ -779,11 +771,6 @@ export function ActivityTimelineCard({
                 <span className="text-[12px] text-slate-400 break-words">
                   {formatThaiDateTime(entry.created_at)} · โดย{" "}
                   <span className="text-[12px] font-medium text-slate-600">{entry.actorName}</span>
-                  {entry.actorPosition?.trim() ? (
-                    <span className="text-[12px] font-normal text-slate-500">
-                      {" "}({entry.actorPosition.trim()})
-                    </span>
-                  ) : null}
                 </span>
               </div>
 

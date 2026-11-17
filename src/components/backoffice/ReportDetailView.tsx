@@ -636,11 +636,6 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
                   <span className="font-bold text-slate-800 dark:text-slate-200 block leading-tight">
                     {latestLog?.staff_users?.full_name || 'ระบบ'}
                   </span>
-                  {latestLog?.staff_users?.position && (
-                    <span className="text-[11px] text-slate-400 font-normal block mt-0.5 leading-snug">
-                      {latestLog.staff_users.position}
-                    </span>
-                  )}
                 </div>
               </div>
               <div className="flex justify-between items-center">

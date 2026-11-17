@@ -336,7 +336,7 @@ export default function ReportDetailPage({ params }: ReportDetailPageProps) {
             {profile?.full_name || "ผู้ดูแลระบบสูงสุด"}
           </span>
           <span className="text-[11px] sm:text-[12px] text-slate-400 font-medium">
-            {profile?.position ? `${profile.position} · โหมดเจ้าหน้าที่` : "โหมดเจ้าหน้าที่"}
+            โหมดเจ้าหน้าที่
           </span>
         </div>
       </div>

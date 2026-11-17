@@ -86,9 +86,6 @@ export const StaffDetailModal: React.FC<StaffDetailModalProps> = ({ staff, isOpe
                 </div>
                 <div>
                   <h3 className="font-extrabold text-xl text-slate-800 dark:text-slate-100">{staff.full_name}</h3>
-                  {staff.position && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">{staff.position}</p>
-                  )}
                   <p className="text-sm text-slate-500 font-medium mt-0.5">{staff.email}</p>
                   <p className="text-xs text-slate-400 mt-1">{staff.departments?.name_th || "ไม่มีสังกัด"}</p>
                 </div>

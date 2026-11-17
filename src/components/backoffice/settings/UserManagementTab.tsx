@@ -12,7 +12,6 @@ import { getRoleDisplayName } from "@/lib/role-config";
 interface User {
   id: string;
   full_name: string;
-  position?: string | null;
   email: string;
   role: string;
   status: string;
@@ -225,11 +224,6 @@ export default function UserManagementTab() {
                     <tr key={user.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                       <td className="px-5 py-4">
                         <div className="font-semibold text-slate-800 dark:text-slate-100">{user.full_name}</div>
-                        {user.position && (
-                          <div className="text-[11px] text-slate-500 dark:text-slate-400 font-normal mt-0.5">
-                            {user.position}
-                          </div>
-                        )}
                         <div className="text-xs text-slate-400 mt-0.5">{user.email}</div>
                       </td>
                       <td className="px-5 py-4 text-sm text-slate-600 dark:text-slate-300">

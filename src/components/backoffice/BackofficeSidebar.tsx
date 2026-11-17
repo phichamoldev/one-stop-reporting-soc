@@ -141,9 +141,6 @@ export const BackofficeSidebar: React.FC = () => {
               </div>
               <div className="flex flex-col overflow-hidden">
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{profile.full_name}</span>
-                {profile.position && (
-                  <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{profile.position}</span>
-                )}
                 <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate">{getRoleDisplayName(profile.role)}</span>
               </div>
             </div>

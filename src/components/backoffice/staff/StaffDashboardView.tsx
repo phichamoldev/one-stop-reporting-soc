@@ -331,9 +331,6 @@ export default function StaffDashboardView() {
                     </td>
                     <td className="px-4 py-3 max-w-[160px]">
                       <div className="font-bold text-slate-700 dark:text-slate-200 truncate">{staff.full_name}</div>
-                      {staff.position && (
-                        <div className="text-[11px] font-normal text-slate-400 truncate mt-0.5">{staff.position}</div>
-                      )}
                     </td>
                     <td className="px-4 py-3 text-right font-extrabold text-green-600">{staff.stats.completed}</td>
                     <td className="px-4 py-3 text-right font-bold text-slate-500">{staff.stats.completionRate}%</td>
@@ -419,9 +416,6 @@ export default function StaffDashboardView() {
                   </td>
                   <td className="px-5 py-4">
                     <div className="font-bold text-slate-700 dark:text-slate-200">{log.staff_users?.full_name || "-"}</div>
-                    {log.staff_users?.position && (
-                      <div className="text-[11px] font-normal text-slate-400 mt-0.5">{log.staff_users.position}</div>
-                    )}
                   </td>
                   <td className="px-5 py-4 font-bold text-primary whitespace-nowrap">
                     {log.reports?.public_id || "-"}

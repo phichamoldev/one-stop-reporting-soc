@@ -27,14 +27,13 @@ export async function GET(req: Request) {
       );
     }
 
-    // Fetch profile using server-side supabaseAdmin (strictly matching id = auth.users.id)
+    // Fetch profile using server-side supabaseAdmin (matching id = auth.users.id or auth_user_id = auth.users.id)
     let { data: profile, error: profileError } = await supabaseAdmin
       .from("staff_users")
       .select(
         `
         id,
         full_name,
-        position,
         department_id,
         role,
         status,
@@ -43,29 +42,8 @@ export async function GET(req: Request) {
         )
       `
       )
-      .eq("id", user.id)
+      .or(`id.eq.${user.id},auth_user_id.eq.${user.id}`)
       .maybeSingle();
-
-    if (profileError && (profileError.message?.includes("position") || (profileError as any).code === "42703")) {
-      const fallback = await supabaseAdmin
-        .from("staff_users")
-        .select(
-          `
-          id,
-          full_name,
-          department_id,
-          role,
-          status,
-          departments (
-            name_th
-          )
-        `
-        )
-        .eq("id", user.id)
-        .maybeSingle();
-      profile = fallback.data ? ({ ...fallback.data, position: null } as any) : null;
-      profileError = fallback.error;
-    }
 
     if (profileError) {
       const pgCode = (profileError as any).code || "";

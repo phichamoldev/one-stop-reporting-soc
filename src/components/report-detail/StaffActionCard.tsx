@@ -459,11 +459,6 @@ export function StaffActionCard({
               <span className="text-slate-400 font-medium">ดำเนินการโดย</span>
               <div className="text-right">
                 <span className="font-bold text-slate-700 block leading-tight">{staffData.actorName}</span>
-                {staffData.actorPosition && (
-                  <span className="text-[11px] text-slate-400 font-normal block mt-0.5 leading-snug">
-                    {staffData.actorPosition}
-                  </span>
-                )}
               </div>
             </div>
             <div className="flex items-center justify-between gap-2">

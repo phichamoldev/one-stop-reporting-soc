@@ -33,11 +33,6 @@ export const StaffCard: React.FC<StaffCardProps> = ({ staff, onClick }) => {
           <h3 className="font-bold text-slate-800 dark:text-slate-100 truncate group-hover:text-primary transition-colors">
             {staff.full_name}
           </h3>
-          {staff.position && (
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate mt-0.5">
-              {staff.position}
-            </p>
-          )}
           <p className="text-xs text-slate-400 truncate mb-2">{staff.email}</p>
           <div className="flex flex-col gap-1.5">
             <span className={`w-fit text-[10px] px-2 py-0.5 rounded-full border font-semibold whitespace-nowrap ${roleColor}`}>

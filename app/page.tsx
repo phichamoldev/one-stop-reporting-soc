@@ -174,6 +174,7 @@ export default function Home() {
   // ส่งแบบฟอร์ม
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setGlobalError(null);
 
     if (!validateForm()) {
@@ -224,7 +225,7 @@ export default function Home() {
         tracking_token: trackingToken,
         category_id: categoryId,
         subcategory_id: subcategoryId,
-        location: location.trim(),
+        location: location.trim() || "-",
         description: description.trim(),
         image_url: publicUrl,
         reporter_name: reporterName.trim(),
@@ -242,8 +243,10 @@ export default function Home() {
         body: JSON.stringify(newReportData),
       });
 
-      const resJson = await res.json();
-      if (!res.ok) throw new Error(resJson.error || "การลงข้อมูลล้มเหลว");
+      const resJson = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(resJson.error || resJson.message || "การลงข้อมูลล้มเหลว กรุณาลองใหม่อีกครั้ง");
+      }
 
       setSubmitStep("เสร็จสิ้นการส่งเรื่องสำเร็จ!");
       setSubmittedReport(resJson.data || (newReportData as unknown as Report));

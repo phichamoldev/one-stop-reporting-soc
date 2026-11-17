@@ -102,59 +102,72 @@ export async function processReportForEventNotification(params: {
   const clusterSignature = computeClusterSignature(report);
 
   // 1. Search for an active, non-closed Event Tracker with matching cluster signature
-  const { data: existingTrackers } = await supabaseAdmin
-    .from(dataSource.eventTrackersTable)
-    .select('*')
-    .eq('cluster_signature', clusterSignature)
-    .neq('state', 'CLOSED')
-    .order('created_at', { ascending: false })
-    .limit(1);
+  let activeTracker: any = null;
+  try {
+    const { data: existingTrackers, error: qErr } = await supabaseAdmin
+      .from(dataSource.eventTrackersTable)
+      .select('*')
+      .eq('cluster_signature', clusterSignature)
+      .neq('state', 'CLOSED')
+      .order('created_at', { ascending: false })
+      .limit(1);
 
-  const activeTracker = existingTrackers?.[0];
+    if (!qErr) {
+      activeTracker = existingTrackers?.[0];
+    } else {
+      console.warn(`[EventNotification] Could not query ${dataSource.eventTrackersTable}: ${qErr.message}`);
+    }
+  } catch (queryErr) {
+    console.warn(`[EventNotification] Query exception on ${dataSource.eventTrackersTable}:`, queryErr);
+  }
 
   // ---------------------------------------------------------------------------
   // Case A: Existing Active Tracker Found
   // ---------------------------------------------------------------------------
   if (activeTracker) {
-    // 1. Link report to tracker
-    await supabaseAdmin
-      .from(dataSource.eventReportsTable)
-      .insert({
-        tracker_id: activeTracker.id,
-        report_id: report.id,
-        public_id: report.public_id,
-      });
+    try {
+      // 1. Link report to tracker
+      await supabaseAdmin
+        .from(dataSource.eventReportsTable)
+        .insert({
+          tracker_id: activeTracker.id,
+          report_id: report.id,
+          public_id: report.public_id,
+        });
 
-    // 2. If newly arrived report is emergency and tracker was not emergency, update priority in DB
-    // Phase 3.8 Policy: Do NOT send separate escalation alert to LINE.
-    if (isEmergency && activeTracker.priority !== 'emergency') {
-      console.log(`[EventNotification] Escalating tracker ${activeTracker.event_code} priority to emergency in DB (No separate LINE escalation alert in Phase 3.8)...`);
+      // 2. If newly arrived report is emergency and tracker was not emergency, update priority in DB
+      // Phase 3.8 Policy: Do NOT send separate escalation alert to LINE.
+      if (isEmergency && activeTracker.priority !== 'emergency') {
+        console.log(`[EventNotification] Escalating tracker ${activeTracker.event_code} priority to emergency in DB (No separate LINE escalation alert in Phase 3.8)...`);
+        await supabaseAdmin
+          .from(dataSource.eventTrackersTable)
+          .update({
+            priority: 'emergency',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', activeTracker.id);
+      }
+
+      // 3. Update total report count from real records in event_notification_reports
+      const { count } = await supabaseAdmin
+        .from(dataSource.eventReportsTable)
+        .select('*', { count: 'exact', head: true })
+        .eq('tracker_id', activeTracker.id);
+
+      const actualTotal = count || ((activeTracker.total_report_count || 1) + 1);
+
       await supabaseAdmin
         .from(dataSource.eventTrackersTable)
         .update({
-          priority: 'emergency',
+          total_report_count: actualTotal,
           updated_at: new Date().toISOString(),
         })
         .eq('id', activeTracker.id);
+
+      console.log(`[EventNotification] Additional report ${report.public_id} joined tracker ${activeTracker.event_code}. LINE alert suppressed (Count: ${actualTotal})`);
+    } catch (trackUpdateErr) {
+      console.warn("[EventNotification] Error updating active tracker:", trackUpdateErr);
     }
-
-    // 3. Update total report count from real records in event_notification_reports
-    const { count } = await supabaseAdmin
-      .from(dataSource.eventReportsTable)
-      .select('*', { count: 'exact', head: true })
-      .eq('tracker_id', activeTracker.id);
-
-    const actualTotal = count || ((activeTracker.total_report_count || 1) + 1);
-
-    await supabaseAdmin
-      .from(dataSource.eventTrackersTable)
-      .update({
-        total_report_count: actualTotal,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', activeTracker.id);
-
-    console.log(`[EventNotification] Additional report ${report.public_id} joined tracker ${activeTracker.event_code}. LINE alert suppressed (Count: ${actualTotal})`);
 
     // In Phase 3.8: Never send immediate LINE alert for additional reports in the same event.
     // They are aggregated and dispatched during the 30-minute periodic update.
@@ -188,54 +201,68 @@ export async function processReportForEventNotification(params: {
   const nowIso = new Date().toISOString();
   const windowExpiresAt = new Date(Date.now() + windowMinutes * 60 * 1000).toISOString();
 
-  const { data: newTracker, error: trErr } = await supabaseAdmin
-    .from(dataSource.eventTrackersTable)
-    .insert({
-      event_code: eventCode,
-      cluster_signature: clusterSignature,
-      title: incidentTitle.slice(0, 200),
-      location: report.location || '-',
-      priority: report.priority || 'normal',
-      state: 'AGGREGATING',
-      initial_report_id: report.id,
-      initial_report_public_id: report.public_id,
-      category_id: report.category_id || null,
-      destination: targetGroupId,
-      environment: dataSource.isTest ? 'test' : 'production',
-      total_report_count: 1,
-      last_notified_count: 1,
-      window_started_at: nowIso,
-      window_expires_at: windowExpiresAt,
-      next_update_at: windowExpiresAt,
-      first_alert_sent_at: nowIso,
-      last_notified_at: nowIso,
-    })
-    .select()
-    .single();
+  let newTracker: any = null;
+  try {
+    const { data, error: trErr } = await supabaseAdmin
+      .from(dataSource.eventTrackersTable)
+      .insert({
+        event_code: eventCode,
+        cluster_signature: clusterSignature,
+        title: incidentTitle.slice(0, 200),
+        location: report.location || '-',
+        priority: report.priority || 'normal',
+        state: 'AGGREGATING',
+        initial_report_id: report.id,
+        initial_report_public_id: report.public_id,
+        category_id: report.category_id || null,
+        destination: targetGroupId,
+        environment: dataSource.isTest ? 'test' : 'production',
+        total_report_count: 1,
+        last_notified_count: 1,
+        window_started_at: nowIso,
+        window_expires_at: windowExpiresAt,
+        next_update_at: windowExpiresAt,
+        first_alert_sent_at: nowIso,
+        last_notified_at: nowIso,
+      })
+      .select()
+      .single();
 
-  if (trErr || !newTracker) {
-    throw new Error(`Failed to create event notification tracker: ${trErr?.message}`);
+    if (trErr) {
+      console.warn(`[EventNotification] Event tracker persistence unavailable (${trErr.message}). Proceeding with direct LINE push delivery...`);
+    } else {
+      newTracker = data;
+    }
+  } catch (trackerInsErr) {
+    console.warn(`[EventNotification] Event tracker insert exception:`, trackerInsErr);
   }
 
   // Link report to new tracker (Initial report assigned sequence 1)
-  await supabaseAdmin
-    .from(dataSource.eventReportsTable)
-    .insert({
-      tracker_id: newTracker.id,
-      report_id: report.id,
-      public_id: report.public_id,
-      digest_sequence: 1,
-    });
+  if (newTracker) {
+    try {
+      await supabaseAdmin
+        .from(dataSource.eventReportsTable)
+        .insert({
+          tracker_id: newTracker.id,
+          report_id: report.id,
+          public_id: report.public_id,
+          digest_sequence: 1,
+        });
+    } catch (repErr) {
+      console.warn("[EventNotification] Failed to link report to tracker:", repErr);
+    }
+  }
 
   // Create Transactional Outbox Job & Dispatch Normal Alert immediately
-  const idempotencyKey = `evt_norm_${newTracker.event_code}_rep1`;
+  const effectiveEventCode = newTracker?.event_code || eventCode;
+  const idempotencyKey = `evt_norm_${effectiveEventCode}_rep1`;
   const createdAtFormatted = new Date().toLocaleString("th-TH", { timeZone: "Asia/Bangkok" }) + " น.";
 
   // Phase 3.8 Policy: Normal alert must NOT show related counts, cumulative counts, or update text
   const payload: LineNotificationPayload = {
     publicId: report.public_id,
     categoryName: report.category_name || "ระบบแจ้งเหตุ SOC STATION",
-    subcategoryName: report.subcategory_name || newTracker.title,
+    subcategoryName: report.subcategory_name || newTracker?.title || incidentTitle,
     description: report.description || '-',
     location: report.location || '-',
     date: createdAtFormatted,
@@ -244,38 +271,47 @@ export async function processReportForEventNotification(params: {
     priority: (report.priority as any) || "normal",
     priorityReason: priorityReason || (isEmergency ? "ตรวจพบลักษณะเหตุฉุกเฉินเร่งด่วน" : undefined),
     notificationType: "normal_alert",
-    eventCode: newTracker.event_code,
+    eventCode: effectiveEventCode,
   };
 
-  const { data: outboxJob, error: outErr } = await supabaseAdmin
-    .from(dataSource.eventOutboxTable)
-    .insert({
-      idempotency_key: idempotencyKey,
-      tracker_id: newTracker.id,
-      notification_type: 'first_alert',
-      payload: payload,
-      destination: targetGroupId,
-      environment: dataSource.isTest ? 'test' : 'production',
-      status: 'claiming',
-      claim_token: 'api_worker',
-      claimed_at: nowIso,
-      lease_timeout_at: new Date(Date.now() + 30000).toISOString(),
-    })
-    .select()
-    .single();
+  let outboxJob: any = null;
+  if (newTracker) {
+    try {
+      const { data: job, error: outErr } = await supabaseAdmin
+        .from(dataSource.eventOutboxTable)
+        .insert({
+          idempotency_key: idempotencyKey,
+          tracker_id: newTracker.id,
+          notification_type: 'first_alert',
+          payload: payload,
+          destination: targetGroupId,
+          environment: dataSource.isTest ? 'test' : 'production',
+          status: 'claiming',
+          claim_token: 'api_worker',
+          claimed_at: nowIso,
+          lease_timeout_at: new Date(Date.now() + 30000).toISOString(),
+        })
+        .select()
+        .single();
 
-  if (outErr || !outboxJob) {
-    console.error(`[EventNotification] Failed to create outbox job:`, outErr);
+      if (outErr) {
+        console.warn(`[EventNotification] Failed to create outbox job:`, outErr.message);
+      } else {
+        outboxJob = job;
+      }
+    } catch (outboxInsErr) {
+      console.warn(`[EventNotification] Outbox insert exception:`, outboxInsErr);
+    }
   }
 
-  // Dispatch LIVE PUSH to verified LINE TEST Group as Flex Message (normal_alert)
+  // Dispatch LIVE PUSH as Flex Message (normal_alert)
   const notifyRes = await notifyLine(payload, targetGroupId, {
     event: 'normal_alert',
     reportId: report.id,
     idempotencyKey,
   });
 
-  if (notifyRes.success && outboxJob) {
+  if (notifyRes.success && outboxJob && newTracker) {
     const sentTimeIso = new Date().toISOString();
     const nextDueIso = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
@@ -309,8 +345,8 @@ export async function processReportForEventNotification(params: {
   }
 
   return {
-    trackerId: newTracker.id,
-    eventCode: newTracker.event_code,
+    trackerId: newTracker?.id || 'direct_dispatch',
+    eventCode: effectiveEventCode,
     action: 'normal_alert_sent',
     outboxId: outboxJob?.id,
     notifyResult: notifyRes,

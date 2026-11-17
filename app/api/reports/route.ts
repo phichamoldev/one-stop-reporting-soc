@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { isLineNotificationEnabled } from "@/lib/line";
+import { isLineNotificationEnabled, notifyLine, LineNotificationPayload } from "@/lib/line";
 import { maskDestination } from "@/lib/notificationLogger";
 import { getReportDataSource } from "@/lib/dataSource";
 import { classifyPriority } from "@/lib/priorityClassifier";
@@ -38,10 +38,10 @@ export async function POST(req: Request) {
       body.tracking_token = crypto.randomUUID();
     }
 
-    // Normalize optional location
-    body.location = (typeof body.location === "string" && body.location.trim().length > 0)
-      ? body.location.trim()
-      : null;
+    // Normalize optional location:
+    // If not provided or empty, fallback to '-' to maintain compatibility with NOT NULL constraint on production schema
+    const rawLocation = typeof body.location === "string" ? body.location.trim() : "";
+    body.location = rawLocation.length > 0 ? rawLocation : "-";
 
     // Taxonomy Guard: Strictly prevent fire/emergency reports from ever being classified as Category 3 (บริหารงานบุคคล)
     if (
@@ -86,25 +86,50 @@ export async function POST(req: Request) {
       `)
       .single();
 
-    if (insertResult.error && (insertResult.error.message?.includes('reporter_type') || insertResult.error.details?.includes('reporter_type'))) {
-      console.warn('[Schema Guard] Table missing reporter_type column. Retrying insert without reporter_type...');
+    if (insertResult.error) {
+      console.warn("[Schema Guard] First insert attempt failed:", insertResult.error);
+      let needsRetry = false;
       const fallbackBody = { ...body };
-      delete fallbackBody.reporter_type;
-      insertResult = await supabaseAdmin
-        .from(dataSource.reportsTable)
-        .insert(fallbackBody)
-        .select(`
-          *,
-          categories (
-            id,
-            name_th
-          ),
-          subcategories (
-            id,
-            name_th
-          )
-        `)
-        .single();
+
+      // 1. Missing reporter_type column in database schema
+      if (
+        insertResult.error.message?.includes('reporter_type') ||
+        insertResult.error.details?.includes('reporter_type') ||
+        insertResult.error.hint?.includes('reporter_type')
+      ) {
+        console.warn('[Schema Guard] Table missing reporter_type column. Retrying insert without reporter_type...');
+        delete fallbackBody.reporter_type;
+        needsRetry = true;
+      }
+
+      // 2. Location NOT NULL constraint in database schema
+      if (
+        insertResult.error.message?.includes('location') ||
+        insertResult.error.details?.includes('location') ||
+        insertResult.error.code === '23502'
+      ) {
+        console.warn("[Schema Guard] Location NOT NULL constraint encountered. Setting location to '-' and retrying...");
+        fallbackBody.location = "-";
+        needsRetry = true;
+      }
+
+      if (needsRetry) {
+        insertResult = await supabaseAdmin
+          .from(dataSource.reportsTable)
+          .insert(fallbackBody)
+          .select(`
+            *,
+            categories (
+              id,
+              name_th
+            ),
+            subcategories (
+              id,
+              name_th
+            )
+          `)
+          .single();
+      }
     }
 
     const { data, error } = insertResult;
@@ -112,8 +137,14 @@ export async function POST(req: Request) {
     console.log("SUPABASE ERROR =", error);
 
     if (error) {
+      console.error("[POST /api/reports] Database insert failed permanently:", error);
       return NextResponse.json(
-        { success: false, message: "Internal Server Error" },
+        {
+          success: false,
+          error: error.message || "การลงข้อมูลล้มเหลว",
+          message: error.message || "การลงข้อมูลล้มเหลว",
+          code: error.code || "DB_INSERT_ERROR",
+        },
         { status: 400 }
       );
     }
@@ -171,6 +202,12 @@ export async function POST(req: Request) {
               targetGroupId = deptData?.line_group_id || null;
             }
           }
+
+          // Production Fallback: If department group is unmapped or null, route to default Production LINE group
+          if (!targetGroupId && process.env.LINE_GROUP_ID) {
+            targetGroupId = process.env.LINE_GROUP_ID;
+            console.log("[POST /api/reports] Target group unmapped, fallback to default production LINE_GROUP_ID:", maskDestination(targetGroupId));
+          }
         }
 
         console.log("=== DEPARTMENT ROUTING LOGS ===");
@@ -181,24 +218,55 @@ export async function POST(req: Request) {
         console.log("===============================");
 
         if (targetGroupId) {
-          eventNotificationResult = await processReportForEventNotification({
-            report: {
-              id: data.id,
-              public_id: data.public_id,
-              category_id: data.category_id,
-              subcategory_id: data.subcategory_id,
-              category_name: data.categories?.name_th || data.category || "-",
-              subcategory_name: data.subcategories?.name_th || "-",
-              location: data.location,
-              description: data.description,
-              priority: data.priority,
-              reporter_name: data.reporter_name,
-              created_at: data.created_at,
-            },
-            priorityReason: priorityEval.reason,
-            targetGroupId,
-          });
-          console.log("EVENT NOTIFICATION RESULT:", eventNotificationResult);
+          try {
+            eventNotificationResult = await processReportForEventNotification({
+              report: {
+                id: data.id,
+                public_id: data.public_id,
+                category_id: data.category_id,
+                subcategory_id: data.subcategory_id,
+                category_name: data.categories?.name_th || data.category || "-",
+                subcategory_name: data.subcategories?.name_th || "-",
+                location: data.location,
+                description: data.description,
+                priority: data.priority,
+                reporter_name: data.reporter_name,
+                created_at: data.created_at,
+              },
+              priorityReason: priorityEval.reason,
+              targetGroupId,
+            });
+            console.log("EVENT NOTIFICATION RESULT:", eventNotificationResult);
+          } catch (eventNotifErr) {
+            console.error("[POST /api/reports] Event Notification Pipeline Exception:", eventNotifErr);
+            // Fail-safe direct dispatch: Ensure notification is never dropped under any failure condition
+            console.log("[POST /api/reports] Executing direct LINE dispatch fallback...");
+            const createdAtFormatted = new Date().toLocaleString("th-TH", { timeZone: "Asia/Bangkok" }) + " น.";
+            const fallbackPayload: LineNotificationPayload = {
+              publicId: data.public_id,
+              categoryName: data.categories?.name_th || data.category || "ระบบแจ้งเหตุ SOC STATION",
+              subcategoryName: data.subcategories?.name_th || "-",
+              description: data.description || "-",
+              location: data.location || "-",
+              date: createdAtFormatted,
+              statusText: "pending",
+              reporterName: data.reporter_name || "-",
+              priority: (data.priority as any) || "normal",
+              priorityReason: priorityEval.reason,
+              notificationType: "normal_alert",
+            };
+            const notifyRes = await notifyLine(fallbackPayload, targetGroupId, {
+              event: "normal_alert",
+              reportId: data.id,
+              idempotencyKey: `evt_norm_${data.public_id}`,
+            });
+            eventNotificationResult = {
+              trackerId: "direct_fallback",
+              eventCode: data.public_id,
+              action: "normal_alert_sent",
+              notifyResult: notifyRes,
+            };
+          }
         }
       }
     } catch (eventNotifErr) {
@@ -236,11 +304,11 @@ export async function POST(req: Request) {
     );
 
   } catch (err: unknown) {
-
+    const errorMsg = err instanceof Error ? err.message : "Internal Server Error";
     console.error("SERVER ERROR =", err);
 
     return NextResponse.json(
-      { success: false, message: "Internal Server Error" },
+      { success: false, error: errorMsg, message: errorMsg },
       { status: 500 }
     );
   }

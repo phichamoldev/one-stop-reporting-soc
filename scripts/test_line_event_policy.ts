@@ -122,7 +122,8 @@ async function runEventPolicyTestSuite() {
   console.log('[Case 1] Localhost สร้างคำร้องใหม่สำเร็จ -> ตรวจสอบการส่ง LINE ไปยัง SOC TEST...');
   spiedCalls = [];
   const testRepId1 = '88888888-b111-4000-8000-000000000001';
-  const testPublicId1 = 'SOC-T-POLICY-01';
+  const runSuffix = Date.now().toString().slice(-4);
+  const testPublicId1 = `SOC-T-POLICY-01-${runSuffix}`;
 
   await supabase.from(dataSource.reportLogsTable).delete().eq('report_id', testRepId1);
   await supabase.from(dataSource.reportsTable).delete().eq('id', testRepId1);
@@ -408,7 +409,7 @@ async function runEventPolicyTestSuite() {
   // ---------------------------------------------------------------------------
   console.log('\n[Case 14] ป้องกัน Notification ซ้ำเมื่อเกิด Retry หรือ Submit ซ้ำ...');
   spiedCalls = [];
-  const testPublicId3 = 'SOC-T-POLICY-DEDUP';
+  const testPublicId3 = `SOC-T-POLICY-DEDUP-${runSuffix}`;
 
   // First call succeeds
   const firstSend = await notifyLine({

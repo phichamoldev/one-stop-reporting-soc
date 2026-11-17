@@ -8,6 +8,7 @@
  * 4. Duplicate notification suppression for repetitive reports in the same incident cluster.
  * 5. 15-minute Digest window preservation for normal/non-emergency reports.
  * 6. Test/Production isolated data routing.
+ * 7. Non-blocking tracker persistence with fail-safe direct push dispatch.
  */
 
 import { supabaseAdmin } from './supabase-admin';

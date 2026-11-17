@@ -1,3 +1,9 @@
+/**
+ * Reports API Handler - Stabilized Hotfix Pipeline
+ * - Multi-Schema Guard: Handles missing reporter_type and NOT NULL location constraints gracefully.
+ * - Robust LINE Notification Dispatch: Non-blocking event tracker persistence with emergency direct fallback.
+ * - Department Routing: Automatically routes alerts to department groups with default production group fallback.
+ */
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { isLineNotificationEnabled, notifyLine, LineNotificationPayload } from "@/lib/line";

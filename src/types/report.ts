@@ -135,7 +135,6 @@ export interface DBSubcategory {
 export interface StaffProfile {
   id: string;
   full_name: string;
-  position?: string | null;
   department_id: number | null;
   role: string;
   departments?: {
@@ -155,7 +154,6 @@ export interface ReportLog {
   created_at: string;
   staff_users?: {
     full_name: string;
-    position?: string | null;
   } | null;
   custom_label?: string;
 }

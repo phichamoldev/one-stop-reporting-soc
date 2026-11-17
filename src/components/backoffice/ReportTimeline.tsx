@@ -154,11 +154,6 @@ export const ReportTimeline: React.FC<ReportTimelineProps> = ({ logs, isDrawer =
                     <p className="text-[10px] text-slate-400 font-bold leading-snug">
                       ผู้ดำเนินการ: {log.staff_users?.full_name || "ระบบ"}
                     </p>
-                    {log.staff_users?.position && (
-                      <p className="text-[10px] text-slate-400 font-normal leading-snug mt-0.5">
-                        {log.staff_users.position}
-                      </p>
-                    )}
                   </div>
 
                   {log.remark && (

@@ -30,12 +30,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ public
       return NextResponse.json({ error: "Missing reportId" }, { status: 400 });
     }
 
-    // Verify staff exists and is active
+    // Verify staff exists and is active (matching id = user.id or auth_user_id = user.id)
     const { data: staffProfile } = await supabaseAdmin
       .from("staff_users")
       .select("id, role, department_id, status")
-      .eq("id", user.id)
-      .single();
+      .or(`id.eq.${user.id},auth_user_id.eq.${user.id}`)
+      .maybeSingle();
 
     if (!staffProfile || staffProfile.status !== "active") {
       return NextResponse.json({ error: "Staff profile not found or inactive", code: "FORBIDDEN" }, { status: 403 });

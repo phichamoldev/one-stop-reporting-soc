@@ -39,48 +39,40 @@ export async function GET(req: Request, { params }: { params: Promise<{ publicId
     const normalizedPublicId = normalizePublicId(publicId);
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalizedPublicId);
 
-    const buildReportQuery = (includePosition: boolean) => {
-      let q = supabaseAdmin
-        .from(reportsTable)
-        .select(`
-          *,
-          categories (
-            id,
-            name_th,
-            department_id
-          ),
-          subcategories (
-            id,
-            name_th
-          ),
-          report_logs:${reportLogsTable} (
-            id,
-            user_id,
-            action,
-            old_status,
-            new_status,
-            remark,
-            image_url,
-            created_at,
-            staff_users (
-              full_name${includePosition ? ",\n              position" : ""}
-            )
+    let q = supabaseAdmin
+      .from(reportsTable)
+      .select(`
+        *,
+        categories (
+          id,
+          name_th,
+          department_id
+        ),
+        subcategories (
+          id,
+          name_th
+        ),
+        report_logs:${reportLogsTable} (
+          id,
+          user_id,
+          action,
+          old_status,
+          new_status,
+          remark,
+          image_url,
+          created_at,
+          staff_users (
+            full_name
           )
-        `);
-      if (isUUID) {
-        q = q.eq("tracking_token", normalizedPublicId.toLowerCase());
-      } else {
-        q = q.eq("public_id", normalizedPublicId);
-      }
-      return q;
-    };
-
-    let { data, error } = await buildReportQuery(true).maybeSingle();
-    if (error && (error.message?.includes("position") || (error as any).code === "42703")) {
-      const fallback = await buildReportQuery(false).maybeSingle();
-      data = fallback.data;
-      error = fallback.error;
+        )
+      `);
+    if (isUUID) {
+      q = q.eq("tracking_token", normalizedPublicId.toLowerCase());
+    } else {
+      q = q.eq("public_id", normalizedPublicId);
     }
+
+    let { data, error } = await q.maybeSingle();
 
     if (error) {
       return NextResponse.json({ success: false, message: "Internal Server Error" }, { status: 500 });

@@ -53,7 +53,8 @@ export async function GET(req: Request) {
       .select(`
         id,
         full_name,
-        position,
+        auth_user_id,
+        email,
         role,
         department_id,
         status,
@@ -64,11 +65,16 @@ export async function GET(req: Request) {
 
     // Merge data
     const users = staffData.map((staff: any) => {
-      const authUser = authData.users.find(u => u.id === staff.id);
+      const authUser = authData.users.find(u =>
+        u.id === staff.id ||
+        (staff.auth_user_id && u.id === staff.auth_user_id) ||
+        (u.email && staff.email && u.email.toLowerCase() === staff.email.toLowerCase())
+      );
       
       const userData: any = {
         ...staff,
-        email: authUser?.email || "-",
+        email: authUser?.email || staff.email || "-",
+        has_auth_account: !!authUser,
         last_login: authUser?.last_sign_in_at || null,
         created_at: authUser?.created_at || null,
       };

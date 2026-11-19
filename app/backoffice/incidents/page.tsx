@@ -978,9 +978,15 @@ export default function IncidentsListPage() {
 
                                   <div className="space-y-1 min-w-0 flex-1">
                                     <div className="flex flex-wrap items-center gap-2">
-                                      <span className="font-mono font-bold text-slate-700 dark:text-slate-200">
+                                      <Link
+                                        href={`/backoffice/reports/${rep.public_id}`}
+                                        target="_blank"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="font-mono font-bold text-slate-700 dark:text-slate-200 hover:text-primary hover:underline transition-colors cursor-pointer"
+                                        title="เปิดดูรายละเอียดคำร้องในแท็บใหม่"
+                                      >
                                         {rep.public_id}
-                                      </span>
+                                      </Link>
                                       {rep.status && <StatusBadge status={rep.status} />}
                                       {getPriorityBadge(rep.priority)}
                                       {rep.location && (
@@ -1000,11 +1006,11 @@ export default function IncidentsListPage() {
                                   </div>
 
                                   <Link
-                                    href={`/report/${rep.public_id}`}
+                                    href={`/backoffice/reports/${rep.public_id}`}
                                     target="_blank"
                                     onClick={(e) => e.stopPropagation()}
                                     className="p-1.5 text-slate-400 hover:text-primary transition-colors shrink-0"
-                                    title="เปิดดูคำร้องต้นฉบับ"
+                                    title="เปิดดูรายละเอียดคำร้องในแท็บใหม่"
                                   >
                                     <ExternalLink className="w-4 h-4" />
                                   </Link>
@@ -1033,7 +1039,14 @@ export default function IncidentsListPage() {
                                   >
                                     <div className="min-w-0 flex-1 space-y-0.5">
                                       <div className="flex items-center gap-2 font-mono font-bold text-slate-700 dark:text-slate-300">
-                                        <span>{ir.public_id}</span>
+                                        <Link
+                                          href={`/backoffice/reports/${ir.public_id}`}
+                                          target="_blank"
+                                          className="hover:text-primary hover:underline transition-colors cursor-pointer"
+                                          title="เปิดดูรายละเอียดคำร้องในแท็บใหม่"
+                                        >
+                                          <span>{ir.public_id}</span>
+                                        </Link>
                                         {ir.location && (
                                           <span className="text-[11px] font-normal text-slate-400 flex items-center gap-1">
                                             <MapPin className="w-3 h-3" />
@@ -1046,10 +1059,10 @@ export default function IncidentsListPage() {
                                       </p>
                                     </div>
                                     <Link
-                                      href={`/report/${ir.public_id}`}
+                                      href={`/backoffice/reports/${ir.public_id}`}
                                       target="_blank"
                                       className="p-1.5 text-slate-400 hover:text-primary transition-colors shrink-0"
-                                      title="เปิดดูคำร้องต้นฉบับ"
+                                      title="เปิดดูรายละเอียดคำร้องในแท็บใหม่"
                                     >
                                       <ExternalLink className="w-4 h-4" />
                                     </Link>
@@ -1155,12 +1168,15 @@ export default function IncidentsListPage() {
                 <p className="font-bold">รายการคำร้องที่จะเพิ่มเข้ากลุ่ม:</p>
                 <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
                   {linkModalData.reportPublicIds.map((id) => (
-                    <span
+                    <Link
                       key={id}
-                      className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 font-mono text-[11px]"
+                      href={`/backoffice/reports/${id}`}
+                      target="_blank"
+                      className="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 font-mono text-[11px] text-slate-700 dark:text-slate-200 hover:text-primary hover:underline transition-colors cursor-pointer"
+                      title="เปิดดูรายละเอียดคำร้องในแท็บใหม่"
                     >
                       {id}
-                    </span>
+                    </Link>
                   ))}
                 </div>
               </div>
